@@ -18,6 +18,7 @@ import {
 import {
   getFirestore,
   doc,
+  getDoc,
   setDoc,
   onSnapshot,
   Firestore,
@@ -25,11 +26,11 @@ import {
 import { AuthUser } from './supabaseClient';
 
 const firebaseConfig = {
-  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || '',
-  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || 'AIzaSyD_Lk4dmDW1Hx1IVLx-_FygFa57FPebSJo',
+  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || 'belladoor-app.firebaseapp.com',
+  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || 'belladoor-app',
+  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || 'belladoor-app.firebasestorage.app',
+  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || '940701922430',
   appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || '',
 };
 
@@ -104,7 +105,7 @@ export async function signInWithFirebaseGoogle(
 }
 
 /**
- * Cadastro com E-mail e Senha no Firebase Authentication
+ * Cadastro com E-mail e Senha no Firebase (Auth + Cloud Firestore Multi-Device)
  */
 export async function signUpWithFirebaseEmail(
   email: string,
@@ -112,6 +113,42 @@ export async function signUpWithFirebaseEmail(
   fullName: string,
   role: 'CLIENT' | 'PROFESSIONAL'
 ): Promise<{ user?: AuthUser; error?: string }> {
+  const trialEnd = new Date();
+  trialEnd.setDate(trialEnd.getDate() + 7);
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Salva no Cloud Firestore para sincronizar login em qualquer dispositivo
+  const db = getFirebaseDb();
+  if (db) {
+    try {
+      const usersRef = doc(db, 'belladoor', 'users');
+      const snap = await getDoc(usersRef);
+      const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
+
+      const newUser: AuthUser = {
+        id: 'usr_' + Date.now(),
+        email: normalizedEmail,
+        fullName: fullName || normalizedEmail.split('@')[0],
+        role,
+        isTrialActive: role === 'PROFESSIONAL',
+        trialDaysLeft: 7,
+        trialEndsAt: role === 'PROFESSIONAL' ? trialEnd.toISOString() : undefined,
+        subscriptionPlan: 'ANNUAL',
+      };
+
+      existingUsers[normalizedEmail] = {
+        ...newUser,
+        passwordHash: btoa(unescape(encodeURIComponent(pass))),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(usersRef, { accounts: existingUsers, updatedAt: new Date().toISOString() }, { merge: true });
+      return { user: newUser };
+    } catch (e) {
+      console.warn('[Firebase Cloud] Erro ao registrar usuária no Firestore:', e);
+    }
+  }
+
   const auth = getFirebaseAuth();
   if (!auth) return {};
 
@@ -120,9 +157,6 @@ export async function signUpWithFirebaseEmail(
     if (fullName) {
       await updateProfile(result.user, { displayName: fullName });
     }
-
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 7);
 
     const user: AuthUser = {
       id: result.user.uid,
@@ -142,13 +176,36 @@ export async function signUpWithFirebaseEmail(
 }
 
 /**
- * Login com E-mail e Senha no Firebase Authentication
+ * Login com E-mail e Senha no Firebase (Cloud Firestore Multi-Device + Auth)
  */
 export async function signInWithFirebaseEmail(
   email: string,
   pass: string,
   preferredRole: 'CLIENT' | 'PROFESSIONAL' = 'CLIENT'
 ): Promise<{ user?: AuthUser; error?: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const db = getFirebaseDb();
+
+  if (db) {
+    try {
+      const usersRef = doc(db, 'belladoor', 'users');
+      const snap = await getDoc(usersRef);
+      const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
+      const stored = existingUsers[normalizedEmail];
+
+      if (stored) {
+        const expectedHash = btoa(unescape(encodeURIComponent(pass)));
+        if (stored.passwordHash && stored.passwordHash !== expectedHash) {
+          return { error: 'Senha incorreta para este e-mail.' };
+        }
+        const { passwordHash, ...cleanUser } = stored;
+        return { user: cleanUser as AuthUser };
+      }
+    } catch (e) {
+      console.warn('[Firebase Cloud] Aviso ao consultar usuária no Firestore:', e);
+    }
+  }
+
   const auth = getFirebaseAuth();
   if (!auth) return {};
 
