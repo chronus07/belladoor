@@ -15,6 +15,28 @@
     <meta property="og:locale" content="pt_BR" />
 
     <title>BellaDoor — A beleza que bate à sua porta</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+      (function () {
+        try {
+          // Force the browser's HTTP disk cache to overwrite the root '/' entry with the latest release
+          fetch('/', { cache: 'reload' }).catch(function () {});
+          fetch('/index.html', { cache: 'reload' }).catch(function () {});
+
+          // Normalize ?v=3 or ?v=clean back to the main root URL https://belladoor-app.web.app
+          var params = new URLSearchParams(window.location.search);
+          if (params.has('v') || params.has('clearcache')) {
+            params.delete('v');
+            params.delete('clearcache');
+            var rest = params.toString();
+            var cleanUrl = window.location.pathname + (rest ? '?' + rest : '') + window.location.hash;
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">

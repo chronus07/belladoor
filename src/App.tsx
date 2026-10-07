@@ -213,7 +213,7 @@ export default function App() {
   const [showTrialModal, setShowTrialModal] = useState<boolean>(false);
   const [selectedTrialPlan, setSelectedTrialPlan] = useState<'MONTHLY' | 'ANNUAL'>('ANNUAL');
 
-  // Login Social com Google
+  // Login Social com Google (Gmail)
   const handleGoogleAuth = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -223,14 +223,27 @@ export default function App() {
         setAuthError(res.error);
       } else if (res.user) {
         setCurrentUser(res.user);
-        if (authRole === 'PROFESSIONAL') {
+        if (res.user.role === 'PROFESSIONAL') {
           if (!proDisplayName.trim() && res.user.fullName) {
             setProDisplayName(res.user.fullName);
+            if (res.user.avatarUrl) setProAvatarUrl(res.user.avatarUrl);
+            syncDocumentToFirestore('pro_vitrine', {
+              name: res.user.fullName,
+              title: proDisplayTitle,
+              bio: proDisplayBio,
+              instagram: proInstagram,
+              whatsapp: proWhatsapp,
+              avatarUrl: res.user.avatarUrl || proAvatarUrl,
+              coverUrl: proCoverUrl,
+              portfolio: proPortfolioList,
+              bufferTimeMinutes: proBufferTime,
+            });
           }
           setActiveTab('pro');
           setShowTrialModal(true);
         } else {
           setActiveTab('client');
+          setClientName(res.user.fullName || '');
         }
       }
     } finally {

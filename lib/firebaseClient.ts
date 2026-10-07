@@ -26,12 +26,12 @@ import {
 import { AuthUser } from './supabaseClient';
 
 const firebaseConfig = {
-  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || 'AIzaSyD_Lk4dmDW1Hx1IVLx-_FygFa57FPebSJo',
+  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || 'AIzaSyBsMi0M2JBZYIYLrl4oKj3tlsQrWLLe3X4',
   authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || 'belladoor-app.firebaseapp.com',
   projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || 'belladoor-app',
   storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || 'belladoor-app.firebasestorage.app',
   messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || '940701922430',
-  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || '',
+  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || '1:940701922430:web:8d1014c06ee63ac3ab142f',
 };
 
 let appInstance: FirebaseApp | null = null;
@@ -69,13 +69,13 @@ export const getFirebaseDb = (): Firestore | null => {
 };
 
 /**
- * Login Oficial com Conta Google via Firebase Authentication
+ * Login Oficial com Conta Google (Gmail) via Firebase Authentication + Cloud Firestore
  */
 export async function signInWithFirebaseGoogle(
   role: 'CLIENT' | 'PROFESSIONAL'
 ): Promise<{ user?: AuthUser; error?: string }> {
   const auth = getFirebaseAuth();
-  if (!auth) return {};
+  if (!auth) return { error: 'Serviço de autenticação não disponível.' };
 
   try {
     const provider = new GoogleAuthProvider();
@@ -85,6 +85,44 @@ export async function signInWithFirebaseGoogle(
 
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + 7);
+    const normalizedEmail = (fbUser.email || '').trim().toLowerCase();
+
+    const db = getFirebaseDb();
+    if (db && normalizedEmail) {
+      try {
+        const usersRef = doc(db, 'belladoor_prod', 'users');
+        const snap = await getDoc(usersRef);
+        const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
+        const stored = existingUsers[normalizedEmail];
+
+        if (stored) {
+          const { passwordHash, ...cleanUser } = stored;
+          return { user: cleanUser as AuthUser };
+        }
+
+        const newUser: AuthUser = {
+          id: fbUser.uid,
+          email: normalizedEmail,
+          fullName: fbUser.displayName || normalizedEmail.split('@')[0] || 'Usuária Google',
+          role,
+          avatarUrl: fbUser.photoURL || undefined,
+          isTrialActive: role === 'PROFESSIONAL',
+          trialDaysLeft: 7,
+          trialEndsAt: role === 'PROFESSIONAL' ? trialEnd.toISOString() : undefined,
+          subscriptionPlan: 'ANNUAL',
+        };
+
+        existingUsers[normalizedEmail] = {
+          ...newUser,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await setDoc(usersRef, { accounts: existingUsers, updatedAt: new Date().toISOString() }, { merge: true });
+        return { user: newUser };
+      } catch (e) {
+        console.warn('[Firebase Cloud] Aviso ao sincronizar conta Google no Firestore:', e);
+      }
+    }
 
     const user: AuthUser = {
       id: fbUser.uid,
@@ -100,7 +138,10 @@ export async function signInWithFirebaseGoogle(
 
     return { user };
   } catch (err: any) {
-    return { error: err.message || 'Erro ao autenticar com o Google Firebase.' };
+    if (err?.code === 'auth/popup-closed-by-user') {
+      return { error: 'Janela de login com Google foi fechada antes de concluir.' };
+    }
+    return { error: 'Para usar o botão do Google, ative o provedor Google em Authentication no console do Firebase ou cadastre-se com seu e-mail e senha abaixo.' };
   }
 }
 
