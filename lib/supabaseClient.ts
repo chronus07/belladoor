@@ -1,10 +1,17 @@
 /// <reference types="vite/client" />
 // ==============================================================================
-// BELLADOOR - CLIENTE DE CONEXÃO SUPABASE (AUTH & BANCO DE DADOS)
-// Gerencia autenticação Google, e-mail/senha, sessões e teste grátis de 7 dias
+// BELLADOOR - CLIENTE UNIFICADO DE AUTENTICAÇÃO (GOOGLE FIREBASE / SUPABASE)
+// Prioriza Google Firebase Auth quando configurado, com fallback local/Supabase
 // ==============================================================================
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import {
+  isFirebaseConfigured,
+  signInWithFirebaseGoogle,
+  signUpWithFirebaseEmail,
+  signInWithFirebaseEmail,
+  signOutFirebaseUser,
+} from './firebaseClient';
 
 export interface AuthUser {
   id: string;
@@ -18,7 +25,6 @@ export interface AuthUser {
   subscriptionPlan?: 'MONTHLY' | 'ANNUAL';
 }
 
-// Chaves do Supabase lidas do ambiente (.env) ou configuradas no painel
 export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
@@ -37,12 +43,17 @@ export const getSupabaseClient = (): SupabaseClient | null => {
 };
 
 /**
- * Inicia o fluxo de login social com Google via Supabase OAuth
+ * Inicia o fluxo de login social com Google (prioriza Google Firebase Auth)
  */
-export async function signInWithGoogleOAuth(role: 'CLIENT' | 'PROFESSIONAL'): Promise<{ error?: string }> {
+export async function signInWithGoogleOAuth(
+  role: 'CLIENT' | 'PROFESSIONAL'
+): Promise<{ user?: AuthUser; error?: string }> {
+  if (isFirebaseConfigured()) {
+    return signInWithFirebaseGoogle(role);
+  }
+
   const supabase = getSupabaseClient();
   if (!supabase) {
-    console.log('[Simulação] Login com Google disparado para perfil:', role);
     return {};
   }
 
@@ -68,7 +79,7 @@ export async function signInWithGoogleOAuth(role: 'CLIENT' | 'PROFESSIONAL'): Pr
 }
 
 /**
- * Cadastro com E-mail e Senha
+ * Cadastro com E-mail e Senha (prioriza Google Firebase Auth)
  */
 export async function signUpWithEmail(
   email: string,
@@ -76,15 +87,17 @@ export async function signUpWithEmail(
   fullName: string,
   role: 'CLIENT' | 'PROFESSIONAL'
 ): Promise<{ user?: AuthUser; error?: string }> {
+  if (isFirebaseConfigured()) {
+    return signUpWithFirebaseEmail(email, pass, fullName, role);
+  }
+
   const supabase = getSupabaseClient();
-  
-  // Cálculo de 7 dias de trial para Profissionais
+
   const trialEnd = new Date();
   trialEnd.setDate(trialEnd.getDate() + 7);
   const trialEndsAt = trialEnd.toISOString();
 
   if (!supabase) {
-    // Modo simulação / Desenvolvimento local
     const simulatedUser: AuthUser = {
       id: `usr-${Date.now()}`,
       email,
@@ -130,15 +143,18 @@ export async function signUpWithEmail(
 }
 
 /**
- * Login com E-mail e Senha
+ * Login com E-mail e Senha (prioriza Google Firebase Auth)
  */
 export async function signInWithEmail(
   email: string,
   pass: string
 ): Promise<{ user?: AuthUser; error?: string }> {
+  if (isFirebaseConfigured()) {
+    return signInWithFirebaseEmail(email, pass);
+  }
+
   const supabase = getSupabaseClient();
   if (!supabase) {
-    // Modo simulação local
     const role: 'CLIENT' | 'PROFESSIONAL' = email.includes('pro') ? 'PROFESSIONAL' : 'CLIENT';
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + 7);
@@ -182,9 +198,12 @@ export async function signInWithEmail(
 }
 
 /**
- * Encerra sessão
+ * Encerra sessão (Firebase e/ou Supabase)
  */
 export async function signOutUser(): Promise<void> {
+  if (isFirebaseConfigured()) {
+    await signOutFirebaseUser();
+  }
   const supabase = getSupabaseClient();
   if (supabase) {
     await supabase.auth.signOut();

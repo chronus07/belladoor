@@ -62,6 +62,11 @@ import {
   isSupabaseConfigured
 } from '../lib/supabaseClient';
 import {
+  isFirebaseConfigured,
+  syncDocumentToFirestore,
+  subscribeToFirestoreDocument,
+} from '../lib/firebaseClient';
+import {
   ClientAppointment,
   ClientReview,
   UiDialogPayload,
@@ -175,7 +180,7 @@ export default function App() {
   const [showTrialModal, setShowTrialModal] = useState<boolean>(false);
   const [selectedTrialPlan, setSelectedTrialPlan] = useState<'MONTHLY' | 'ANNUAL'>('ANNUAL');
 
-  // Login Social com Google
+  // Login Social com Google (Firebase Auth Real + Fallback Simulado)
   const handleGoogleAuth = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -186,7 +191,7 @@ export default function App() {
       } else {
         const trialEnd = new Date();
         trialEnd.setDate(trialEnd.getDate() + 7);
-        const simUser: AuthUser = {
+        const loggedUser: AuthUser = res.user || {
           id: `usr-google-${Date.now()}`,
           email: authRole === 'PROFESSIONAL' ? 'pro.beleza@gmail.com' : 'cliente.vip@gmail.com',
           fullName: authRole === 'PROFESSIONAL' ? 'Camila Martins (Google)' : 'Fernanda Lima (Google)',
@@ -197,7 +202,7 @@ export default function App() {
           trialEndsAt: authRole === 'PROFESSIONAL' ? trialEnd.toISOString() : undefined,
           subscriptionPlan: 'ANNUAL',
         };
-        setCurrentUser(simUser);
+        setCurrentUser(loggedUser);
         if (authRole === 'PROFESSIONAL') {
           setActiveTab('pro');
           setShowTrialModal(true);
@@ -711,8 +716,42 @@ export default function App() {
   }[]>(savedSchedule.blockedPeriods);
 
   // =========================================================================
-  // PASSO 1: PERSISTÊNCIA AUTOMÁTICA NO LOCALSTORAGE (Não perde nada no F5)
+  // PASSO 1: PERSISTÊNCIA AUTOMÁTICA (LOCALSTORAGE + GOOGLE CLOUD FIRESTORE)
   // =========================================================================
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return;
+    const unsubVitrine = subscribeToFirestoreDocument<any>('pro_vitrine', (data) => {
+      if (data.name) setProDisplayName(data.name);
+      if (data.title) setProDisplayTitle(data.title);
+      if (typeof data.bio === 'string') setProDisplayBio(data.bio);
+      if (typeof data.instagram === 'string') setProInstagram(data.instagram);
+      if (typeof data.whatsapp === 'string') setProWhatsapp(data.whatsapp);
+      if (data.avatarUrl) setProAvatarUrl(data.avatarUrl);
+      if (data.coverUrl) setProCoverUrl(data.coverUrl);
+      if (Array.isArray(data.portfolio)) setProPortfolioList(data.portfolio);
+      if (typeof data.bufferTimeMinutes === 'number') setProBufferTime(data.bufferTimeMinutes);
+    });
+    const unsubServices = subscribeToFirestoreDocument<{ items: MockService[] }>('pro_services', (data) => {
+      if (Array.isArray(data.items)) setProServicesList(data.items);
+    });
+    const unsubAreas = subscribeToFirestoreDocument<{ items: MockNeighborhood[] }>('pro_areas', (data) => {
+      if (Array.isArray(data.items)) setProNeighborhoodsList(data.items);
+    });
+    const unsubAppointments = subscribeToFirestoreDocument<{ items: ClientAppointment[] }>('appointments', (data) => {
+      if (Array.isArray(data.items)) setProAppointments(data.items);
+    });
+    const unsubReviews = subscribeToFirestoreDocument<{ items: ClientReview[] }>('reviews', (data) => {
+      if (Array.isArray(data.items)) setProReviews(data.items);
+    });
+    return () => {
+      unsubVitrine();
+      unsubServices();
+      unsubAreas();
+      unsubAppointments();
+      unsubReviews();
+    };
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem('belladoor_active_tab', JSON.stringify(activeTab));
@@ -730,22 +769,21 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
+    const payload = {
+      name: proDisplayName,
+      title: proDisplayTitle,
+      bio: proDisplayBio,
+      instagram: proInstagram,
+      whatsapp: proWhatsapp,
+      avatarUrl: proAvatarUrl,
+      coverUrl: proCoverUrl,
+      portfolio: proPortfolioList,
+      bufferTimeMinutes: proBufferTime,
+    };
     try {
-      localStorage.setItem(
-        'belladoor_pro_vitrine',
-        JSON.stringify({
-          name: proDisplayName,
-          title: proDisplayTitle,
-          bio: proDisplayBio,
-          instagram: proInstagram,
-          whatsapp: proWhatsapp,
-          avatarUrl: proAvatarUrl,
-          coverUrl: proCoverUrl,
-          portfolio: proPortfolioList,
-          bufferTimeMinutes: proBufferTime,
-        })
-      );
+      localStorage.setItem('belladoor_pro_vitrine', JSON.stringify(payload));
     } catch {}
+    syncDocumentToFirestore('pro_vitrine', payload);
   }, [
     proDisplayName,
     proDisplayTitle,
@@ -762,39 +800,42 @@ export default function App() {
     try {
       localStorage.setItem('belladoor_pro_services', JSON.stringify(proServicesList));
     } catch {}
+    syncDocumentToFirestore('pro_services', { items: proServicesList });
   }, [proServicesList]);
 
   useEffect(() => {
     try {
       localStorage.setItem('belladoor_pro_areas', JSON.stringify(proNeighborhoodsList));
     } catch {}
+    syncDocumentToFirestore('pro_areas', { items: proNeighborhoodsList });
   }, [proNeighborhoodsList]);
 
   useEffect(() => {
     try {
       localStorage.setItem('belladoor_appointments', JSON.stringify(proAppointments));
     } catch {}
+    syncDocumentToFirestore('appointments', { items: proAppointments });
   }, [proAppointments]);
 
   useEffect(() => {
+    const schedulePayload = {
+      workingDays,
+      workStartHour,
+      workEndHour,
+      lunchBreakEnabled,
+      blockedPeriods,
+    };
     try {
-      localStorage.setItem(
-        'belladoor_schedule',
-        JSON.stringify({
-          workingDays,
-          workStartHour,
-          workEndHour,
-          lunchBreakEnabled,
-          blockedPeriods,
-        })
-      );
+      localStorage.setItem('belladoor_schedule', JSON.stringify(schedulePayload));
     } catch {}
+    syncDocumentToFirestore('pro_schedule', schedulePayload);
   }, [workingDays, workStartHour, workEndHour, lunchBreakEnabled, blockedPeriods]);
 
   useEffect(() => {
     try {
       localStorage.setItem('belladoor_reviews', JSON.stringify(proReviews));
     } catch {}
+    syncDocumentToFirestore('reviews', { items: proReviews });
   }, [proReviews]);
 
   useEffect(() => {
