@@ -121,7 +121,7 @@ export async function signUpWithFirebaseEmail(
   const db = getFirebaseDb();
   if (db) {
     try {
-      const usersRef = doc(db, 'belladoor', 'users');
+      const usersRef = doc(db, 'belladoor_prod', 'users');
       const snap = await getDoc(usersRef);
       const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
       if (existingUsers[normalizedEmail]) {
@@ -191,7 +191,7 @@ export async function signInWithFirebaseEmail(
 
   if (db) {
     try {
-      const usersRef = doc(db, 'belladoor', 'users');
+      const usersRef = doc(db, 'belladoor_prod', 'users');
       const snap = await getDoc(usersRef);
       const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
       const stored = existingUsers[normalizedEmail];
@@ -258,7 +258,7 @@ export async function syncDocumentToFirestore(
 
   try {
     await setDoc(
-      doc(db, 'belladoor', docId),
+      doc(db, 'belladoor_prod', docId),
       {
         ...payload,
         updatedAt: new Date().toISOString(),
@@ -282,7 +282,7 @@ export function subscribeToFirestoreDocument<T>(
   if (!db) return () => {};
 
   let initialFired = false;
-  const ref = doc(db, 'belladoor', docId);
+  const ref = doc(db, 'belladoor_prod', docId);
   const unsubscribe = onSnapshot(
     ref,
     (snapshot) => {

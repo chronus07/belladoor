@@ -3,6 +3,10 @@
  */
 export function loadFromStorage<T>(key: string, fallback: T): T {
   try {
+    if (localStorage.getItem('belladoor_schema_version') !== 'prod_clean_v3') {
+      localStorage.clear();
+      localStorage.setItem('belladoor_schema_version', 'prod_clean_v3');
+    }
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     return JSON.parse(raw) as T;

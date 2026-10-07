@@ -1,17 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Vitrine pública, serviços, áreas, agenda, agendamentos e avaliações do BellaDoor
+    // Coleção oficial de produção (isolada de versões antigas em cache)
+    match /belladoor_prod/{docId} {
+      allow read, write: if true;
+    }
     match /belladoor/{docId} {
-      allow read, write: if true;
-    }
-    match /professionals/{proId} {
-      allow read, write: if true;
-    }
-    match /appointments/{appointmentId} {
-      allow read, write: if true;
-    }
-    match /reviews/{reviewId} {
       allow read, write: if true;
     }
   }
