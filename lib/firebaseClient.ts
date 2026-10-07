@@ -270,11 +270,13 @@ export async function syncDocumentToFirestore(
  */
 export function subscribeToFirestoreDocument<T>(
   docId: string,
-  onUpdate: (data: T) => void
+  onUpdate: (data: T) => void,
+  onReady?: (exists: boolean) => void
 ): () => void {
   const db = getFirebaseDb();
   if (!db) return () => {};
 
+  let initialFired = false;
   const ref = doc(db, 'belladoor', docId);
   const unsubscribe = onSnapshot(
     ref,
@@ -282,9 +284,17 @@ export function subscribeToFirestoreDocument<T>(
       if (snapshot.exists()) {
         onUpdate(snapshot.data() as T);
       }
+      if (!initialFired) {
+        initialFired = true;
+        onReady?.(snapshot.exists());
+      }
     },
     (err) => {
       console.warn(`[Firebase Cloud] Erro no listener em tempo real (${docId}):`, err);
+      if (!initialFired) {
+        initialFired = true;
+        onReady?.(false);
+      }
     }
   );
 

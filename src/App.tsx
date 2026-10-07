@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Calendar,
   Clock,
@@ -718,35 +718,122 @@ export default function App() {
   // =========================================================================
   // PASSO 1: PERSISTÊNCIA AUTOMÁTICA (LOCALSTORAGE + GOOGLE CLOUD FIRESTORE)
   // =========================================================================
+  const cloudHydratedRef = useRef<Record<string, boolean>>({});
+  const applyingRemoteRef = useRef<Record<string, boolean>>({});
+
   useEffect(() => {
     if (!isFirebaseConfigured()) return;
-    const unsubVitrine = subscribeToFirestoreDocument<any>('pro_vitrine', (data) => {
-      if (data.name) setProDisplayName(data.name);
-      if (data.title) setProDisplayTitle(data.title);
-      if (typeof data.bio === 'string') setProDisplayBio(data.bio);
-      if (typeof data.instagram === 'string') setProInstagram(data.instagram);
-      if (typeof data.whatsapp === 'string') setProWhatsapp(data.whatsapp);
-      if (data.avatarUrl) setProAvatarUrl(data.avatarUrl);
-      if (data.coverUrl) setProCoverUrl(data.coverUrl);
-      if (Array.isArray(data.portfolio)) setProPortfolioList(data.portfolio);
-      if (typeof data.bufferTimeMinutes === 'number') setProBufferTime(data.bufferTimeMinutes);
-    });
-    const unsubServices = subscribeToFirestoreDocument<{ items: MockService[] }>('pro_services', (data) => {
-      if (Array.isArray(data.items)) setProServicesList(data.items);
-    });
-    const unsubAreas = subscribeToFirestoreDocument<{ items: MockNeighborhood[] }>('pro_areas', (data) => {
-      if (Array.isArray(data.items)) setProNeighborhoodsList(data.items);
-    });
-    const unsubAppointments = subscribeToFirestoreDocument<{ items: ClientAppointment[] }>('appointments', (data) => {
-      if (Array.isArray(data.items)) setProAppointments(data.items);
-    });
-    const unsubReviews = subscribeToFirestoreDocument<{ items: ClientReview[] }>('reviews', (data) => {
-      if (Array.isArray(data.items)) setProReviews(data.items);
-    });
+    const unsubVitrine = subscribeToFirestoreDocument<any>(
+      'pro_vitrine',
+      (data) => {
+        applyingRemoteRef.current['pro_vitrine'] = true;
+        if (data.name) setProDisplayName(data.name);
+        if (data.title) setProDisplayTitle(data.title);
+        if (typeof data.bio === 'string') setProDisplayBio(data.bio);
+        if (typeof data.instagram === 'string') setProInstagram(data.instagram);
+        if (typeof data.whatsapp === 'string') setProWhatsapp(data.whatsapp);
+        if (data.avatarUrl) setProAvatarUrl(data.avatarUrl);
+        if (data.coverUrl) setProCoverUrl(data.coverUrl);
+        if (Array.isArray(data.portfolio)) setProPortfolioList(data.portfolio);
+        if (typeof data.bufferTimeMinutes === 'number') setProBufferTime(data.bufferTimeMinutes);
+      },
+      (exists) => {
+        cloudHydratedRef.current['pro_vitrine'] = true;
+        if (!exists) {
+          syncDocumentToFirestore('pro_vitrine', {
+            name: proDisplayName,
+            title: proDisplayTitle,
+            bio: proDisplayBio,
+            instagram: proInstagram,
+            whatsapp: proWhatsapp,
+            avatarUrl: proAvatarUrl,
+            coverUrl: proCoverUrl,
+            portfolio: proPortfolioList,
+            bufferTimeMinutes: proBufferTime,
+          });
+        }
+      }
+    );
+    const unsubServices = subscribeToFirestoreDocument<{ items: MockService[] }>(
+      'pro_services',
+      (data) => {
+        if (Array.isArray(data.items)) {
+          applyingRemoteRef.current['pro_services'] = true;
+          setProServicesList(data.items);
+        }
+      },
+      (exists) => {
+        cloudHydratedRef.current['pro_services'] = true;
+        if (!exists) syncDocumentToFirestore('pro_services', { items: proServicesList });
+      }
+    );
+    const unsubAreas = subscribeToFirestoreDocument<{ items: MockNeighborhood[] }>(
+      'pro_areas',
+      (data) => {
+        if (Array.isArray(data.items)) {
+          applyingRemoteRef.current['pro_areas'] = true;
+          setProNeighborhoodsList(data.items);
+        }
+      },
+      (exists) => {
+        cloudHydratedRef.current['pro_areas'] = true;
+        if (!exists) syncDocumentToFirestore('pro_areas', { items: proNeighborhoodsList });
+      }
+    );
+    const unsubSchedule = subscribeToFirestoreDocument<any>(
+      'pro_schedule',
+      (data) => {
+        applyingRemoteRef.current['pro_schedule'] = true;
+        if (Array.isArray(data.workingDays)) setWorkingDays(data.workingDays);
+        if (typeof data.workStartHour === 'number') setWorkStartHour(data.workStartHour);
+        if (typeof data.workEndHour === 'number') setWorkEndHour(data.workEndHour);
+        if (typeof data.lunchBreakEnabled === 'boolean') setLunchBreakEnabled(data.lunchBreakEnabled);
+        if (Array.isArray(data.blockedPeriods)) setBlockedPeriods(data.blockedPeriods);
+      },
+      (exists) => {
+        cloudHydratedRef.current['pro_schedule'] = true;
+        if (!exists) {
+          syncDocumentToFirestore('pro_schedule', {
+            workingDays,
+            workStartHour,
+            workEndHour,
+            lunchBreakEnabled,
+            blockedPeriods,
+          });
+        }
+      }
+    );
+    const unsubAppointments = subscribeToFirestoreDocument<{ items: ClientAppointment[] }>(
+      'appointments',
+      (data) => {
+        if (Array.isArray(data.items)) {
+          applyingRemoteRef.current['appointments'] = true;
+          setProAppointments(data.items);
+        }
+      },
+      (exists) => {
+        cloudHydratedRef.current['appointments'] = true;
+        if (!exists) syncDocumentToFirestore('appointments', { items: proAppointments });
+      }
+    );
+    const unsubReviews = subscribeToFirestoreDocument<{ items: ClientReview[] }>(
+      'reviews',
+      (data) => {
+        if (Array.isArray(data.items)) {
+          applyingRemoteRef.current['reviews'] = true;
+          setProReviews(data.items);
+        }
+      },
+      (exists) => {
+        cloudHydratedRef.current['reviews'] = true;
+        if (!exists) syncDocumentToFirestore('reviews', { items: proReviews });
+      }
+    );
     return () => {
       unsubVitrine();
       unsubServices();
       unsubAreas();
+      unsubSchedule();
       unsubAppointments();
       unsubReviews();
     };
@@ -783,6 +870,11 @@ export default function App() {
     try {
       localStorage.setItem('belladoor_pro_vitrine', JSON.stringify(payload));
     } catch {}
+    if (!cloudHydratedRef.current['pro_vitrine']) return;
+    if (applyingRemoteRef.current['pro_vitrine']) {
+      applyingRemoteRef.current['pro_vitrine'] = false;
+      return;
+    }
     syncDocumentToFirestore('pro_vitrine', payload);
   }, [
     proDisplayName,
@@ -800,6 +892,11 @@ export default function App() {
     try {
       localStorage.setItem('belladoor_pro_services', JSON.stringify(proServicesList));
     } catch {}
+    if (!cloudHydratedRef.current['pro_services']) return;
+    if (applyingRemoteRef.current['pro_services']) {
+      applyingRemoteRef.current['pro_services'] = false;
+      return;
+    }
     syncDocumentToFirestore('pro_services', { items: proServicesList });
   }, [proServicesList]);
 
@@ -807,6 +904,11 @@ export default function App() {
     try {
       localStorage.setItem('belladoor_pro_areas', JSON.stringify(proNeighborhoodsList));
     } catch {}
+    if (!cloudHydratedRef.current['pro_areas']) return;
+    if (applyingRemoteRef.current['pro_areas']) {
+      applyingRemoteRef.current['pro_areas'] = false;
+      return;
+    }
     syncDocumentToFirestore('pro_areas', { items: proNeighborhoodsList });
   }, [proNeighborhoodsList]);
 
@@ -814,6 +916,11 @@ export default function App() {
     try {
       localStorage.setItem('belladoor_appointments', JSON.stringify(proAppointments));
     } catch {}
+    if (!cloudHydratedRef.current['appointments']) return;
+    if (applyingRemoteRef.current['appointments']) {
+      applyingRemoteRef.current['appointments'] = false;
+      return;
+    }
     syncDocumentToFirestore('appointments', { items: proAppointments });
   }, [proAppointments]);
 
@@ -828,6 +935,11 @@ export default function App() {
     try {
       localStorage.setItem('belladoor_schedule', JSON.stringify(schedulePayload));
     } catch {}
+    if (!cloudHydratedRef.current['pro_schedule']) return;
+    if (applyingRemoteRef.current['pro_schedule']) {
+      applyingRemoteRef.current['pro_schedule'] = false;
+      return;
+    }
     syncDocumentToFirestore('pro_schedule', schedulePayload);
   }, [workingDays, workStartHour, workEndHour, lunchBreakEnabled, blockedPeriods]);
 
@@ -835,6 +947,11 @@ export default function App() {
     try {
       localStorage.setItem('belladoor_reviews', JSON.stringify(proReviews));
     } catch {}
+    if (!cloudHydratedRef.current['reviews']) return;
+    if (applyingRemoteRef.current['reviews']) {
+      applyingRemoteRef.current['reviews'] = false;
+      return;
+    }
     syncDocumentToFirestore('reviews', { items: proReviews });
   }, [proReviews]);
 
@@ -875,8 +992,11 @@ export default function App() {
   }, []);
 
   const getDirectVitrineUrl = () => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    return `${origin}/?pro=${myCustomProProfile.slug}`;
+    if (typeof window === 'undefined') return `http://localhost:3000/?pro=${myCustomProProfile.slug}`;
+    const basePath = window.location.pathname.endsWith('/')
+      ? window.location.pathname
+      : `${window.location.pathname}/`;
+    return `${window.location.origin}${basePath}?pro=${myCustomProProfile.slug}`;
   };
 
   const handleCopyVitrineLink = async () => {
