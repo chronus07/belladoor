@@ -42,35 +42,7 @@ export interface UiDialogPayload {
   variant?: 'success' | 'warning' | 'rose';
 }
 
-export const DEFAULT_REVIEWS: ClientReview[] = [
-  {
-    id: 'rev-1',
-    clientName: 'Fernanda Lima',
-    serviceName: 'Alongamento em Fibra de Vidro',
-    rating: 5,
-    comment:
-      'Simplesmente impecável! Chegou super no horário aqui em casa, material todo esterilizado e as unhas ficaram perfeitas.',
-    date: '05/10/2026',
-  },
-  {
-    id: 'rev-2',
-    clientName: 'Juliana Costa',
-    serviceName: 'Spa dos Pés + Esmaltação em Gel',
-    rating: 5,
-    comment:
-      'Atendimento maravilhoso no conforto da minha sala. Muito caprichosa e atenciosa, já virei cliente fixa!',
-    date: '02/10/2026',
-  },
-  {
-    id: 'rev-3',
-    clientName: 'Renata Silveira',
-    serviceName: 'Blindagem de Diamante',
-    rating: 5,
-    comment:
-      'Praticidade nota 1000! Não precisei pegar trânsito e o acabamento ficou digno de salão de luxo.',
-    date: '28/09/2026',
-  },
-];
+export const DEFAULT_REVIEWS: ClientReview[] = [];
 
 export const WEEKDAYS = [
   { index: 0, short: 'Dom', full: 'Domingo' },

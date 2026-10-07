@@ -83,7 +83,24 @@ import { ProBillingTab } from './components/ProBillingTab';
 import { GlobalModals } from './components/GlobalModals';
 
 export default function App() {
-  const savedVitrine = loadFromStorage('belladoor_pro_vitrine', {
+  // Limpa chaves antigas da fase de demonstração no navegador
+  useEffect(() => {
+    try {
+      [
+        'belladoor_pro_vitrine',
+        'belladoor_pro_services',
+        'belladoor_pro_areas',
+        'belladoor_appointments',
+        'belladoor_schedule',
+        'belladoor_reviews',
+        'belladoor_user',
+        'belladoor_active_tab',
+        'belladoor_subscription',
+      ].forEach((k) => localStorage.removeItem(k));
+    } catch {}
+  }, []);
+
+  const savedVitrine = loadFromStorage('belladoor_v2_pro_vitrine', {
     name: mockProfessional.name,
     title: mockProfessional.title,
     bio: mockProfessional.bio,
@@ -96,14 +113,14 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<'client' | 'pro'>(() =>
-    loadFromStorage<'client' | 'pro'>('belladoor_active_tab', 'client')
+    loadFromStorage<'client' | 'pro'>('belladoor_v2_active_tab', 'client')
   );
   const [clientSubView, setClientSubView] = useState<'EXPLORE' | 'MY_BOOKINGS'>('EXPLORE');
   const [selectedPro, setSelectedPro] = useState<MockProfessional | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Estados de Personalização da Vitrine da Profissional (Persistidos no localStorage)
+  // Estados de Personalização da Vitrine da Profissional
   const [proDisplayName, setProDisplayName] = useState<string>(savedVitrine.name);
   const [proDisplayTitle, setProDisplayTitle] = useState<string>(savedVitrine.title);
   const [proDisplayBio, setProDisplayBio] = useState<string>(savedVitrine.bio);
@@ -117,16 +134,16 @@ export default function App() {
     savedVitrine.portfolio
   );
   const [proServicesList, setProServicesList] = useState<MockService[]>(() =>
-    loadFromStorage<MockService[]>('belladoor_pro_services', mockProfessional.services)
+    loadFromStorage<MockService[]>('belladoor_v2_pro_services', [])
   );
   const [proNeighborhoodsList, setProNeighborhoodsList] = useState<MockNeighborhood[]>(() =>
-    loadFromStorage<MockNeighborhood[]>('belladoor_pro_areas', mockProfessional.neighborhoods)
+    loadFromStorage<MockNeighborhood[]>('belladoor_v2_pro_areas', [])
   );
   const [proBufferTime, setProBufferTime] = useState<number>(savedVitrine.bufferTimeMinutes);
 
-  // Avaliações reais das clientes (Passo 4)
+  // Avaliações reais das clientes
   const [proReviews, setProReviews] = useState<ClientReview[]>(() =>
-    loadFromStorage<ClientReview[]>('belladoor_reviews', DEFAULT_REVIEWS)
+    loadFromStorage<ClientReview[]>('belladoor_v2_reviews', DEFAULT_REVIEWS)
   );
   const [showReviewForm, setShowReviewForm] = useState<boolean>(false);
   const [reviewRating, setReviewRating] = useState<number>(5);
@@ -135,42 +152,58 @@ export default function App() {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [reviewAppointmentId, setReviewAppointmentId] = useState<string | null>(null);
 
-  // Cálculo dinâmico da nota média com base nas avaliações
+  // Cálculo dinâmico da nota média com base nas avaliações reais
   const calculatedRating =
     proReviews.length > 0
       ? Number((proReviews.reduce((acc, r) => acc + r.rating, 0) / proReviews.length).toFixed(1))
-      : mockProfessional.rating;
+      : 5.0;
 
-  // Normaliza o número de WhatsApp para links wa.me (garantindo DDI 55 se digitado apenas DDD + número)
+  // Normaliza o número de WhatsApp para links wa.me
   const formattedWhatsappForLink = formatWhatsappForLink(proWhatsapp, mockProfessional.whatsapp);
 
+  const dynamicSlug = proDisplayName.trim()
+    ? proDisplayName
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+    : 'vitrine';
 
   // Perfil dinâmico da profissional sincronizado em tempo real com a Vitrine
   const myCustomProProfile: MockProfessional = {
     ...mockProfessional,
     name: proDisplayName,
+    slug: dynamicSlug,
     title: proDisplayTitle,
     bio: proDisplayBio,
     instagram: proInstagram.replace(/^@+/, '').trim(),
     whatsapp: formattedWhatsappForLink,
-    avatarUrl: proAvatarUrl,
-    coverUrl: proCoverUrl,
+    avatarUrl: proAvatarUrl || mockProfessional.avatarUrl,
+    coverUrl: proCoverUrl || mockProfessional.coverUrl,
     portfolio: proPortfolioList,
     services: proServicesList,
     neighborhoods: proNeighborhoodsList,
+    baseNeighborhood:
+      proNeighborhoodsList.length > 0 ? proNeighborhoodsList[0].name : 'Atendimento a Domicílio',
+    startingPrice:
+      proServicesList.length > 0
+        ? Math.min(...proServicesList.map((s) => Number(s.price) || 0))
+        : 0,
     bufferTimeMinutes: proBufferTime,
     rating: calculatedRating,
-    reviewCount: mockProfessional.reviewCount + Math.max(0, proReviews.length - DEFAULT_REVIEWS.length),
+    reviewCount: proReviews.length,
   };
 
   const pro =
     selectedPro && selectedPro.id !== mockProfessional.id ? selectedPro : myCustomProProfile;
 
-  // Estados de Autenticação & Teste Grátis de 7 Dias (Persistido no localStorage)
+  // Estados de Autenticação & Teste Grátis de 7 Dias
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() =>
-    loadFromStorage<AuthUser | null>('belladoor_user', null)
+    loadFromStorage<AuthUser | null>('belladoor_v2_user', null)
   );
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('REGISTER');
   const [authRole, setAuthRole] = useState<'CLIENT' | 'PROFESSIONAL'>('CLIENT');
   const [authName, setAuthName] = useState<string>('');
   const [authEmail, setAuthEmail] = useState<string>('');
@@ -180,7 +213,7 @@ export default function App() {
   const [showTrialModal, setShowTrialModal] = useState<boolean>(false);
   const [selectedTrialPlan, setSelectedTrialPlan] = useState<'MONTHLY' | 'ANNUAL'>('ANNUAL');
 
-  // Login Social com Google (Firebase Auth Real + Fallback Simulado)
+  // Login Social com Google
   const handleGoogleAuth = async () => {
     setAuthLoading(true);
     setAuthError(null);
@@ -188,22 +221,12 @@ export default function App() {
       const res = await signInWithGoogleOAuth(authRole);
       if (res.error) {
         setAuthError(res.error);
-      } else {
-        const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + 7);
-        const loggedUser: AuthUser = res.user || {
-          id: `usr-google-${Date.now()}`,
-          email: authRole === 'PROFESSIONAL' ? 'pro.beleza@gmail.com' : 'cliente.vip@gmail.com',
-          fullName: authRole === 'PROFESSIONAL' ? 'Camila Martins (Google)' : 'Fernanda Lima (Google)',
-          role: authRole,
-          avatarUrl: authRole === 'PROFESSIONAL' ? proAvatarUrl : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-          isTrialActive: authRole === 'PROFESSIONAL',
-          trialDaysLeft: 7,
-          trialEndsAt: authRole === 'PROFESSIONAL' ? trialEnd.toISOString() : undefined,
-          subscriptionPlan: 'ANNUAL',
-        };
-        setCurrentUser(loggedUser);
+      } else if (res.user) {
+        setCurrentUser(res.user);
         if (authRole === 'PROFESSIONAL') {
+          if (!proDisplayName.trim() && res.user.fullName) {
+            setProDisplayName(res.user.fullName);
+          }
           setActiveTab('pro');
           setShowTrialModal(true);
         } else {
@@ -233,10 +256,25 @@ export default function App() {
         } else if (res.user) {
           setCurrentUser(res.user);
           if (authRole === 'PROFESSIONAL') {
+            if (!proDisplayName.trim() && res.user.fullName) {
+              setProDisplayName(res.user.fullName);
+              syncDocumentToFirestore('pro_vitrine', {
+                name: res.user.fullName,
+                title: proDisplayTitle,
+                bio: proDisplayBio,
+                instagram: proInstagram,
+                whatsapp: proWhatsapp,
+                avatarUrl: proAvatarUrl,
+                coverUrl: proCoverUrl,
+                portfolio: proPortfolioList,
+                bufferTimeMinutes: proBufferTime,
+              });
+            }
             setActiveTab('pro');
             setShowTrialModal(true);
           } else {
             setActiveTab('client');
+            setClientName(res.user.fullName || '');
           }
         }
       } else {
@@ -246,9 +284,13 @@ export default function App() {
         } else if (res.user) {
           setCurrentUser(res.user);
           if (res.user.role === 'PROFESSIONAL') {
+            if (!proDisplayName.trim() && res.user.fullName) {
+              setProDisplayName(res.user.fullName);
+            }
             setActiveTab('pro');
           } else {
             setActiveTab('client');
+            setClientName(res.user.fullName || '');
           }
         }
       }
@@ -265,42 +307,10 @@ export default function App() {
     resetBooking();
   };
 
-  // Acesso rápido de demonstração (1 clique)
-  const handleQuickDemoLogin = (role: 'CLIENT' | 'PROFESSIONAL') => {
-    const trialEnd = new Date();
-    trialEnd.setDate(trialEnd.getDate() + 7);
-    if (role === 'PROFESSIONAL') {
-      const proUser: AuthUser = {
-        id: 'usr-pro-demo',
-        email: 'camila.martins@belladoor.app',
-        fullName: proDisplayName,
-        role: 'PROFESSIONAL',
-        avatarUrl: proAvatarUrl,
-        isTrialActive: true,
-        trialDaysLeft: 7,
-        trialEndsAt: trialEnd.toISOString(),
-        subscriptionPlan: 'ANNUAL',
-      };
-      setCurrentUser(proUser);
-      setActiveTab('pro');
-      setShowTrialModal(true);
-    } else {
-      const clientUser: AuthUser = {
-        id: 'usr-client-demo',
-        email: 'fernanda.lima@gmail.com',
-        fullName: 'Fernanda Lima',
-        role: 'CLIENT',
-        avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
-      };
-      setCurrentUser(clientUser);
-      setActiveTab('client');
-    }
-  };
-
-  // Lista completa de profissionais da vitrine (com o perfil da profissional logada sincronizado ao vivo)
-  const allProfessionalsWithLivePro = mockProfessionalsList.map((p) =>
-    p.id === mockProfessional.id ? myCustomProProfile : p
-  );
+  // Lista real de profissionais da vitrine (exibe a profissional cadastrada quando seu nome está configurado)
+  const allProfessionalsWithLivePro: MockProfessional[] = proDisplayName.trim()
+    ? [myCustomProProfile]
+    : [];
 
   // Filtragem dos profissionais na vitrine/busca
   const filteredPros = allProfessionalsWithLivePro.filter((p) => {
@@ -316,55 +326,9 @@ export default function App() {
     return matchesCategory && matchesSearch;
   });
 
-  // Lista dinâmica de agendamentos (persistida no localStorage)
+  // Lista dinâmica de agendamentos reais (inicia vazia, sem agendamentos fictícios)
   const [proAppointments, setProAppointments] = useState<ClientAppointment[]>(() =>
-    loadFromStorage<ClientAppointment[]>('belladoor_appointments', [
-      {
-        id: 'app-1',
-        clientName: 'Fernanda Lima',
-        clientPhone: '11988881111',
-        serviceName: 'Alongamento em Fibra de Vidro',
-        date: '2026-10-07',
-        time: '10:00',
-        address: 'Av. Ibirapuera, 1850 - Apto 32',
-        neighborhood: 'Moema',
-        travelFee: 0,
-        totalPrice: 180,
-        status: 'Confirmado',
-        proName: mockProfessional.name,
-        proSlug: mockProfessional.slug,
-      },
-      {
-        id: 'app-2',
-        clientName: 'Juliana Costa',
-        clientPhone: '11977772222',
-        serviceName: 'Spa dos Pés + Esmaltação em Gel',
-        date: '2026-10-07',
-        time: '13:30',
-        address: 'Rua Joaquim Floriano, 400 - Casa 2',
-        neighborhood: 'Itaim Bibi',
-        travelFee: 15,
-        totalPrice: 125,
-        status: 'Confirmado',
-        proName: mockProfessional.name,
-        proSlug: mockProfessional.slug,
-      },
-      {
-        id: 'app-3',
-        clientName: 'Renata Silveira',
-        clientPhone: '11966663333',
-        serviceName: 'Blindagem de Diamante',
-        date: '2026-10-07',
-        time: '16:30',
-        address: 'Rua Oscar Freire, 920 - Apto 101',
-        neighborhood: 'Jardins / Cerqueira César',
-        travelFee: 15,
-        totalPrice: 135,
-        status: 'Confirmado',
-        proName: mockProfessional.name,
-        proSlug: mockProfessional.slug,
-      },
-    ])
+    loadFromStorage<ClientAppointment[]>('belladoor_v2_appointments', [])
   );
 
   // Estados do Painel da Profissional (Etapa 4 & 5)
@@ -666,8 +630,8 @@ export default function App() {
     showProSuccess(`🗑️ Região "${name}" removida da sua lista.`);
   };
 
-  // Estados de Assinatura SaaS (Persistidos no localStorage)
-  const savedSub = loadFromStorage('belladoor_subscription', {
+  // Estados de Assinatura SaaS
+  const savedSub = loadFromStorage('belladoor_v2_subscription', {
     status: 'TRIAL' as 'TRIAL' | 'ACTIVE',
     interval: 'ANNUAL' as 'MONTHLY' | 'ANNUAL',
   });
@@ -677,28 +641,19 @@ export default function App() {
   const [checkoutMethod, setCheckoutMethod] = useState<'PIX' | 'CARD'>('PIX');
   const [isPaymentProcessing, setIsPaymentProcessing] = useState<boolean>(false);
 
-  // Configuração de Expediente Padrão (Dias da Semana + Horário de Início/Fim + Almoço) - Passo 3
-  const savedSchedule = loadFromStorage('belladoor_schedule', {
+  // Configuração de Expediente Padrão (inicia sem períodos bloqueados fictícios)
+  const savedSchedule = loadFromStorage('belladoor_v2_schedule', {
     workingDays: pro.workingDays || [1, 2, 3, 4, 5, 6],
     workStartHour: 9,
     workEndHour: 19,
     lunchBreakEnabled: true,
-    blockedPeriods: [
-      {
-        id: 'blk-1',
-        startDate: '2026-10-11',
-        endDate: '2026-10-11',
-        reason: 'Folga Pessoal / Domingo',
-        dates: ['2026-10-11'],
-      },
-      {
-        id: 'blk-2',
-        startDate: '2026-10-15',
-        endDate: '2026-10-17',
-        reason: 'Masterclass Noivas & Penteados em SP',
-        dates: ['2026-10-15', '2026-10-16', '2026-10-17'],
-      },
-    ],
+    blockedPeriods: [] as {
+      id: string;
+      startDate: string;
+      endDate: string;
+      reason: string;
+      dates: string[];
+    }[],
   });
 
   const [workingDays, setWorkingDays] = useState<number[]>(savedSchedule.workingDays);
@@ -727,8 +682,8 @@ export default function App() {
       'pro_vitrine',
       (data) => {
         applyingRemoteRef.current['pro_vitrine'] = true;
-        if (data.name) setProDisplayName(data.name);
-        if (data.title) setProDisplayTitle(data.title);
+        if (typeof data.name === 'string') setProDisplayName(data.name);
+        if (typeof data.title === 'string') setProDisplayTitle(data.title);
         if (typeof data.bio === 'string') setProDisplayBio(data.bio);
         if (typeof data.instagram === 'string') setProInstagram(data.instagram);
         if (typeof data.whatsapp === 'string') setProWhatsapp(data.whatsapp);
@@ -739,7 +694,7 @@ export default function App() {
       },
       (exists) => {
         cloudHydratedRef.current['pro_vitrine'] = true;
-        if (!exists) {
+        if (!exists && proDisplayName.trim()) {
           syncDocumentToFirestore('pro_vitrine', {
             name: proDisplayName,
             title: proDisplayTitle,
@@ -764,7 +719,9 @@ export default function App() {
       },
       (exists) => {
         cloudHydratedRef.current['pro_services'] = true;
-        if (!exists) syncDocumentToFirestore('pro_services', { items: proServicesList });
+        if (!exists && proServicesList.length > 0) {
+          syncDocumentToFirestore('pro_services', { items: proServicesList });
+        }
       }
     );
     const unsubAreas = subscribeToFirestoreDocument<{ items: MockNeighborhood[] }>(
@@ -777,7 +734,9 @@ export default function App() {
       },
       (exists) => {
         cloudHydratedRef.current['pro_areas'] = true;
-        if (!exists) syncDocumentToFirestore('pro_areas', { items: proNeighborhoodsList });
+        if (!exists && proNeighborhoodsList.length > 0) {
+          syncDocumentToFirestore('pro_areas', { items: proNeighborhoodsList });
+        }
       }
     );
     const unsubSchedule = subscribeToFirestoreDocument<any>(
@@ -813,7 +772,9 @@ export default function App() {
       },
       (exists) => {
         cloudHydratedRef.current['appointments'] = true;
-        if (!exists) syncDocumentToFirestore('appointments', { items: proAppointments });
+        if (!exists && proAppointments.length > 0) {
+          syncDocumentToFirestore('appointments', { items: proAppointments });
+        }
       }
     );
     const unsubReviews = subscribeToFirestoreDocument<{ items: ClientReview[] }>(
@@ -826,7 +787,9 @@ export default function App() {
       },
       (exists) => {
         cloudHydratedRef.current['reviews'] = true;
-        if (!exists) syncDocumentToFirestore('reviews', { items: proReviews });
+        if (!exists && proReviews.length > 0) {
+          syncDocumentToFirestore('reviews', { items: proReviews });
+        }
       }
     );
     return () => {
@@ -841,16 +804,16 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('belladoor_active_tab', JSON.stringify(activeTab));
+      localStorage.setItem('belladoor_v2_active_tab', JSON.stringify(activeTab));
     } catch {}
   }, [activeTab]);
 
   useEffect(() => {
     try {
       if (currentUser) {
-        localStorage.setItem('belladoor_user', JSON.stringify(currentUser));
+        localStorage.setItem('belladoor_v2_user', JSON.stringify(currentUser));
       } else {
-        localStorage.removeItem('belladoor_user');
+        localStorage.removeItem('belladoor_v2_user');
       }
     } catch {}
   }, [currentUser]);
@@ -868,7 +831,7 @@ export default function App() {
       bufferTimeMinutes: proBufferTime,
     };
     try {
-      localStorage.setItem('belladoor_pro_vitrine', JSON.stringify(payload));
+      localStorage.setItem('belladoor_v2_pro_vitrine', JSON.stringify(payload));
     } catch {}
     if (!cloudHydratedRef.current['pro_vitrine']) return;
     if (applyingRemoteRef.current['pro_vitrine']) {
@@ -890,7 +853,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('belladoor_pro_services', JSON.stringify(proServicesList));
+      localStorage.setItem('belladoor_v2_pro_services', JSON.stringify(proServicesList));
     } catch {}
     if (!cloudHydratedRef.current['pro_services']) return;
     if (applyingRemoteRef.current['pro_services']) {
@@ -902,7 +865,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('belladoor_pro_areas', JSON.stringify(proNeighborhoodsList));
+      localStorage.setItem('belladoor_v2_pro_areas', JSON.stringify(proNeighborhoodsList));
     } catch {}
     if (!cloudHydratedRef.current['pro_areas']) return;
     if (applyingRemoteRef.current['pro_areas']) {
@@ -914,7 +877,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('belladoor_appointments', JSON.stringify(proAppointments));
+      localStorage.setItem('belladoor_v2_appointments', JSON.stringify(proAppointments));
     } catch {}
     if (!cloudHydratedRef.current['appointments']) return;
     if (applyingRemoteRef.current['appointments']) {
@@ -933,7 +896,7 @@ export default function App() {
       blockedPeriods,
     };
     try {
-      localStorage.setItem('belladoor_schedule', JSON.stringify(schedulePayload));
+      localStorage.setItem('belladoor_v2_schedule', JSON.stringify(schedulePayload));
     } catch {}
     if (!cloudHydratedRef.current['pro_schedule']) return;
     if (applyingRemoteRef.current['pro_schedule']) {
@@ -945,7 +908,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('belladoor_reviews', JSON.stringify(proReviews));
+      localStorage.setItem('belladoor_v2_reviews', JSON.stringify(proReviews));
     } catch {}
     if (!cloudHydratedRef.current['reviews']) return;
     if (applyingRemoteRef.current['reviews']) {
@@ -958,7 +921,7 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem(
-        'belladoor_subscription',
+        'belladoor_v2_subscription',
         JSON.stringify({ status: subscriptionStatus, interval: planInterval })
       );
     } catch {}
@@ -1411,7 +1374,6 @@ export default function App() {
             onChangePassword={setAuthPassword}
             onGoogleAuth={handleGoogleAuth}
             onEmailAuthSubmit={handleEmailAuthSubmit}
-            onQuickDemoLogin={handleQuickDemoLogin}
           />
         ) : activeTab === 'client' ? (
           /* ============================================================ */
@@ -1509,15 +1471,28 @@ export default function App() {
                   <span className="absolute bottom-1 right-1 bg-emerald-500 w-4 h-4 rounded-full border-2 border-white" title="Disponível para agendamento" />
                 </div>
                 <div className="flex gap-2">
-                  <a
-                    href={`https://instagram.com/${pro.instagram}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2.5 bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-xl text-xs flex items-center gap-1 font-medium transition"
-                  >
-                    <Instagram className="w-4 h-4 text-pink-600" />
-                    @{pro.instagram}
-                  </a>
+                  {pro.instagram && (
+                    <a
+                      href={`https://instagram.com/${pro.instagram}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2.5 bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-xl text-xs flex items-center gap-1 font-medium transition"
+                    >
+                      <Instagram className="w-4 h-4 text-pink-600" />
+                      @{pro.instagram}
+                    </a>
+                  )}
+                  {pro.whatsapp && (
+                    <a
+                      href={`https://wa.me/${pro.whatsapp}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs flex items-center gap-1 font-bold transition"
+                    >
+                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                      WhatsApp
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -1528,17 +1503,19 @@ export default function App() {
                     <ShieldCheck className="w-3 h-3 text-rose-600" /> Verificada
                   </span>
                 </div>
-                <p className="text-xs text-rose-600 font-semibold mt-0.5">{pro.title}</p>
+                <p className="text-xs text-rose-600 font-semibold mt-0.5">
+                  {pro.title || 'Especialista em Beleza a Domicílio'}
+                </p>
                 <div className="flex items-center gap-2 mt-2 text-xs text-stone-600">
                   <span className="flex items-center gap-1 font-bold text-amber-600">
                     <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
                     {pro.rating}
                   </span>
                   <span>•</span>
-                  <span>{pro.reviewCount} atendimentos realizados</span>
+                  <span>{pro.reviewCount} avaliações</span>
                   <span>•</span>
                   <span className="flex items-center gap-1 text-stone-500">
-                    <MapPin className="w-3 h-3" /> Base: {pro.baseNeighborhood}, {pro.baseCity}
+                    <MapPin className="w-3 h-3" /> {pro.baseNeighborhood}
                   </span>
                 </div>
                 {pro.bio && (
@@ -1600,49 +1577,60 @@ export default function App() {
                   {step === 1 && (
                     <div className="space-y-3">
                       <p className="text-xs text-stone-600 mb-2">Selecione o serviço que deseja receber em casa:</p>
-                      {proServicesList.map((service) => {
-                        const isSelected = selectedService?.id === service.id;
-                        return (
-                          <div
-                            key={service.id}
-                            onClick={() => setSelectedService(service)}
-                            className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                              isSelected
-                                ? 'bg-rose-50 border-rose-500 shadow-sm'
-                                : 'bg-white border-stone-200 hover:border-stone-300'
-                            }`}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-bold text-sm text-stone-900">{service.name}</h3>
-                                  {service.popular && (
-                                    <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                                      Mais pedido
-                                    </span>
-                                  )}
+                      {proServicesList.length === 0 ? (
+                        <div className="bg-white rounded-2xl p-6 text-center border border-stone-200 text-stone-500 space-y-1">
+                          <p className="text-xs font-bold text-stone-800">
+                            Catálogo de serviços em atualização
+                          </p>
+                          <p className="text-[11px]">
+                            A profissional ainda não cadastrou serviços disponíveis para agendamento.
+                          </p>
+                        </div>
+                      ) : (
+                        proServicesList.map((service) => {
+                          const isSelected = selectedService?.id === service.id;
+                          return (
+                            <div
+                              key={service.id}
+                              onClick={() => setSelectedService(service)}
+                              className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'bg-rose-50 border-rose-500 shadow-sm'
+                                  : 'bg-white border-stone-200 hover:border-stone-300'
+                              }`}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-bold text-sm text-stone-900">{service.name}</h3>
+                                    {service.popular && (
+                                      <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                        Mais pedido
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                                    {service.description}
+                                  </p>
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-stone-500 mt-2 font-medium">
+                                    <Clock className="w-3 h-3 text-stone-400" /> {service.durationMinutes} minutos
+                                  </span>
                                 </div>
-                                <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                                  {service.description}
-                                </p>
-                                <span className="inline-flex items-center gap-1 text-[11px] text-stone-500 mt-2 font-medium">
-                                  <Clock className="w-3 h-3 text-stone-400" /> {service.durationMinutes} minutos
-                                </span>
-                              </div>
-                              <div className="text-right pl-3">
-                                <span className="text-base font-extrabold text-stone-900">
-                                  R$ {service.price.toFixed(2).replace('.', ',')}
-                                </span>
-                                <div className={`w-5 h-5 mt-2 rounded-full border flex items-center justify-center ml-auto ${
-                                  isSelected ? 'bg-rose-600 border-rose-600 text-white' : 'border-stone-300'
-                                }`}>
-                                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                <div className="text-right pl-3">
+                                  <span className="text-base font-extrabold text-stone-900">
+                                    R$ {service.price.toFixed(2).replace('.', ',')}
+                                  </span>
+                                  <div className={`w-5 h-5 mt-2 rounded-full border flex items-center justify-center ml-auto ${
+                                    isSelected ? 'bg-rose-600 border-rose-600 text-white' : 'border-stone-300'
+                                  }`}>
+                                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
 
                       <button
                         disabled={!selectedService}

@@ -124,6 +124,9 @@ export async function signUpWithFirebaseEmail(
       const usersRef = doc(db, 'belladoor', 'users');
       const snap = await getDoc(usersRef);
       const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
+      if (existingUsers[normalizedEmail]) {
+        return { error: 'Este e-mail já possui conta. Clique em "Já Tenho Conta (Entrar)" para acessar.' };
+      }
 
       const newUser: AuthUser = {
         id: 'usr_' + Date.now(),
@@ -193,14 +196,16 @@ export async function signInWithFirebaseEmail(
       const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
       const stored = existingUsers[normalizedEmail];
 
-      if (stored) {
-        const expectedHash = btoa(unescape(encodeURIComponent(pass)));
-        if (stored.passwordHash && stored.passwordHash !== expectedHash) {
-          return { error: 'Senha incorreta para este e-mail.' };
-        }
-        const { passwordHash, ...cleanUser } = stored;
-        return { user: cleanUser as AuthUser };
+      if (!stored) {
+        return { error: 'Nenhuma conta encontrada com este e-mail. Clique em "Criar Nova Conta" acima para se cadastrar.' };
       }
+
+      const expectedHash = btoa(unescape(encodeURIComponent(pass)));
+      if (stored.passwordHash && stored.passwordHash !== expectedHash) {
+        return { error: 'Senha incorreta para este e-mail.' };
+      }
+      const { passwordHash, ...cleanUser } = stored;
+      return { user: cleanUser as AuthUser };
     } catch (e) {
       console.warn('[Firebase Cloud] Aviso ao consultar usuária no Firestore:', e);
     }
