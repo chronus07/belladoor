@@ -881,7 +881,20 @@ export default function App() {
         } else {
           setActiveTab('client');
           setClientSubView('EXPLORE');
-          setSelectedPro(null);
+          const hasDirectProIntent = Boolean(
+            (selectedPro && selectedPro.id !== myCustomProProfile.id) ||
+            (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pro')) ||
+            (() => {
+              try {
+                return Boolean(sessionStorage.getItem('belladoor_v2_direct_pro_slug'));
+              } catch {
+                return false;
+              }
+            })()
+          );
+          if (!hasDirectProIntent) {
+            setSelectedPro(null);
+          }
           setCategoryFilter('TODAS');
           setSearchQuery('');
           setClientName(res.user.fullName || '');
@@ -910,7 +923,20 @@ export default function App() {
     } else {
       setActiveTab('client');
       setClientSubView('EXPLORE');
-      setSelectedPro(null);
+      const hasDirectProIntent = Boolean(
+        (selectedPro && selectedPro.id !== myCustomProProfile.id) ||
+        (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pro')) ||
+        (() => {
+          try {
+            return Boolean(sessionStorage.getItem('belladoor_v2_direct_pro_slug'));
+          } catch {
+            return false;
+          }
+        })()
+      );
+      if (!hasDirectProIntent) {
+        setSelectedPro(null);
+      }
       setCategoryFilter('TODAS');
       setSearchQuery('');
       setClientName(user.fullName || '');
@@ -3052,24 +3078,32 @@ export default function App() {
   }, [activeProKey, subscriptionStatus, planInterval]);
 
   // =========================================================================
-  // PASSO 2: LINK DIRETO DA VITRINE (?pro=ana-silva-nails) + COMPARTILHAMENTO
+  // PASSO 2: LINK DIRETO DA VITRINE (?pro=ana-silva-nails) + COMPARTILHAMENTO / QR CODE
   // =========================================================================
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const proSlugParam = params.get('pro');
-    if (!proSlugParam) return;
+    const urlSlug = params.get('pro')?.trim().toLowerCase();
+    let storedSlug: string | null = null;
+    try {
+      if (urlSlug) {
+        sessionStorage.setItem('belladoor_v2_direct_pro_slug', urlSlug);
+      }
+      storedSlug = sessionStorage.getItem('belladoor_v2_direct_pro_slug')?.trim().toLowerCase() || null;
+    } catch {}
 
-    const cleanSlug = proSlugParam.trim().toLowerCase();
+    const targetSlug = urlSlug || storedSlug;
+    if (!targetSlug) return;
+
     const matchedActive = allProfessionalsWithLivePro.find(
-      (p) => p.slug && p.slug.toLowerCase() === cleanSlug
+      (p) => p.slug && p.slug.toLowerCase() === targetSlug
     );
     const matchedDirectory = Object.values(directoryPros).find(
-      (p) => p && p.slug && p.slug.toLowerCase() === cleanSlug
+      (p) => p && p.slug && p.slug.toLowerCase() === targetSlug
     );
     const targetPro =
       matchedActive ||
       matchedDirectory ||
-      (myCustomProProfile.slug.toLowerCase() === cleanSlug ? myCustomProProfile : null);
+      (myCustomProProfile.slug?.toLowerCase() === targetSlug ? myCustomProProfile : null);
 
     if (targetPro) {
       setSelectedPro(targetPro);
@@ -3077,7 +3111,7 @@ export default function App() {
     setActiveTab('client');
     setClientSubView('EXPLORE');
     setAuthRole('CLIENT');
-  }, [directoryPros]);
+  }, [directoryPros, currentUser]);
 
   // Atualiza o título da aba do navegador dinamicamente quando uma vitrine de profissional está aberta
   useEffect(() => {
@@ -3094,13 +3128,11 @@ export default function App() {
       if (currentUser.role === 'CLIENT' && activeTab === 'pro') {
         setActiveTab('client');
         setClientSubView('EXPLORE');
-        setSelectedPro(null);
       }
     } else {
       if (activeTab === 'pro') {
         setActiveTab('client');
         setClientSubView('EXPLORE');
-        setSelectedPro(null);
       }
     }
   }, [currentUser, activeTab]);
@@ -4088,6 +4120,13 @@ export default function App() {
                     onClick={() => {
                       setSelectedPro(null);
                       resetBooking();
+                      try {
+                        sessionStorage.removeItem('belladoor_v2_direct_pro_slug');
+                        if (window.location.search) {
+                          const cleanUrl = window.location.origin + window.location.pathname;
+                          window.history.replaceState({}, document.title, cleanUrl);
+                        }
+                      } catch {}
                     }}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-700 bg-white border border-stone-200 px-3.5 py-2 rounded-xl hover:bg-stone-50 transition shadow-sm"
                   >
