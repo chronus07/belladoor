@@ -450,16 +450,38 @@ export async function signInWithFirebaseEmail(
     if (!check.matches) {
       return { error: 'Senha incorreta para este e-mail. Se esqueceu sua senha, clique em "Esqueci minha senha?".' };
     }
+    const targetRole: 'CLIENT' | 'PROFESSIONAL' = preferredRole || (stored.role as 'CLIENT' | 'PROFESSIONAL') || 'CLIENT';
     const { passwordHash, ...cleanUser } = stored;
     const remainingDays = computeRemainingTrialDays(cleanUser.trialEndsAt);
     const resolvedUser: AuthUser = {
       ...(cleanUser as AuthUser),
+      role: targetRole,
       trialDaysLeft: remainingDays,
       isTrialActive:
-        cleanUser.role === 'PROFESSIONAL' &&
+        targetRole === 'PROFESSIONAL' &&
         cleanUser.subscriptionStatus !== 'ACTIVE' &&
         remainingDays > 0,
     };
+
+    if (targetRole !== stored.role && db) {
+      try {
+        existingUsers[normalizedEmail] = sanitizeForFirestore({
+          ...stored,
+          role: targetRole,
+          updatedAt: new Date().toISOString(),
+        });
+        await setDoc(
+          doc(db, 'belladoor_prod', 'users'),
+          sanitizeForFirestore({
+            accounts: existingUsers,
+            deletedEmails,
+            updatedAt: new Date().toISOString(),
+          }),
+          { merge: true }
+        );
+      } catch {}
+    }
+
     if (stored.requiresEmailVerification && !stored.emailVerified) {
       return {
         user: resolvedUser,
@@ -485,26 +507,32 @@ export async function signInWithFirebaseEmail(
         stored?.emailVerified !== true;
 
       if (stored) {
+        const targetRole: 'CLIENT' | 'PROFESSIONAL' = preferredRole || (stored.role as 'CLIENT' | 'PROFESSIONAL') || 'CLIENT';
         const { passwordHash, ...cleanUser } = stored;
         const remainingDays = computeRemainingTrialDays(cleanUser.trialEndsAt);
         const resolvedUser: AuthUser = {
           ...(cleanUser as AuthUser),
+          role: targetRole,
           emailVerified: isVerifiedInAuth || Boolean(cleanUser.emailVerified),
           trialDaysLeft: remainingDays,
           isTrialActive:
-            cleanUser.role === 'PROFESSIONAL' &&
+            targetRole === 'PROFESSIONAL' &&
             cleanUser.subscriptionStatus !== 'ACTIVE' &&
             remainingDays > 0,
         };
 
         const needsSha256Upgrade =
           typeof stored.passwordHash === 'string' && !stored.passwordHash.startsWith('sha256:');
+        const roleChanged = targetRole !== stored.role;
 
-        if (((isVerifiedInAuth && !stored.emailVerified) || needsSha256Upgrade) && db) {
+        if (((isVerifiedInAuth && !stored.emailVerified) || needsSha256Upgrade || roleChanged) && db) {
           try {
-            const upgradedHash = await hashPasswordSHA256(pass, normalizedEmail);
+            const upgradedHash = needsSha256Upgrade
+              ? await hashPasswordSHA256(pass, normalizedEmail)
+              : stored.passwordHash;
             existingUsers[normalizedEmail] = sanitizeForFirestore({
               ...stored,
+              role: targetRole,
               emailVerified: isVerifiedInAuth || Boolean(stored.emailVerified),
               passwordHash: upgradedHash,
               updatedAt: new Date().toISOString(),
@@ -581,13 +609,15 @@ export async function signInWithFirebaseEmail(
             );
           } catch {}
         }
+        const targetRole: 'CLIENT' | 'PROFESSIONAL' = preferredRole || (stored.role as 'CLIENT' | 'PROFESSIONAL') || 'CLIENT';
         const { passwordHash, ...cleanUser } = stored;
         const remainingDays = computeRemainingTrialDays(cleanUser.trialEndsAt);
         const fallbackUser: AuthUser = {
           ...(cleanUser as AuthUser),
+          role: targetRole,
           trialDaysLeft: remainingDays,
           isTrialActive:
-            cleanUser.role === 'PROFESSIONAL' &&
+            targetRole === 'PROFESSIONAL' &&
             cleanUser.subscriptionStatus !== 'ACTIVE' &&
             remainingDays > 0,
         };
@@ -618,14 +648,16 @@ export async function signInWithFirebaseEmail(
   if (!check.matches) {
     return { error: 'Senha incorreta para este e-mail.' };
   }
+  const targetRole: 'CLIENT' | 'PROFESSIONAL' = preferredRole || (stored.role as 'CLIENT' | 'PROFESSIONAL') || 'CLIENT';
   const { passwordHash, ...cleanUser } = stored;
   const remainingDays = computeRemainingTrialDays(cleanUser.trialEndsAt);
   return {
     user: {
       ...(cleanUser as AuthUser),
+      role: targetRole,
       trialDaysLeft: remainingDays,
       isTrialActive:
-        cleanUser.role === 'PROFESSIONAL' &&
+        targetRole === 'PROFESSIONAL' &&
         cleanUser.subscriptionStatus !== 'ACTIVE' &&
         remainingDays > 0,
     },

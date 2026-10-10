@@ -203,9 +203,12 @@ export default function App() {
     }
   );
 
-  const [activeTab, setActiveTab] = useState<'client' | 'pro'>(() =>
-    loadFromStorage<'client' | 'pro'>('belladoor_v2_active_tab', 'client')
-  );
+  const [activeTab, setActiveTab] = useState<'client' | 'pro'>(() => {
+    const savedUser = loadFromStorage<AuthUser | null>('belladoor_v2_user', null);
+    if (savedUser?.role === 'PROFESSIONAL') return 'pro';
+    if (savedUser?.role === 'CLIENT') return 'client';
+    return 'client';
+  });
   const [clientSubView, setClientSubView] = useState<'EXPLORE' | 'MY_BOOKINGS'>('EXPLORE');
   const [selectedPro, setSelectedPro] = useState<MockProfessional | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('TODAS');
@@ -531,6 +534,16 @@ export default function App() {
         )
       : 5.0;
 
+  const isViewingOwnProVitrine = Boolean(
+    currentUser?.role === 'PROFESSIONAL' &&
+      selectedPro &&
+      (selectedPro.id === myCustomProProfile.id ||
+        (selectedPro.slug && selectedPro.slug === myCustomProProfile.slug) ||
+        ((selectedPro as any).email &&
+          currentUser.email &&
+          (selectedPro as any).email.toLowerCase() === currentUser.email.toLowerCase()))
+  );
+
   const pro: MockProfessional = {
     ...rawPro,
     rating: currentProRating,
@@ -740,6 +753,13 @@ export default function App() {
     const isPaidActive = user.subscriptionStatus === 'ACTIVE';
 
     setActiveTab('pro');
+    setProSubTab('agenda');
+    setSelectedPro(null);
+    setClientSubView('EXPLORE');
+    try {
+      localStorage.setItem('belladoor_v2_active_tab', JSON.stringify('pro'));
+      localStorage.setItem('belladoor_v2_user', JSON.stringify(user));
+    } catch {}
     setPlanInterval(user.subscriptionPlan || 'ANNUAL');
 
     if (isPaidActive) {
@@ -861,7 +881,14 @@ export default function App() {
         } else {
           setActiveTab('client');
           setClientSubView('EXPLORE');
+          setSelectedPro(null);
+          setCategoryFilter('TODAS');
+          setSearchQuery('');
           setClientName(res.user.fullName || '');
+          try {
+            localStorage.setItem('belladoor_v2_active_tab', JSON.stringify('client'));
+            localStorage.setItem('belladoor_v2_user', JSON.stringify(res.user));
+          } catch {}
         }
       }
     } finally {
@@ -883,7 +910,14 @@ export default function App() {
     } else {
       setActiveTab('client');
       setClientSubView('EXPLORE');
+      setSelectedPro(null);
+      setCategoryFilter('TODAS');
+      setSearchQuery('');
       setClientName(user.fullName || '');
+      try {
+        localStorage.setItem('belladoor_v2_active_tab', JSON.stringify('client'));
+        localStorage.setItem('belladoor_v2_user', JSON.stringify(user));
+      } catch {}
     }
   };
 
@@ -1097,12 +1131,27 @@ export default function App() {
     setAuthError(null);
   };
 
-  // Logout
+  // Logout completo com limpeza absoluta de sessão
   const handleLogout = async () => {
-    await signOutUser();
+    try {
+      await signOutUser();
+    } catch (e) {
+      console.warn('Erro ao encerrar sessão remota:', e);
+    }
+
+    // 1. Limpa usuário logado e painéis restritos
     setCurrentUser(null);
     setShowAdminPanel(false);
+
+    // 2. Reseta a tela para a Vitrine Geral de Profissionais (Marketplace)
     setSelectedPro(null);
+    setActiveTab('client');
+    setClientSubView('EXPLORE');
+    setCategoryFilter('TODAS');
+    setSearchQuery('');
+
+    // 3. Reseta estados da conta profissional (sempre iniciando na Agenda no próximo login pro)
+    setProSubTab('agenda');
     setProDisplayName('');
     setProDisplayTitle('');
     setProDisplayBio('');
@@ -1117,10 +1166,53 @@ export default function App() {
     setProBaseNeighborhood('');
     setProBaseCep('');
     setProBaseAddress('');
+    setDraftStudioAddress('');
+    setDraftStudioNeighborhood('');
+    setDraftStudioCity('');
     setProServiceMode('HIBRIDO');
     setProStudioName('');
     setSubscriptionStatus('TRIAL');
+    setShowTrialModal(false);
+    setOnboardingWizardStep(null);
+    setShowPromoCardModal(false);
+    setShowManualAppointmentModal(false);
+
+    // 4. Reseta formulário de autenticação
+    setAuthRole('CLIENT');
+    setRoleExplicitlyChosen(false);
+    setAuthEmail('');
+    setAuthPassword('');
+    setAuthConfirmPassword('');
+    setAuthName('');
+    setAuthBirthDate('');
+    setAuthError(null);
+    setVerificationFeedback(null);
+    setPendingVerificationEmail(null);
+    setPendingVerificationUser(null);
+    setAuthMode('LOGIN');
+
+    // 5. Limpa agendamento em andamento
     resetBooking(true);
+
+    // 6. Reseta cache de hidratação remota
+    cloudHydratedRef.current = {};
+
+    // 7. Limpa chaves de sessão no localStorage e sessionStorage imediatamente
+    try {
+      localStorage.removeItem('belladoor_v2_user');
+      localStorage.removeItem('belladoor_v2_active_tab');
+      localStorage.removeItem('belladoor_v2_onboarding_wizard_step');
+      localStorage.removeItem('belladoor_v2_onboarding_wizard_badge');
+      sessionStorage.clear();
+    } catch {}
+
+    // 8. Limpa parâmetros de URL (como ?pro=...) para não ancorar em vitrine de terceiros
+    if (window.location.search) {
+      try {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch {}
+    }
   };
 
   // Identificação do Administrador Master (Everton)
@@ -2996,6 +3088,23 @@ export default function App() {
     }
   }, [activeTab, selectedPro]);
 
+  // Guarda de consistência de sessão: garante que a tela sempre corresponda ao tipo de conta logada
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 'CLIENT' && activeTab === 'pro') {
+        setActiveTab('client');
+        setClientSubView('EXPLORE');
+        setSelectedPro(null);
+      }
+    } else {
+      if (activeTab === 'pro') {
+        setActiveTab('client');
+        setClientSubView('EXPLORE');
+        setSelectedPro(null);
+      }
+    }
+  }, [currentUser, activeTab]);
+
   const getDirectVitrineUrl = () => {
     if (typeof window === 'undefined') return `http://localhost:3000/?pro=${myCustomProProfile.slug}`;
     const basePath = window.location.pathname.endsWith('/')
@@ -3944,8 +4053,8 @@ export default function App() {
             /* B. PERFIL INDIVIDUAL DA PROFISSIONAL ESCOLHIDA             */
             /* ========================================================== */
             <div className="space-y-3">
-              {/* Barra Superior: Modo Visualização da Profissional vs Voltar para Busca de Cliente */}
-              {currentUser.role === 'PROFESSIONAL' ? (
+              {/* Barra Superior: Modo Visualização da Própria Vitrine vs Voltar para Busca */}
+              {isViewingOwnProVitrine ? (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
@@ -4206,9 +4315,9 @@ export default function App() {
               )}
             </div>
 
-            {/* SEÇÃO DO CATÁLOGO DE SERVIÇOS (SOMENTE VISUALIZAÇÃO PARA PROFISSIONAL vs AGENDAMENTO PARA CLIENTE) */}
+            {/* SEÇÃO DO CATÁLOGO DE SERVIÇOS (SOMENTE VISUALIZAÇÃO PARA PRÓPRIA PROFISSIONAL vs AGENDAMENTO PARA CLIENTE) */}
             <div className={`border-t p-6 transition-colors ${proTheme.contentBg} ${proTheme.contentBorder}`}>
-              {currentUser.role === 'PROFESSIONAL' ? (
+              {isViewingOwnProVitrine ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h2 className={`font-bold text-base flex items-center gap-2 ${proTheme.headerTitleText}`}>
