@@ -10,9 +10,11 @@ import {
   X,
 } from 'lucide-react';
 import { ClientAppointment } from '../types/belladoor';
+import { MockProfessional } from '../data/mockData';
 
 interface ClientBookingsViewProps {
   proAppointments: ClientAppointment[];
+  professionals: MockProfessional[];
   proDisplayName: string;
   proAvatarUrl: string;
   proWhatsapp: string;
@@ -34,6 +36,7 @@ interface ClientBookingsViewProps {
 
 export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
   proAppointments,
+  professionals,
   proDisplayName,
   proAvatarUrl,
   proWhatsapp,
@@ -66,12 +69,12 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
             Voltar para a Vitrine
           </button>
           <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30 px-2.5 py-0.5 rounded-full">
-            Área da Cliente
+            Área do Cliente
           </span>
         </div>
         <h1 className="text-lg font-extrabold tracking-tight">Meus Agendamentos</h1>
         <p className="text-xs text-stone-300 mt-0.5">
-          Acompanhe seus atendimentos a domicílio, fale no WhatsApp ou avalie o serviço com estrelas.
+          Acompanhe seus atendimentos, fale no WhatsApp ou avalie o serviço com estrelas.
         </p>
       </div>
 
@@ -136,25 +139,25 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-stone-700 mb-1">Seu Nome:</label>
+              <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                Cliente Verificada:
+              </label>
               <input
                 type="text"
                 value={reviewClientName}
-                onChange={(e) => onChangeReviewClientName(e.target.value)}
-                placeholder="Ex: Fernanda Lima"
-                className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                readOnly
+                className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
               />
             </div>
             <div>
               <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                Serviço Realizado:
+                Serviço Concluído:
               </label>
               <input
                 type="text"
                 value={reviewServiceName}
-                onChange={(e) => onChangeReviewServiceName(e.target.value)}
-                placeholder="Ex: Alongamento em Fibra"
-                className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                readOnly
+                className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
               />
             </div>
           </div>
@@ -191,6 +194,33 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
         </form>
       )}
 
+      {/* CABEÇALHO ENFÁTICO: ATENDIMENTOS AGENDADOS */}
+      <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-rose-600 text-white rounded-xl shadow-xs shrink-0">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="font-extrabold text-sm sm:text-base uppercase tracking-tight text-stone-900">
+              Atendimentos Agendados
+            </h2>
+            <p className="text-[11px] text-stone-600 font-medium">
+              Seus horários confirmados e histórico de atendimentos concluídos
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="bg-rose-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">
+            {proAppointments.filter((a) => a.status === 'Confirmado').length} ativo(s)
+          </span>
+          {proAppointments.some((a) => a.status === 'Concluído') && (
+            <span className="bg-emerald-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">
+              {proAppointments.filter((a) => a.status === 'Concluído').length} concluído(s)
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Lista de Agendamentos da Cliente */}
       {proAppointments.length === 0 ? (
         <div className="bg-white rounded-3xl p-8 text-center border border-stone-200 space-y-3">
@@ -210,23 +240,61 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
         </div>
       ) : (
         <div className="space-y-3">
+          {proAppointments.filter((a) => a.status === 'Confirmado').length === 0 && (
+            <div className="bg-white rounded-2xl p-4 text-center border border-dashed border-stone-200 flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-xs font-semibold text-stone-500">
+                Nenhum atendimento ativo pendente no momento. Veja abaixo seu histórico de atendimentos concluídos.
+              </p>
+              <button
+                type="button"
+                onClick={onBackToExplore}
+                className="text-xs font-extrabold text-rose-600 hover:underline cursor-pointer"
+              >
+                + Novo Agendamento
+              </button>
+            </div>
+          )}
           {proAppointments.map((app) => {
             const isCancelled = app.status === 'Cancelado';
-            const isCompleted = app.status === 'Concluído' || app.reviewed;
+            const isCompleted = app.status === 'Concluído';
+            const matchedPro = professionals.find(
+              (p) =>
+                (app.proId && p.id === app.proId) ||
+                (app.proSlug && p.slug && p.slug.toLowerCase() === app.proSlug.toLowerCase()) ||
+                (app.proName && p.name && p.name.toLowerCase() === app.proName.toLowerCase())
+            );
+            const resolvedProName = app.proName || matchedPro?.name || proDisplayName || 'Profissional';
+            const resolvedProAvatar =
+              app.proAvatarUrl || matchedPro?.avatarUrl || proAvatarUrl;
+            const resolvedProWhatsapp =
+              app.proWhatsapp || matchedPro?.whatsapp || proWhatsapp;
+
             return (
               <div
                 key={app.id}
                 className={`bg-white rounded-3xl border p-4 shadow-xs space-y-3 transition ${
                   isCancelled
                     ? 'border-stone-200 opacity-65 bg-stone-50'
+                    : isCompleted && !app.reviewed
+                    ? 'border-amber-300 ring-1 ring-amber-200/70'
                     : 'border-stone-200 hover:border-rose-200'
                 }`}
               >
+                {isCompleted && !app.reviewed && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500 shrink-0" />
+                      Atendimento concluído pela profissional! Sua avaliação está liberada.
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
                     <img
-                      src={proAvatarUrl}
-                      alt={app.proName || proDisplayName}
+                      src={resolvedProAvatar}
+                      alt={resolvedProName}
+                      referrerPolicy="no-referrer"
                       className="w-12 h-12 rounded-2xl object-cover border border-stone-200 shrink-0"
                     />
                     <div>
@@ -247,8 +315,17 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                             : '✓ Confirmado'}
                         </span>
                         <span className="text-[11px] text-stone-400 font-medium">
-                          com {app.proName || proDisplayName}
+                          com {resolvedProName}
                         </span>
+                        {app.locationType === 'STUDIO' ? (
+                          <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                            🏢 No Studio
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                            🏡 A Domicílio
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-extrabold text-sm text-stone-900 mt-0.5">
                         {app.serviceName}
@@ -261,7 +338,7 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                       R$ {app.totalPrice.toFixed(2).replace('.', ',')}
                     </span>
                     <span className="text-[10px] text-stone-400">
-                      {app.travelFee === 0
+                      {app.locationType === 'STUDIO' || app.travelFee === 0
                         ? 'Deslocamento Grátis'
                         : `Inclui R$ ${app.travelFee} desloc.`}
                     </span>
@@ -278,7 +355,9 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                   <div className="flex items-center gap-1.5 text-stone-600 truncate">
                     <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
                     <span className="truncate">
-                      {app.address} ({app.neighborhood})
+                      {app.locationType === 'STUDIO'
+                        ? `🏢 Studio: ${app.address}`
+                        : `🏡 ${app.address} (${app.neighborhood})`}
                     </span>
                   </div>
                 </div>
@@ -287,11 +366,11 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                 {!isCancelled && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <a
-                      href={`https://wa.me/${proWhatsapp}?text=${encodeURIComponent(
-                        `Olá, ${proDisplayName}! Tudo bem? Estou falando sobre meu agendamento de *${app.serviceName}* no dia ${app.date
+                      href={`https://wa.me/${resolvedProWhatsapp}?text=${encodeURIComponent(
+                        `Olá, ${resolvedProName}! Tudo bem? Estou falando sobre meu agendamento de *${app.serviceName}* no dia ${app.date
                           .split('-')
                           .reverse()
-                          .join('/')} às ${app.time}.`
+                          .join('/')} às ${app.time}${app.locationType === 'STUDIO' ? ' no Studio' : ' a domicílio'}.`
                       )}`}
                       target="_blank"
                       rel="noreferrer"
@@ -301,19 +380,26 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                       WhatsApp
                     </a>
 
-                    {!app.reviewed ? (
+                    {app.reviewed ? (
+                      <span className="px-3 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-[11px] font-bold flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        Avaliado com sucesso
+                      </span>
+                    ) : isCompleted ? (
                       <button
                         type="button"
                         onClick={() => onOpenReviewForAppointment(app)}
-                        className="flex-1 py-2.5 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        className="flex-1 py-2.5 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                       >
                         <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
                         Avaliar Atendimento
                       </button>
                     ) : (
-                      <span className="px-3 py-2.5 bg-stone-100 text-stone-500 rounded-xl text-[11px] font-bold flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                        Avaliado
+                      <span
+                        className="flex-1 py-2.5 px-3 bg-stone-100 text-stone-500 border border-stone-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5"
+                        title="A avaliação será liberada assim que o atendimento for concluído"
+                      >
+                        🔒 Avaliação após conclusão
                       </span>
                     )}
 

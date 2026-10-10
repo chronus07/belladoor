@@ -11,13 +11,16 @@ export interface MockNeighborhood {
   id: string;
   name: string;
   travelFee: number;
+  city?: string;
+  cep?: string;
+  address?: string;
 }
 
 export interface MockProfessional {
   id: string;
   name: string;
   slug: string;
-  category: 'Maquiagem' | 'Cabelo' | 'Unhas' | 'Sobrancelha' | 'Estética';
+  category: 'Maquiagem' | 'Cabelo' | 'Unhas' | 'Sobrancelha' | 'Estética' | 'Barbearia';
   specialties: string[];
   title: string;
   bio: string;
@@ -30,9 +33,18 @@ export interface MockProfessional {
   whatsapp: string;
   baseCity: string;
   baseNeighborhood: string;
+  baseCep?: string;
+  baseAddress?: string;
   maxTravelKm: number;
   bufferTimeMinutes: number;
+  serviceMode?: 'DOMICILIO' | 'STUDIO' | 'HIBRIDO';
+  studioName?: string;
+  businessNiche?: 'BEAUTY' | 'BARBERSHOP' | 'NEUTRAL';
+  visualTheme?: 'ROSE' | 'DARK_BARBER' | 'EMERALD' | 'MINIMAL';
   workingDays?: number[]; // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  workStartHour?: number;
+  workEndHour?: number;
+  lunchBreakEnabled?: boolean;
   blockedPeriods?: { id: string; startDate: string; endDate: string; reason: string; dates: string[] }[];
   services: MockService[];
   neighborhoods: MockNeighborhood[];
@@ -45,6 +57,8 @@ export const mockProfessional: MockProfessional = {
   name: '',
   slug: 'vitrine',
   category: 'Maquiagem',
+  businessNiche: 'BEAUTY',
+  visualTheme: 'ROSE',
   specialties: [],
   title: '',
   bio: '',
@@ -55,11 +69,18 @@ export const mockProfessional: MockProfessional = {
   coverUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80',
   instagram: '',
   whatsapp: '',
-  baseCity: 'São Paulo',
+  baseCity: '',
   baseNeighborhood: 'Atendimento a Domicílio',
+  baseCep: '',
+  baseAddress: '',
   maxTravelKm: 25,
   bufferTimeMinutes: 30,
+  serviceMode: 'HIBRIDO',
+  studioName: '',
   workingDays: [1, 2, 3, 4, 5, 6],
+  workStartHour: 9,
+  workEndHour: 19,
+  lunchBreakEnabled: true,
   blockedPeriods: [],
   services: [],
   neighborhoods: [],

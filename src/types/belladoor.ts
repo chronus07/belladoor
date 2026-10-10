@@ -2,7 +2,10 @@ export interface ClientAppointment {
   id: string;
   clientName: string;
   clientPhone: string;
+  clientEmail?: string;
+  clientId?: string;
   serviceName: string;
+  durationMinutes?: number;
   date: string;
   time: string;
   address: string;
@@ -10,13 +13,22 @@ export interface ClientAppointment {
   travelFee: number;
   totalPrice: number;
   status: string;
+  locationType?: 'STUDIO' | 'DOMICILIO';
+  locationAddress?: string;
+  proId?: string;
+  proEmail?: string;
   proName?: string;
   proSlug?: string;
+  proAvatarUrl?: string;
+  proWhatsapp?: string;
   reviewed?: boolean;
 }
 
 export interface ClientReview {
   id: string;
+  appointmentId?: string;
+  proId?: string;
+  proSlug?: string;
   clientName: string;
   serviceName: string;
   rating: number;
@@ -39,7 +51,7 @@ export interface UiDialogPayload {
   message: string;
   highlight?: string;
   buttonText?: string;
-  variant?: 'success' | 'warning' | 'rose';
+  variant?: 'success' | 'warning' | 'rose' | 'amber';
 }
 
 export const DEFAULT_REVIEWS: ClientReview[] = [];

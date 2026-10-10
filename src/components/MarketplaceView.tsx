@@ -114,10 +114,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               p.services.length > 0
                 ? Math.min(...p.services.map((s) => Number(s.price) || 0))
                 : p.startingPrice || 0;
-            const mainArea =
+            const mainNeighborhood =
               p.neighborhoods.length > 0
                 ? p.neighborhoods[0].name
                 : p.baseNeighborhood || 'Atendimento a Domicílio';
+            const mainCity = p.neighborhoods[0]?.city || p.baseCity || '';
+            const mainArea = mainCity ? `${mainNeighborhood} • ${mainCity}` : mainNeighborhood;
 
             return (
               <div
@@ -143,6 +145,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     <img
                       src={p.avatarUrl}
                       alt={p.name}
+                      referrerPolicy="no-referrer"
                       className="w-16 h-16 rounded-2xl object-cover border-3 border-white shadow-md bg-white"
                     />
                     <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-xs font-extrabold text-amber-700">
@@ -166,6 +169,21 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                     <p className="text-xs text-rose-600 font-semibold mt-0.5">
                       {p.title || 'Especialista em Beleza a Domicílio'}
                     </p>
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                      {p.serviceMode === 'STUDIO' ? (
+                        <span className="text-[9px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
+                          🏢 No Studio {p.studioName ? `• ${p.studioName}` : ''}
+                        </span>
+                      ) : p.serviceMode === 'DOMICILIO' ? (
+                        <span className="text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
+                          🏡 A Domicílio
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full">
+                          ✨ No Studio & A Domicílio
+                        </span>
+                      )}
+                    </div>
 
                     {/* Especialidades / Serviços */}
                     {p.services.length > 0 && (

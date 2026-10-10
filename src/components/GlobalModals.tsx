@@ -1,5 +1,5 @@
-import React from 'react';
-import { CheckCircle, ShieldCheck, X, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle, ShieldCheck, Ticket, X, Zap } from 'lucide-react';
 import { UiDialogPayload } from '../types/belladoor';
 
 interface GlobalModalsProps {
@@ -10,6 +10,8 @@ interface GlobalModalsProps {
   onCloseTrialModal: () => void;
   onSelectTrialPlan: (plan: 'MONTHLY' | 'ANNUAL') => void;
   onActivateFreeTrial: () => void;
+  onApplyCouponFromModal?: (code: string) => void;
+  onPayNowFromModal?: () => void;
   onCloseUiDialog: () => void;
 }
 
@@ -21,16 +23,20 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
   onCloseTrialModal,
   onSelectTrialPlan,
   onActivateFreeTrial,
+  onApplyCouponFromModal,
+  onPayNowFromModal,
   onCloseUiDialog,
 }) => {
+  const [modalCoupon, setModalCoupon] = useState('');
+
   return (
     <>
       {/* ============================================================ */}
       {/* MODAL: ONBOARDING PROFISSIONAL & TESTE GRÁTIS DE 7 DIAS     */}
       {/* ============================================================ */}
       {showTrialModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 relative border border-stone-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 relative border border-stone-200 my-auto">
             {/* Fechar */}
             <button
               type="button"
@@ -47,7 +53,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                 Bem-vinda ao BellaDoor Pro, {userFullName || 'Profissional'}!
               </h3>
               <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                Seu <strong>teste grátis de 7 dias com acesso ilimitado</strong> está pronto para começar. Escolha a opção de plano para quando seu teste terminar (sem cobrança agora):
+                Escolha como deseja ativar sua conta profissional para iniciar o <strong>Assistente Passo a Passo da sua Vitrine</strong>:
               </p>
             </div>
 
@@ -63,7 +69,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                 }`}
               >
                 <span className="absolute -top-2.5 right-3 bg-rose-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-xs">
-                  Economize 37% (Mais Escolhido)
+                  PIX ou Cartão (Mais Econômico)
                 </span>
                 <div className="flex justify-between items-center">
                   <div>
@@ -74,7 +80,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                   </div>
                   <div className="text-right">
                     <span className="text-base font-extrabold text-stone-900">R$ 299,00</span>
-                    <span className="text-[10px] text-stone-500 block">/ano (economia de R$ 179)</span>
+                    <span className="text-[10px] text-stone-500 block">/ano no PIX ou Cartão</span>
                   </div>
                 </div>
               </div>
@@ -91,15 +97,48 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                 <div className="flex justify-between items-center">
                   <div>
                     <h4 className="font-extrabold text-sm text-stone-900">Plano Mensal</h4>
-                    <p className="text-xs text-stone-500 mt-0.5">Flexibilidade total mês a mês</p>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      R$ 39,90 Cartão Recorrente • R$ 44,90 PIX
+                    </p>
                   </div>
                   <div className="text-right">
                     <span className="text-base font-extrabold text-stone-900">R$ 39,90</span>
-                    <span className="text-[10px] text-stone-500 block">/mês</span>
+                    <span className="text-[10px] text-stone-500 block">/mês no cartão</span>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Campo Rápido de Cupom de Parceria no Onboarding */}
+            {onApplyCouponFromModal && (
+              <div className="bg-rose-50/70 border border-rose-200 p-3 rounded-2xl space-y-2">
+                <p className="text-[11px] font-extrabold text-stone-800 flex items-center gap-1.5">
+                  <Ticket className="w-3.5 h-3.5 text-rose-600" />
+                  Opção 1: Ativar com Cupom de Desconto / Parceria
+                </p>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={modalCoupon}
+                    onChange={(e) => setModalCoupon(e.target.value.toUpperCase())}
+                    placeholder="Digite seu cupom"
+                    className="flex-1 bg-white border border-rose-200 rounded-xl px-3 py-2 text-xs font-extrabold uppercase text-stone-900 placeholder:font-normal placeholder:normal-case focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (modalCoupon.trim()) {
+                        onApplyCouponFromModal(modalCoupon.trim().toUpperCase());
+                        setModalCoupon('');
+                      }
+                    }}
+                    className="px-3 py-2 bg-stone-900 hover:bg-black text-white rounded-xl text-[11px] font-extrabold transition cursor-pointer shrink-0"
+                  >
+                    Ativar Cupom
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Garantia do Teste Grátis */}
             <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl space-y-1.5 text-xs text-emerald-950">
@@ -109,22 +148,37 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
               </div>
               <ul className="text-[11px] space-y-1 text-emerald-800 pl-5 list-disc">
                 <li>
-                  Acesso total a link na bio, rotas Waze, margem de trânsito e fechamento de agenda.
+                  Em seguida, nosso <strong>Assistente Passo a Passo</strong> te guiará para configurar sua Vitrine, Portfólio, Serviços e Taxas.
                 </li>
-                <li>Nenhum valor será cobrado no seu cartão ou PIX hoje.</li>
-                <li>Você pode cancelar a qualquer momento sem taxas.</li>
+                <li>Nenhum valor será cobrado no seu teste grátis hoje.</li>
               </ul>
             </div>
 
-            {/* Botão de Ativação do Teste */}
-            <button
-              type="button"
-              onClick={onActivateFreeTrial}
-              className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
-            >
-              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-              Ativar Meu Teste Grátis de 7 Dias 🚀
-            </button>
+            {/* Botões de Ativação: Teste Grátis 7 Dias ou Pagar Agora */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={onActivateFreeTrial}
+                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+              >
+                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                Usar Plano Gratuito de 7 Dias e Configurar Conta 🚀
+              </button>
+
+              {onPayNowFromModal && (
+                <button
+                  type="button"
+                  onClick={onPayNowFromModal}
+                  className="w-full py-3 bg-stone-900 hover:bg-black text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
+                >
+                  <span>💳</span>
+                  <span>
+                    Fazer o Pagamento Agora (
+                    {selectedTrialPlan === 'ANNUAL' ? 'R$ 299,00/ano' : 'a partir de R$ 39,90/mês'})
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -148,6 +202,8 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                   ? 'bg-gradient-to-br from-emerald-900 via-emerald-800 to-stone-900 text-white'
                   : uiDialog.variant === 'warning'
                   ? 'bg-gradient-to-br from-stone-900 via-amber-950 to-stone-900 text-white'
+                  : uiDialog.variant === 'amber'
+                  ? 'bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white'
                   : 'bg-gradient-to-br from-rose-950 via-rose-900 to-stone-900 text-white'
               }`}
             >
@@ -185,6 +241,8 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                       ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                       : uiDialog.variant === 'warning'
                       ? 'bg-amber-50 border-amber-200 text-amber-900'
+                      : uiDialog.variant === 'amber'
+                      ? 'bg-amber-50 border-amber-300 text-amber-950'
                       : 'bg-rose-50 border-rose-200 text-rose-900'
                   }`}
                 >
@@ -200,10 +258,12 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : uiDialog.variant === 'warning'
                     ? 'bg-stone-900 hover:bg-black'
+                    : uiDialog.variant === 'amber'
+                    ? 'bg-amber-500 hover:bg-amber-600 text-stone-950 font-black'
                     : 'bg-rose-600 hover:bg-rose-700'
                 }`}
               >
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle className={`w-4 h-4 ${uiDialog.variant === 'amber' ? 'text-stone-950' : 'text-white'}`} />
                 {uiDialog.buttonText || 'Continuar'}
               </button>
             </div>

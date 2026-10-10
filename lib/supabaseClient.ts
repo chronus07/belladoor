@@ -10,6 +10,8 @@ import {
   signInWithFirebaseGoogle,
   signUpWithFirebaseEmail,
   signInWithFirebaseEmail,
+  checkFirebaseEmailVerificationStatus,
+  resendFirebaseVerificationEmail,
   signOutFirebaseUser,
 } from './firebaseClient';
 
@@ -17,12 +19,23 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
+  birthDate?: string;
+  emailVerified?: boolean;
   role: 'CLIENT' | 'PROFESSIONAL';
   avatarUrl?: string;
   isTrialActive?: boolean;
   trialDaysLeft?: number;
   trialEndsAt?: string;
   subscriptionPlan?: 'MONTHLY' | 'ANNUAL';
+  subscriptionStatus?: 'TRIAL' | 'ACTIVE';
+  appliedCoupon?: string;
+  couponDaysTotal?: number;
+  paymentMethod?: 'PIX' | 'CARD_RECURRING' | 'COUPON';
+  autoRenewCanceled?: boolean;
+  autoRenewCanceledAt?: string;
+  onboardingCompleted?: boolean;
+  lgpdConsentAt?: string;
+  lgpdPolicyVersion?: string;
 }
 
 export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
@@ -46,10 +59,12 @@ export const getSupabaseClient = (): SupabaseClient | null => {
  * Inicia o fluxo de login social com Google (prioriza Google Firebase Auth)
  */
 export async function signInWithGoogleOAuth(
-  role: 'CLIENT' | 'PROFESSIONAL'
-): Promise<{ user?: AuthUser; error?: string }> {
+  role: 'CLIENT' | 'PROFESSIONAL',
+  authMode: 'LOGIN' | 'REGISTER' = 'LOGIN',
+  roleExplicitlyChosen: boolean = false
+): Promise<{ user?: AuthUser; isExistingUser?: boolean; error?: string }> {
   if (isFirebaseConfigured()) {
-    return signInWithFirebaseGoogle(role);
+    return signInWithFirebaseGoogle(role, authMode, roleExplicitlyChosen);
   }
 
   const supabase = getSupabaseClient();
@@ -85,10 +100,11 @@ export async function signUpWithEmail(
   email: string,
   pass: string,
   fullName: string,
-  role: 'CLIENT' | 'PROFESSIONAL'
-): Promise<{ user?: AuthUser; error?: string }> {
+  role: 'CLIENT' | 'PROFESSIONAL',
+  birthDate?: string
+): Promise<{ user?: AuthUser; requiresEmailVerification?: boolean; error?: string }> {
   if (isFirebaseConfigured()) {
-    return signUpWithFirebaseEmail(email, pass, fullName, role);
+    return signUpWithFirebaseEmail(email, pass, fullName, role, birthDate);
   }
 
   const supabase = getSupabaseClient();
@@ -102,12 +118,14 @@ export async function signUpWithEmail(
       id: `usr-${Date.now()}`,
       email,
       fullName: fullName || email.split('@')[0],
+      birthDate,
+      emailVerified: false,
       role,
       isTrialActive: role === 'PROFESSIONAL',
       trialDaysLeft: 7,
       trialEndsAt: role === 'PROFESSIONAL' ? trialEndsAt : undefined,
     };
-    return { user: simulatedUser };
+    return { user: simulatedUser, requiresEmailVerification: true };
   }
 
   try {
@@ -117,6 +135,7 @@ export async function signUpWithEmail(
       options: {
         data: {
           full_name: fullName,
+          birth_date: birthDate || null,
           role,
           trial_ends_at: role === 'PROFESSIONAL' ? trialEndsAt : null,
         },
@@ -130,13 +149,15 @@ export async function signUpWithEmail(
       id: data.user.id,
       email: data.user.email || email,
       fullName: fullName || data.user.user_metadata?.full_name || email.split('@')[0],
+      birthDate,
+      emailVerified: false,
       role,
       isTrialActive: role === 'PROFESSIONAL',
       trialDaysLeft: 7,
       trialEndsAt: role === 'PROFESSIONAL' ? trialEndsAt : undefined,
     };
 
-    return { user };
+    return { user, requiresEmailVerification: true };
   } catch (err: any) {
     return { error: err.message || 'Falha no cadastro.' };
   }
@@ -147,10 +168,11 @@ export async function signUpWithEmail(
  */
 export async function signInWithEmail(
   email: string,
-  pass: string
-): Promise<{ user?: AuthUser; error?: string }> {
+  pass: string,
+  preferredRole: 'CLIENT' | 'PROFESSIONAL' = 'CLIENT'
+): Promise<{ user?: AuthUser; requiresEmailVerification?: boolean; error?: string }> {
   if (isFirebaseConfigured()) {
-    return signInWithFirebaseEmail(email, pass);
+    return signInWithFirebaseEmail(email, pass, preferredRole);
   }
 
   const supabase = getSupabaseClient();
@@ -185,6 +207,7 @@ export async function signInWithEmail(
       id: data.user.id,
       email: data.user.email || email,
       fullName: data.user.user_metadata?.full_name || email.split('@')[0],
+      birthDate: data.user.user_metadata?.birth_date || undefined,
       role: userRole,
       isTrialActive: userRole === 'PROFESSIONAL',
       trialDaysLeft: 7,
@@ -195,6 +218,32 @@ export async function signInWithEmail(
   } catch (err: any) {
     return { error: err.message || 'Falha no login.' };
   }
+}
+
+/**
+ * Verifica se o e-mail já foi confirmado pelo link enviado
+ */
+export async function checkEmailVerificationStatus(
+  email: string,
+  pass?: string
+): Promise<{ verified: boolean; user?: AuthUser; error?: string }> {
+  if (isFirebaseConfigured()) {
+    return checkFirebaseEmailVerificationStatus(email, pass);
+  }
+  return { verified: true };
+}
+
+/**
+ * Reenvia o e-mail de validação
+ */
+export async function resendVerificationEmail(
+  email: string,
+  pass?: string
+): Promise<{ sent: boolean; error?: string }> {
+  if (isFirebaseConfigured()) {
+    return resendFirebaseVerificationEmail(email, pass);
+  }
+  return { sent: true };
 }
 
 /**
