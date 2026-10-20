@@ -18,16 +18,31 @@ import {
   X,
   Image,
   Navigation,
+  ShieldCheck,
+  QrCode,
+  RotateCcw,
+  Sliders,
+  Eye,
+  Check,
+  FileText,
 } from 'lucide-react';
 import { MockService, MockNeighborhood } from '../data/mockData';
+import { BookingConfirmationSettings, PixKeyType } from '../types/belladoor';
+import {
+  PIX_KEY_LABELS,
+  getDefaultMessageTemplate,
+  formatConfirmationMessage,
+  calculateDeposit,
+} from '../utils/bookingRules';
 
 interface ProOnboardingWizardModalProps {
   isOpen: boolean;
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3 | 4 | 5;
   activationBadge?: string | null;
-  onSelectStep: (step: 1 | 2 | 3 | 4) => void;
+  onSelectStep: (step: 1 | 2 | 3 | 4 | 5) => void;
   onSkip: () => void;
   onFinish: () => void;
+  isBarbershop?: boolean;
 
   // Passo 1: Vitrine & Foto de Perfil
   proDisplayName: string;
@@ -71,6 +86,10 @@ interface ProOnboardingWizardModalProps {
   proNeighborhoodsList: MockNeighborhood[];
   setProNeighborhoodsList: (list: MockNeighborhood[]) => void;
   dynamicCitySuggestions: string[];
+
+  // Passo 5: Regras de Agendamento & Sinal (Anti-Furo)
+  bookingRules: BookingConfirmationSettings;
+  setBookingRules: React.Dispatch<React.SetStateAction<BookingConfirmationSettings>>;
 }
 
 export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> = ({
@@ -80,6 +99,9 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
   onSelectStep,
   onSkip,
   onFinish,
+  isBarbershop,
+  bookingRules,
+  setBookingRules,
   proDisplayName,
   setProDisplayName,
   proDisplayTitle,
@@ -305,6 +327,67 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
     setAreaError(null);
   };
 
+  // Estados internos do Passo 5 (Cobrança de Sinal & Regras)
+  const [isEditingWizardTemplate, setIsEditingWizardTemplate] = useState<boolean>(false);
+
+  // Handlers internos do Passo 5 (Cobrança de Sinal)
+  const handleToggleDepositInWizard = (checked: boolean) => {
+    setBookingRules((prev) => {
+      const currentTpl = prev.customMessageTemplate;
+      if (checked) {
+        const nextTpl =
+          prev.templateWithDeposit && prev.templateWithDeposit.includes('{valor_sinal}')
+            ? prev.templateWithDeposit
+            : getDefaultMessageTemplate(isBarbershop, true);
+        return {
+          ...prev,
+          requireDeposit: true,
+          templateWithoutDeposit: currentTpl,
+          customMessageTemplate: nextTpl,
+        };
+      } else {
+        const nextTpl =
+          prev.templateWithoutDeposit && !prev.templateWithoutDeposit.includes('{valor_sinal}')
+            ? prev.templateWithoutDeposit
+            : getDefaultMessageTemplate(isBarbershop, false);
+        return {
+          ...prev,
+          requireDeposit: false,
+          templateWithDeposit: currentTpl,
+          customMessageTemplate: nextTpl,
+        };
+      }
+    });
+    showNotice(
+      checked
+        ? '💰 Sinal de 50% ativado! Chave PIX e dados de reserva solicitados.'
+        : '📝 Cobrança de sinal desativada. Atendimento sem valor antecipado.'
+    );
+  };
+
+  const sampleWizardBooking = {
+    clientName: 'Mariana Silva',
+    serviceName: proServicesList[0]?.name || (isBarbershop ? 'Corte Degradê + Barba' : 'Maquiagem Social Completa'),
+    date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+    time: '15:30',
+    locationType: 'STUDIO' as const,
+    address: proBaseAddress || 'Studio da Profissional',
+    totalPrice: proServicesList[0]?.price || (isBarbershop ? 80.0 : 160.0),
+  };
+
+  const wizardPreviewMessage = formatConfirmationMessage({
+    settings: bookingRules,
+    booking: sampleWizardBooking,
+    proName: proDisplayName || 'Profissional',
+    proWhatsapp: proWhatsapp,
+    isBarbershop,
+  });
+
+  const { depositAmount: wizardDepositAmount, remainingAmount: wizardRemainingAmount } = calculateDeposit(
+    sampleWizardBooking.totalPrice,
+    bookingRules
+  );
+
   return (
     <div className="fixed inset-0 z-[75] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh]">
@@ -317,7 +400,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
                   <Sparkles className="w-3 h-3" />
-                  Assistente de Configuração • Passo {step} de 4
+                  Assistente de Configuração • Passo {step} de 5
                 </span>
                 {activationBadge && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full">
@@ -332,6 +415,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                 {step === 2 && '2. Adicione as Fotos do seu Portfólio'}
                 {step === 3 && '3. Cadastre seus Serviços e Valores'}
                 {step === 4 && '4. Defina sua Base e Taxas de Deslocamento'}
+                {step === 5 && '5. Regras de Agendamento & Sinal (Anti-Furo)'}
               </h2>
               <p className="text-[11px] text-stone-300 mt-0.5">
                 {step === 1 &&
@@ -342,6 +426,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                   'Cadastre os serviços que você realiza, valores (R$) e tempo de duração.'}
                 {step === 4 &&
                   'Informe seu endereço base e cadastre os bairros que você atende com suas taxas de deslocamento.'}
+                {step === 5 &&
+                  'Ative o sinal de 50% para garantir os horários na agenda, informe sua chave PIX e personalize a mensagem do WhatsApp.'}
               </p>
             </div>
 
@@ -356,13 +442,14 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
             </button>
           </div>
 
-          {/* Barra de Progresso Interativa (Passos 1 a 4) */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mt-4">
+          {/* Barra de Progresso Interativa (Passos 1 a 5) */}
+          <div className="grid grid-cols-5 gap-1 sm:gap-1.5 mt-4">
             {[
-              { s: 1 as const, label: '1. Vitrine & Foto' },
-              { s: 2 as const, label: '2. Portfólios' },
+              { s: 1 as const, label: '1. Vitrine' },
+              { s: 2 as const, label: '2. Fotos' },
               { s: 3 as const, label: '3. Serviços' },
-              { s: 4 as const, label: '4. Base & Taxas' },
+              { s: 4 as const, label: '4. Regiões' },
+              { s: 5 as const, label: '5. Sinal 💰' },
             ].map((item) => {
               const isCurrent = step === item.s;
               const isDone = step > item.s;
@@ -1310,6 +1397,464 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
               </div>
             </div>
           )}
+
+          {/* ==================================================================== */}
+          {/* PASSO 5: REGRAS DE AGENDAMENTO, SINAL DE 50% & WHATSAPP              */}
+          {/* ==================================================================== */}
+          {step === 5 && (
+            <div className="space-y-4">
+              {/* CARD 1: COBRANÇA DE SINAL */}
+              <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 shadow-2xs space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 bg-emerald-600 text-white rounded-2xl shrink-0 mt-0.5 shadow-xs">
+                      <DollarSign className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-extrabold text-stone-900">
+                          Cobrar Sinal para Garantir o Horário (Anti-Furo)
+                        </h4>
+                        <span
+                          className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                            bookingRules.requireDeposit
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-stone-200 text-stone-700'
+                          }`}
+                        >
+                          {bookingRules.requireDeposit ? 'Sinal Ativo' : 'Sinal Desativado'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                        {bookingRules.requireDeposit
+                          ? 'Exige que a cliente pague uma porcentagem antecipada (sinal) via PIX para travar a vaga na sua agenda e garantir que não falte.'
+                          : 'O agendamento fica pré-confirmado sem pagamento antecipado. A cliente acerta o valor total no dia do atendimento.'}
+                      </p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                    <input
+                      type="checkbox"
+                      checked={bookingRules.requireDeposit}
+                      onChange={(e) => handleToggleDepositInWizard(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+
+                {bookingRules.requireDeposit && (
+                  <div className="mt-4 pt-3.5 border-t border-emerald-200/80 space-y-2.5">
+                    <label className="block text-xs font-bold text-stone-800">
+                      Porcentagem do Sinal de Confirmação:
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {[30, 50, 100].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() =>
+                            setBookingRules((prev) => ({ ...prev, depositPercentage: pct }))
+                          }
+                          className={`py-1.5 px-3.5 rounded-xl text-xs font-extrabold transition cursor-pointer border ${
+                            bookingRules.depositPercentage === pct
+                              ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                              : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
+                          }`}
+                        >
+                          {pct}% {pct === 50 && '⭐ (Mais Usado)'} {pct === 100 && '(Integral)'}
+                        </button>
+                      ))}
+                      <div className="flex items-center gap-1 bg-white border border-stone-300 rounded-xl px-2.5 py-1">
+                        <span className="text-xs text-stone-500 font-bold">Outro:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={bookingRules.depositPercentage}
+                          onChange={(e) =>
+                            setBookingRules((prev) => ({
+                              ...prev,
+                              depositPercentage: Math.min(
+                                100,
+                                Math.max(1, Number(e.target.value) || 50)
+                              ),
+                            }))
+                          }
+                          className="w-12 text-xs font-bold text-stone-900 outline-none text-right"
+                        />
+                        <span className="text-xs text-stone-500 font-bold">%</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-emerald-800 bg-white/80 p-2.5 rounded-xl border border-emerald-200/60 leading-relaxed">
+                      💡 <strong>Simulação com seu serviço:</strong> Em um atendimento de{' '}
+                      <strong>
+                        R$ {sampleWizardBooking.totalPrice.toFixed(2).replace('.', ',')}
+                      </strong>{' '}
+                      ({sampleWizardBooking.serviceName}), a cliente pagará{' '}
+                      <strong className="text-emerald-700">
+                        R$ {wizardDepositAmount.toFixed(2).replace('.', ',')}
+                      </strong>{' '}
+                      de sinal no PIX e o restante de{' '}
+                      <strong>
+                        R$ {wizardRemainingAmount.toFixed(2).replace('.', ',')}
+                      </strong>{' '}
+                      no atendimento.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* CARD 2: DADOS DO PIX */}
+              {bookingRules.requireDeposit && (
+                <div className="bg-white rounded-3xl border border-stone-200 p-4 sm:p-5 space-y-4 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-4 h-4 text-emerald-600" />
+                      <h4 className="font-extrabold text-xs text-stone-900 uppercase tracking-wider">
+                        Chave PIX para Recebimento do Sinal
+                      </h4>
+                    </div>
+                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                      Recebimento
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                        Tipo de Chave PIX:
+                      </label>
+                      <select
+                        value={bookingRules.pixKeyType}
+                        onChange={(e) =>
+                          setBookingRules((prev) => ({
+                            ...prev,
+                            pixKeyType: e.target.value as PixKeyType,
+                          }))
+                        }
+                        className="w-full text-xs font-medium p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="PHONE">Celular / WhatsApp</option>
+                        <option value="CPF">CPF</option>
+                        <option value="CNPJ">CNPJ</option>
+                        <option value="EMAIL">E-mail</option>
+                        <option value="RANDOM">Chave Aleatória</option>
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-stone-600">
+                          Chave PIX:
+                        </label>
+                        {proWhatsapp && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cleanPhone = proWhatsapp.replace(/\D/g, '');
+                              setBookingRules((prev) => ({
+                                ...prev,
+                                pixKey: cleanPhone,
+                                pixKeyType: 'PHONE',
+                              }));
+                              showNotice('📱 Chave PIX preenchida com seu WhatsApp!');
+                            }}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                          >
+                            Usar meu WhatsApp ({proWhatsapp})
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={bookingRules.pixKey}
+                        onChange={(e) =>
+                          setBookingRules((prev) => ({ ...prev, pixKey: e.target.value }))
+                        }
+                        placeholder="Ex: 11987654321 ou seu e-mail / chave aleatória"
+                        className="w-full text-xs font-mono font-bold p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-stone-600">
+                          Titular da Conta (para conferência):
+                        </label>
+                        {proDisplayName && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBookingRules((prev) => ({
+                                ...prev,
+                                pixReceiverName: proDisplayName,
+                              }));
+                              showNotice(`👤 Titular preenchido com "${proDisplayName}"!`);
+                            }}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                          >
+                            Usar meu Nome
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={bookingRules.pixReceiverName}
+                        onChange={(e) =>
+                          setBookingRules((prev) => ({
+                            ...prev,
+                            pixReceiverName: e.target.value,
+                          }))
+                        }
+                        placeholder={proDisplayName || 'Seu Nome Completo'}
+                        className="w-full text-xs font-medium p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                        Prazo para Envio do Comprovante:
+                      </label>
+                      <select
+                        value={bookingRules.depositTimeLimitHours}
+                        onChange={(e) =>
+                          setBookingRules((prev) => ({
+                            ...prev,
+                            depositTimeLimitHours: Number(e.target.value),
+                          }))
+                        }
+                        className="w-full text-xs font-medium p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value={1}>Até 1 hora após agendamento</option>
+                        <option value={2}>Até 2 horas (Recomendado)</option>
+                        <option value={4}>Até 4 horas</option>
+                        <option value={12}>Até 12 horas</option>
+                        <option value={24}>Até 24 horas</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CARD 3: TOLERÂNCIAS E REGRAS */}
+              <div className="bg-white rounded-3xl border border-stone-200 p-4 sm:p-5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-emerald-600" />
+                    <h4 className="font-extrabold text-xs text-stone-900 uppercase tracking-wider">
+                      Tolerância e Regras de Atendimento
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-stone-400 font-bold">
+                    Políticas do Atendimento
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                      Tolerância Máxima de Atraso:
+                    </label>
+                    <select
+                      value={bookingRules.delayToleranceMinutes}
+                      onChange={(e) =>
+                        setBookingRules((prev) => ({
+                          ...prev,
+                          delayToleranceMinutes: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full text-xs font-medium p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value={10}>10 minutos</option>
+                      <option value={15}>15 minutos (Padrão)</option>
+                      <option value={20}>20 minutos</option>
+                      <option value={30}>30 minutos</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                      Aviso Mínimo de Cancelamento:
+                    </label>
+                    <select
+                      value={bookingRules.cancellationNoticeHours}
+                      onChange={(e) =>
+                        setBookingRules((prev) => ({
+                          ...prev,
+                          cancellationNoticeHours: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full text-xs font-medium p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value={12}>12 horas</option>
+                      <option value={24}>24 horas (Recomendado)</option>
+                      <option value={48}>48 horas</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                    Orientações Adicionais para a Cliente (Opcional):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={bookingRules.customRules}
+                    onChange={(e) =>
+                      setBookingRules((prev) => ({ ...prev, customRules: e.target.value }))
+                    }
+                    placeholder="Ex: Comparecer pontualmente no local agendado. Em caso de cancelamento sem aviso prévio, o sinal não é estornado."
+                    className="w-full text-xs p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* CARD 4: MENSAGEM DO WHATSAPP (ANTI-FURO) */}
+              <div className="bg-white rounded-3xl border border-stone-200 p-4 sm:p-5 space-y-3.5 shadow-xs">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-2.5 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-emerald-600" />
+                    <div>
+                      <h4 className="font-extrabold text-xs text-stone-900 uppercase tracking-wider">
+                        Mensagem do WhatsApp (Anti-Furo)
+                      </h4>
+                      <p className="text-[10px] text-stone-500">
+                        Mensagem pronta que a cliente envia ao finalizar o agendamento
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingWizardTemplate(!isEditingWizardTemplate)}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-700 transition flex items-center gap-1 cursor-pointer"
+                  >
+                    {isEditingWizardTemplate ? (
+                      <>
+                        <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Ver Prévia</span>
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Editar Texto</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {!isEditingWizardTemplate ? (
+                  <div className="bg-[#e5ddd5] p-3 rounded-2xl border border-stone-200 overflow-hidden">
+                    <div className="bg-[#dcf8c6] text-stone-900 p-3 rounded-2xl rounded-tr-xs shadow-xs text-xs whitespace-pre-wrap leading-relaxed border border-[#b2d8a0]/40 font-sans">
+                      {wizardPreviewMessage}
+                      <div className="text-[9px] text-stone-500 text-right mt-1 flex items-center justify-end gap-1 font-bold">
+                        <span>15:31</span>
+                        <span className="text-sky-600">✓✓</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-stone-600 text-center mt-2 font-medium">
+                      {bookingRules.requireDeposit
+                        ? '✨ Formato automático: inclui dados do serviço, 50% de sinal no PIX e regras.'
+                        : '✨ Formato automático: confirmação direta do horário e regras sem exigência de sinal.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[11px] font-extrabold text-stone-700 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        Clique para inserir tags dinâmicas:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const defTpl = getDefaultMessageTemplate(
+                            isBarbershop,
+                            bookingRules.requireDeposit
+                          );
+                          setBookingRules((prev) => ({
+                            ...prev,
+                            customMessageTemplate: defTpl,
+                            templateWithDeposit: prev.requireDeposit
+                              ? defTpl
+                              : prev.templateWithDeposit,
+                            templateWithoutDeposit: !prev.requireDeposit
+                              ? defTpl
+                              : prev.templateWithoutDeposit,
+                          }));
+                          showNotice('Texto restaurado para o padrão!');
+                        }}
+                        className="text-[10px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Restaurar Padrão
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        '{cliente}',
+                        '{servico}',
+                        '{data}',
+                        '{horario}',
+                        '{local}',
+                        '{valor_total}',
+                        ...(bookingRules.requireDeposit
+                          ? ['{valor_sinal}', '{chave_pix}', '{titular_pix}', '{prazo_sinal}']
+                          : []),
+                        '{tolerancia}',
+                        '{aviso_cancelamento}',
+                        '{regras}',
+                      ].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            setBookingRules((prev) => {
+                              const updated = `${prev.customMessageTemplate || ''} ${tag}`;
+                              return {
+                                ...prev,
+                                customMessageTemplate: updated,
+                                templateWithDeposit: prev.requireDeposit
+                                  ? updated
+                                  : prev.templateWithDeposit,
+                                templateWithoutDeposit: !prev.requireDeposit
+                                  ? updated
+                                  : prev.templateWithoutDeposit,
+                              };
+                            });
+                          }}
+                          className="px-2 py-0.5 bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 border border-stone-200 rounded-md text-[10px] font-mono font-bold cursor-pointer transition"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+
+                    <textarea
+                      rows={8}
+                      value={bookingRules.customMessageTemplate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setBookingRules((prev) => ({
+                          ...prev,
+                          customMessageTemplate: val,
+                          templateWithDeposit: prev.requireDeposit ? val : prev.templateWithDeposit,
+                          templateWithoutDeposit: !prev.requireDeposit
+                            ? val
+                            : prev.templateWithoutDeposit,
+                        }));
+                      }}
+                      className="w-full text-xs font-mono p-3 bg-stone-50 border border-stone-300 rounded-2xl focus:bg-white focus:ring-2 focus:ring-emerald-500 leading-relaxed"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ==================================================================== */}
@@ -1328,7 +1873,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
             {step > 1 && (
               <button
                 type="button"
-                onClick={() => onSelectStep((step - 1) as 1 | 2 | 3 | 4)}
+                onClick={() => onSelectStep((step - 1) as 1 | 2 | 3 | 4 | 5)}
                 className="text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-2.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -1336,10 +1881,10 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
               </button>
             )}
 
-            {step < 4 ? (
+            {step < 5 ? (
               <button
                 type="button"
-                onClick={() => onSelectStep((step + 1) as 1 | 2 | 3 | 4)}
+                onClick={() => onSelectStep((step + 1) as 1 | 2 | 3 | 4 | 5)}
                 className="text-xs font-extrabold bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>
@@ -1348,7 +1893,9 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                     ? 'Portfólios 📸'
                     : step === 2
                     ? 'Serviços e Valores 💅'
-                    : 'Base e Taxas 🚗'}
+                    : step === 3
+                    ? 'Base e Taxas 🚗'
+                    : 'Sinal & Regras 💰'}
                 </span>
                 <ChevronRight className="w-4 h-4" />
               </button>

@@ -2068,7 +2068,7 @@ export default function App() {
   // =========================================================================
   // ASSISTENTE PASSO A PASSO DE CONFIGURAÇÃO DA CONTA PROFISSIONAL (EM JANELA MODAL)
   // =========================================================================
-  const [onboardingWizardStep, setOnboardingWizardStep] = useState<1 | 2 | 3 | 4 | null>(null);
+  const [onboardingWizardStep, setOnboardingWizardStep] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const [wizardActivationBadge, setWizardActivationBadge] = useState<string | null>(null);
   const [pendingWizardAfterPayment, setPendingWizardAfterPayment] = useState<boolean>(false);
 
@@ -2121,7 +2121,7 @@ export default function App() {
     }
   };
 
-  const goToWizardStep = (step: 1 | 2 | 3 | 4) => {
+  const goToWizardStep = (step: 1 | 2 | 3 | 4 | 5) => {
     setOnboardingWizardStep(step);
   };
 
@@ -2149,6 +2149,12 @@ export default function App() {
     if (proBaseCity.trim()) {
       handleSaveBaseLocation();
     }
+    if (activeProKey && bookingRules) {
+      try {
+        localStorage.setItem(`belladoor_v2_booking_rules_${activeProKey}`, JSON.stringify(bookingRules));
+      } catch {}
+      syncDocumentToFirestore(`pro_booking_rules_${activeProKey}`, bookingRules);
+    }
     setOnboardingWizardStep(null);
     setWizardActivationBadge(null);
     setPendingWizardAfterPayment(false);
@@ -2158,7 +2164,7 @@ export default function App() {
       badge: 'Configuração Concluída!',
       title: `Parabéns, ${proDisplayName || currentUser?.fullName || 'Profissional'}!`,
       message:
-        'Sua Vitrine, Portfólio, Serviços e Regiões de Atendimento foram configurados! Agora é só copiar seu link exclusivo e divulgar para seus clientes no Instagram e WhatsApp.',
+        'Sua Vitrine, Portfólio, Serviços, Regiões de Atendimento e Regras de Agendamento (Sinal) foram configurados! Agora é só copiar seu link exclusivo e divulgar para seus clientes no Instagram e WhatsApp.',
       highlight: `Seu link exclusivo: bellador.web.app/?pro=${dynamicSlug}`,
       buttonText: 'Ir para Minha Agenda 📅',
       variant: 'success',
@@ -9656,6 +9662,9 @@ export default function App() {
         onSelectStep={goToWizardStep}
         onSkip={skipProOnboardingWizard}
         onFinish={finishProOnboardingWizard}
+        isBarbershop={proBusinessNiche === 'BARBERSHOP'}
+        bookingRules={bookingRules}
+        setBookingRules={setBookingRules}
         proDisplayName={proDisplayName}
         setProDisplayName={setProDisplayName}
         proDisplayTitle={proDisplayTitle}
