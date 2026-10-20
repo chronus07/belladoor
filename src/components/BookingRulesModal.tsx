@@ -16,6 +16,7 @@ import {
   Eye,
   Sliders,
   FileText,
+  CheckCircle,
 } from 'lucide-react';
 import { BookingConfirmationSettings, PixKeyType } from '../types/belladoor';
 import {
@@ -96,19 +97,57 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
     }, 900);
   };
 
+  const handleToggleDeposit = (checked: boolean) => {
+    setSettings((prev) => {
+      const currentTpl = prev.customMessageTemplate;
+      if (checked) {
+        // Ativando cobrança de sinal: restaura o template com sinal ou gera o padrão
+        const nextTpl =
+          prev.templateWithDeposit && prev.templateWithDeposit.includes('{valor_sinal}')
+            ? prev.templateWithDeposit
+            : getDefaultMessageTemplate(isBarbershop, true);
+        return {
+          ...prev,
+          requireDeposit: true,
+          templateWithoutDeposit: currentTpl,
+          customMessageTemplate: nextTpl,
+        };
+      } else {
+        // Desativando cobrança de sinal: restaura o template sem sinal ou gera o padrão
+        const nextTpl =
+          prev.templateWithoutDeposit && !prev.templateWithoutDeposit.includes('{valor_sinal}')
+            ? prev.templateWithoutDeposit
+            : getDefaultMessageTemplate(isBarbershop, false);
+        return {
+          ...prev,
+          requireDeposit: false,
+          templateWithDeposit: currentTpl,
+          customMessageTemplate: nextTpl,
+        };
+      }
+    });
+  };
+
   const handleResetTemplate = () => {
     const defaultTpl = getDefaultMessageTemplate(isBarbershop, settings.requireDeposit);
     setSettings((prev) => ({
       ...prev,
       customMessageTemplate: defaultTpl,
+      templateWithDeposit: prev.requireDeposit ? defaultTpl : prev.templateWithDeposit,
+      templateWithoutDeposit: !prev.requireDeposit ? defaultTpl : prev.templateWithoutDeposit,
     }));
   };
 
   const insertTag = (tag: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      customMessageTemplate: `${prev.customMessageTemplate || ''} ${tag}`,
-    }));
+    setSettings((prev) => {
+      const updated = `${prev.customMessageTemplate || ''} ${tag}`;
+      return {
+        ...prev,
+        customMessageTemplate: updated,
+        templateWithDeposit: prev.requireDeposit ? updated : prev.templateWithDeposit,
+        templateWithoutDeposit: !prev.requireDeposit ? updated : prev.templateWithoutDeposit,
+      };
+    });
   };
 
   const handleTestWhatsApp = () => {
@@ -230,9 +269,7 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                     <input
                       type="checkbox"
                       checked={settings.requireDeposit}
-                      onChange={(e) =>
-                        setSettings((prev) => ({ ...prev, requireDeposit: e.target.checked }))
-                      }
+                      onChange={(e) => handleToggleDeposit(e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -456,6 +493,40 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
           {/* ========================================================================= */}
           {activeTab === 'message' && (
             <div className="space-y-4">
+              {/* STATUS DO MODO ATUAL DA MENSAGEM */}
+              <div
+                className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+                  settings.requireDeposit
+                    ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
+                    : 'bg-amber-50 text-amber-950 border-amber-300'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">{settings.requireDeposit ? '💰' : '📝'}</span>
+                  <div>
+                    <p className="font-extrabold text-xs">
+                      {settings.requireDeposit
+                        ? `Mensagem configurada para Agendamentos COM Sinal (${settings.depositPercentage}%)`
+                        : 'Mensagem configurada para Agendamentos SEM cobrança de sinal'}
+                    </p>
+                    <p className="text-[11px] text-stone-600 mt-0.5">
+                      {settings.requireDeposit
+                        ? 'Contém os dados do serviço, valor de sinal de 50%, chave PIX e regras de agendamento.'
+                        : 'Contém a confirmação direta do horário, orientações e regras sem cobrança antecipada.'}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full shrink-0 shadow-2xs ${
+                    settings.requireDeposit
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-amber-500 text-white'
+                  }`}
+                >
+                  {settings.requireDeposit ? 'Sinal Ativo' : 'Sinal Desativado'}
+                </span>
+              </div>
+
               <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200">
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                   <div className="flex items-center gap-1.5 text-xs font-extrabold text-stone-800">
@@ -480,13 +551,17 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                     { tag: '{horario}', label: 'Horário' },
                     { tag: '{local}', label: 'Local' },
                     { tag: '{valor_total}', label: 'Valor Total' },
-                    { tag: '{valor_sinal}', label: 'Sinal 50%' },
-                    { tag: '{porcentagem_sinal}', label: '% Sinal' },
-                    { tag: '{restante}', label: 'Restante' },
-                    { tag: '{chave_pix}', label: 'Chave PIX' },
-                    { tag: '{tipo_chave}', label: 'Tipo Chave' },
-                    { tag: '{titular_pix}', label: 'Titular PIX' },
-                    { tag: '{prazo_sinal}', label: 'Prazo Sinal' },
+                    ...(settings.requireDeposit
+                      ? [
+                          { tag: '{valor_sinal}', label: 'Sinal 50%' },
+                          { tag: '{porcentagem_sinal}', label: '% Sinal' },
+                          { tag: '{restante}', label: 'Restante' },
+                          { tag: '{chave_pix}', label: 'Chave PIX' },
+                          { tag: '{tipo_chave}', label: 'Tipo Chave' },
+                          { tag: '{titular_pix}', label: 'Titular PIX' },
+                          { tag: '{prazo_sinal}', label: 'Prazo Sinal' },
+                        ]
+                      : []),
                     { tag: '{tolerancia}', label: 'Tolerância' },
                     { tag: '{aviso_cancelamento}', label: 'Aviso Cancelamento' },
                     { tag: '{regras}', label: 'Bloco de Regras' },
@@ -511,9 +586,15 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                 <textarea
                   rows={14}
                   value={settings.customMessageTemplate}
-                  onChange={(e) =>
-                    setSettings((prev) => ({ ...prev, customMessageTemplate: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const newTpl = e.target.value;
+                    setSettings((prev) => ({
+                      ...prev,
+                      customMessageTemplate: newTpl,
+                      templateWithDeposit: prev.requireDeposit ? newTpl : prev.templateWithDeposit,
+                      templateWithoutDeposit: !prev.requireDeposit ? newTpl : prev.templateWithoutDeposit,
+                    }));
+                  }}
                   className="w-full text-xs font-mono p-3 bg-stone-50 border border-stone-300 rounded-2xl focus:bg-white focus:ring-2 focus:ring-emerald-500 leading-relaxed"
                 />
                 <p className="text-[11px] text-stone-400 mt-1">
@@ -647,8 +728,25 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-600 text-center">
-                      Sinal de reserva desativado. O valor total será pago no dia do atendimento.
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-br from-stone-50 via-emerald-50/20 to-stone-50 border border-stone-200 shadow-2xs space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-stone-800 flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                          Pagamento Direto no Atendimento
+                        </span>
+                        <span className="text-[10px] font-extrabold bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full">
+                          Sem Sinal Prévio
+                        </span>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-stone-200 text-center">
+                        <p className="text-[10px] text-stone-500 font-bold">Valor Total a Pagar no Dia</p>
+                        <p className="text-base font-black text-stone-900">
+                          R$ {sampleBooking.totalPrice.toFixed(2).replace('.', ',')}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-stone-500 leading-relaxed text-center">
+                        A cliente não precisa adiantar sinal. Ela faz o pagamento integral de <strong>R$ {sampleBooking.totalPrice.toFixed(2).replace('.', ',')}</strong> no dia do atendimento.
+                      </p>
                     </div>
                   )}
 
@@ -664,6 +762,21 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                         <li className="whitespace-pre-wrap">{settings.customRules}</li>
                       )}
                     </ul>
+                  </div>
+
+                  {/* BOTÃO SIMULADO DA CLIENTE NA TELA WEB */}
+                  <div className="pt-1">
+                    <div className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs opacity-95 cursor-default select-none">
+                      <MessageCircle className="w-4 h-4" />
+                      {settings.requireDeposit
+                        ? 'Enviar Comprovante e Confirmar no WhatsApp'
+                        : `Confirmar no WhatsApp de ${proName || 'Profissional'}`}
+                    </div>
+                    <p className="text-[10px] text-stone-400 text-center mt-1">
+                      {settings.requireDeposit
+                        ? '💡 Botão que a cliente clica na tela web após finalizar a pré-reserva com sinal.'
+                        : '💡 A cliente clica no botão para enviar a confirmação sem exigência de sinal para seu WhatsApp.'}
+                    </p>
                   </div>
                 </div>
               </div>

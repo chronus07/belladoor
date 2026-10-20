@@ -101,6 +101,8 @@ export function getDefaultBookingRules(pro?: {
   const initialPixKey = rawPhone || pro?.email || '';
   const initialPixType: PixKeyType = rawPhone ? 'PHONE' : pro?.email ? 'EMAIL' : 'PHONE';
   const initialReceiver = pro?.name?.trim() || 'Profissional BellaDoor';
+  const templateWithDeposit = getDefaultMessageTemplate(isBarbershop, true);
+  const templateWithoutDeposit = getDefaultMessageTemplate(isBarbershop, false);
 
   return {
     enabled: true,
@@ -117,7 +119,9 @@ export function getDefaultBookingRules(pro?: {
       '• Tolerância máxima de 15 minutos de atraso.\n' +
       '• Remarcações com no mínimo 24h de antecedência.\n' +
       '• O sinal garante a reserva e não é reembolsável em cancelamentos de última hora.',
-    customMessageTemplate: getDefaultMessageTemplate(isBarbershop, true),
+    customMessageTemplate: templateWithDeposit,
+    templateWithDeposit,
+    templateWithoutDeposit,
   };
 }
 
@@ -131,9 +135,35 @@ export function getEffectiveBookingRules(
   const defaults = getDefaultBookingRules(pro);
   if (!stored) return defaults;
 
+  const isBarbershop = pro?.businessNiche === 'BARBERSHOP';
+  const reqDeposit =
+    typeof stored.requireDeposit === 'boolean' ? stored.requireDeposit : defaults.requireDeposit;
+  const templateWithDeposit =
+    stored.templateWithDeposit || getDefaultMessageTemplate(isBarbershop, true);
+  const templateWithoutDeposit =
+    stored.templateWithoutDeposit || getDefaultMessageTemplate(isBarbershop, false);
+
+  let effectiveTemplate = stored.customMessageTemplate;
+  if (!effectiveTemplate || !effectiveTemplate.trim()) {
+    effectiveTemplate = reqDeposit ? templateWithDeposit : templateWithoutDeposit;
+  } else {
+    // Se o sinal está desativado mas o template ainda contém tags de sinal de 50%/PIX
+    if (
+      !reqDeposit &&
+      (effectiveTemplate.includes('{valor_sinal}') || effectiveTemplate.includes('{chave_pix}'))
+    ) {
+      effectiveTemplate = templateWithoutDeposit;
+    } else if (
+      reqDeposit &&
+      !effectiveTemplate.includes('{valor_sinal}')
+    ) {
+      effectiveTemplate = templateWithDeposit;
+    }
+  }
+
   return {
     enabled: typeof stored.enabled === 'boolean' ? stored.enabled : defaults.enabled,
-    requireDeposit: typeof stored.requireDeposit === 'boolean' ? stored.requireDeposit : defaults.requireDeposit,
+    requireDeposit: reqDeposit,
     depositPercentage:
       typeof stored.depositPercentage === 'number' && stored.depositPercentage > 0
         ? stored.depositPercentage
@@ -157,10 +187,9 @@ export function getEffectiveBookingRules(
         ? stored.cancellationNoticeHours
         : defaults.cancellationNoticeHours,
     customRules: typeof stored.customRules === 'string' ? stored.customRules : defaults.customRules,
-    customMessageTemplate:
-      typeof stored.customMessageTemplate === 'string' && stored.customMessageTemplate.trim()
-        ? stored.customMessageTemplate
-        : defaults.customMessageTemplate,
+    customMessageTemplate: effectiveTemplate,
+    templateWithDeposit,
+    templateWithoutDeposit,
   };
 }
 
@@ -222,7 +251,26 @@ export function formatConfirmationMessage(params: {
   const pixKeyVal = settings.pixKey || (params.proWhatsapp ? params.proWhatsapp.replace(/\D/g, '') : 'A informar');
   const receiverVal = settings.pixReceiverName || proName;
 
-  const rawTemplate = settings.customMessageTemplate || getDefaultMessageTemplate(isBarbershop, settings.requireDeposit);
+  let rawTemplate = settings.customMessageTemplate;
+  if (!settings.requireDeposit) {
+    if (
+      !rawTemplate ||
+      rawTemplate.includes('{valor_sinal}') ||
+      rawTemplate.includes('{chave_pix}')
+    ) {
+      rawTemplate =
+        settings.templateWithoutDeposit && !settings.templateWithoutDeposit.includes('{valor_sinal}')
+          ? settings.templateWithoutDeposit
+          : getDefaultMessageTemplate(isBarbershop, false);
+    }
+  } else {
+    if (!rawTemplate || !rawTemplate.includes('{valor_sinal}')) {
+      rawTemplate =
+        settings.templateWithDeposit && settings.templateWithDeposit.includes('{valor_sinal}')
+          ? settings.templateWithDeposit
+          : getDefaultMessageTemplate(isBarbershop, true);
+    }
+  }
 
   // Formata as regras em tópicos se houver
   const rulesLines = (settings.customRules || '')

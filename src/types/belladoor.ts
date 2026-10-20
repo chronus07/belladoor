@@ -41,6 +41,8 @@ export interface BookingConfirmationSettings {
   cancellationNoticeHours: number;
   customRules: string;
   customMessageTemplate: string;
+  templateWithDeposit?: string;
+  templateWithoutDeposit?: string;
 }
 
 export interface ClientReview {

@@ -5392,7 +5392,9 @@ export default function App() {
                       </a>
 
                       <p className="text-[11px] text-stone-400 mt-2">
-                        💡 Clique acima para abrir a conversa no WhatsApp com os dados e enviar seu comprovante.
+                        {clientEffectiveRules.requireDeposit
+                          ? '💡 Clique acima para abrir a conversa no WhatsApp com os dados e enviar seu comprovante.'
+                          : '💡 Clique acima para abrir a conversa no WhatsApp e confirmar seu horário diretamente com a profissional.'}
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
