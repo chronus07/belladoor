@@ -31,6 +31,7 @@ import { BookingConfirmationSettings, PixKeyType } from '../types/belladoor';
 import {
   PIX_KEY_LABELS,
   getDefaultMessageTemplate,
+  getEffectiveBookingRules,
   formatConfirmationMessage,
   calculateDeposit,
 } from '../utils/bookingRules';
@@ -166,7 +167,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
   const [areaIsFree, setAreaIsFree] = useState<boolean>(false);
   const [areaError, setAreaError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // Estados internos do Passo 5 (Cobrança de Sinal & Regras)
+  const [isEditingWizardTemplate, setIsEditingWizardTemplate] = useState<boolean>(false);
 
   const showNotice = (msg: string) => {
     setWizardNotice(msg);
@@ -327,31 +329,33 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
     setAreaError(null);
   };
 
-  // Estados internos do Passo 5 (Cobrança de Sinal & Regras)
-  const [isEditingWizardTemplate, setIsEditingWizardTemplate] = useState<boolean>(false);
-
   // Handlers internos do Passo 5 (Cobrança de Sinal)
   const handleToggleDepositInWizard = (checked: boolean) => {
     setBookingRules((prev) => {
-      const currentTpl = prev.customMessageTemplate;
+      const safePrev = getEffectiveBookingRules(prev, {
+        name: proDisplayName,
+        whatsapp: proWhatsapp,
+        businessNiche: isBarbershop ? 'BARBERSHOP' : undefined,
+      });
+      const currentTpl = safePrev.customMessageTemplate;
       if (checked) {
         const nextTpl =
-          prev.templateWithDeposit && prev.templateWithDeposit.includes('{valor_sinal}')
-            ? prev.templateWithDeposit
+          safePrev.templateWithDeposit && safePrev.templateWithDeposit.includes('{valor_sinal}')
+            ? safePrev.templateWithDeposit
             : getDefaultMessageTemplate(isBarbershop, true);
         return {
-          ...prev,
+          ...safePrev,
           requireDeposit: true,
           templateWithoutDeposit: currentTpl,
           customMessageTemplate: nextTpl,
         };
       } else {
         const nextTpl =
-          prev.templateWithoutDeposit && !prev.templateWithoutDeposit.includes('{valor_sinal}')
-            ? prev.templateWithoutDeposit
+          safePrev.templateWithoutDeposit && !safePrev.templateWithoutDeposit.includes('{valor_sinal}')
+            ? safePrev.templateWithoutDeposit
             : getDefaultMessageTemplate(isBarbershop, false);
         return {
-          ...prev,
+          ...safePrev,
           requireDeposit: false,
           templateWithDeposit: currentTpl,
           customMessageTemplate: nextTpl,
@@ -365,6 +369,12 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
     );
   };
 
+  const effectiveRules = getEffectiveBookingRules(bookingRules, {
+    name: proDisplayName || 'Profissional',
+    whatsapp: proWhatsapp,
+    businessNiche: isBarbershop ? 'BARBERSHOP' : undefined,
+  });
+
   const sampleWizardBooking = {
     clientName: 'Mariana Silva',
     serviceName: proServicesList[0]?.name || (isBarbershop ? 'Corte Degradê + Barba' : 'Maquiagem Social Completa'),
@@ -376,7 +386,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
   };
 
   const wizardPreviewMessage = formatConfirmationMessage({
-    settings: bookingRules,
+    settings: effectiveRules,
     booking: sampleWizardBooking,
     proName: proDisplayName || 'Profissional',
     proWhatsapp: proWhatsapp,
@@ -385,8 +395,10 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
 
   const { depositAmount: wizardDepositAmount, remainingAmount: wizardRemainingAmount } = calculateDeposit(
     sampleWizardBooking.totalPrice,
-    bookingRules
+    effectiveRules
   );
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[75] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
@@ -1417,16 +1429,16 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                         </h4>
                         <span
                           className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                            bookingRules.requireDeposit
+                            effectiveRules.requireDeposit
                               ? 'bg-emerald-600 text-white'
                               : 'bg-stone-200 text-stone-700'
                           }`}
                         >
-                          {bookingRules.requireDeposit ? 'Sinal Ativo' : 'Sinal Desativado'}
+                          {effectiveRules.requireDeposit ? 'Sinal Ativo' : 'Sinal Desativado'}
                         </span>
                       </div>
                       <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                        {bookingRules.requireDeposit
+                        {effectiveRules.requireDeposit
                           ? 'Exige que a cliente pague uma porcentagem antecipada (sinal) via PIX para travar a vaga na sua agenda e garantir que não falte.'
                           : 'O agendamento fica pré-confirmado sem pagamento antecipado. A cliente acerta o valor total no dia do atendimento.'}
                       </p>
@@ -1435,7 +1447,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                   <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
                     <input
                       type="checkbox"
-                      checked={bookingRules.requireDeposit}
+                      checked={effectiveRules.requireDeposit}
                       onChange={(e) => handleToggleDepositInWizard(e.target.checked)}
                       className="sr-only peer"
                     />
@@ -1443,7 +1455,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                   </label>
                 </div>
 
-                {bookingRules.requireDeposit && (
+                {effectiveRules.requireDeposit && (
                   <div className="mt-4 pt-3.5 border-t border-emerald-200/80 space-y-2.5">
                     <label className="block text-xs font-bold text-stone-800">
                       Porcentagem do Sinal de Confirmação:
@@ -1457,7 +1469,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                             setBookingRules((prev) => ({ ...prev, depositPercentage: pct }))
                           }
                           className={`py-1.5 px-3.5 rounded-xl text-xs font-extrabold transition cursor-pointer border ${
-                            bookingRules.depositPercentage === pct
+                            effectiveRules.depositPercentage === pct
                               ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
                               : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-50'
                           }`}
@@ -1471,7 +1483,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                           type="number"
                           min="1"
                           max="100"
-                          value={bookingRules.depositPercentage}
+                          value={effectiveRules.depositPercentage}
                           onChange={(e) =>
                             setBookingRules((prev) => ({
                               ...prev,
@@ -1506,7 +1518,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
               </div>
 
               {/* CARD 2: DADOS DO PIX */}
-              {bookingRules.requireDeposit && (
+              {effectiveRules.requireDeposit && (
                 <div className="bg-white rounded-3xl border border-stone-200 p-4 sm:p-5 space-y-4 shadow-xs">
                   <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
                     <div className="flex items-center gap-2">
@@ -1526,7 +1538,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                         Tipo de Chave PIX:
                       </label>
                       <select
-                        value={bookingRules.pixKeyType}
+                        value={effectiveRules.pixKeyType}
                         onChange={(e) =>
                           setBookingRules((prev) => ({
                             ...prev,
@@ -1568,7 +1580,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                       </div>
                       <input
                         type="text"
-                        value={bookingRules.pixKey}
+                        value={effectiveRules.pixKey}
                         onChange={(e) =>
                           setBookingRules((prev) => ({ ...prev, pixKey: e.target.value }))
                         }
@@ -1602,7 +1614,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                       </div>
                       <input
                         type="text"
-                        value={bookingRules.pixReceiverName}
+                        value={effectiveRules.pixReceiverName}
                         onChange={(e) =>
                           setBookingRules((prev) => ({
                             ...prev,
@@ -1619,7 +1631,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                         Prazo para Envio do Comprovante:
                       </label>
                       <select
-                        value={bookingRules.depositTimeLimitHours}
+                        value={effectiveRules.depositTimeLimitHours}
                         onChange={(e) =>
                           setBookingRules((prev) => ({
                             ...prev,
@@ -1659,7 +1671,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                       Tolerância Máxima de Atraso:
                     </label>
                     <select
-                      value={bookingRules.delayToleranceMinutes}
+                      value={effectiveRules.delayToleranceMinutes}
                       onChange={(e) =>
                         setBookingRules((prev) => ({
                           ...prev,
@@ -1680,7 +1692,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                       Aviso Mínimo de Cancelamento:
                     </label>
                     <select
-                      value={bookingRules.cancellationNoticeHours}
+                      value={effectiveRules.cancellationNoticeHours}
                       onChange={(e) =>
                         setBookingRules((prev) => ({
                           ...prev,
@@ -1702,7 +1714,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                   </label>
                   <textarea
                     rows={2}
-                    value={bookingRules.customRules}
+                    value={effectiveRules.customRules}
                     onChange={(e) =>
                       setBookingRules((prev) => ({ ...prev, customRules: e.target.value }))
                     }
@@ -1756,7 +1768,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                       </div>
                     </div>
                     <p className="text-[10px] text-stone-600 text-center mt-2 font-medium">
-                      {bookingRules.requireDeposit
+                      {effectiveRules.requireDeposit
                         ? '✨ Formato automático: inclui dados do serviço, 50% de sinal no PIX e regras.'
                         : '✨ Formato automático: confirmação direta do horário e regras sem exigência de sinal.'}
                     </p>
@@ -1773,7 +1785,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                         onClick={() => {
                           const defTpl = getDefaultMessageTemplate(
                             isBarbershop,
-                            bookingRules.requireDeposit
+                            effectiveRules.requireDeposit
                           );
                           setBookingRules((prev) => ({
                             ...prev,
@@ -1802,7 +1814,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                         '{horario}',
                         '{local}',
                         '{valor_total}',
-                        ...(bookingRules.requireDeposit
+                        ...(effectiveRules.requireDeposit
                           ? ['{valor_sinal}', '{chave_pix}', '{titular_pix}', '{prazo_sinal}']
                           : []),
                         '{tolerancia}',
@@ -1836,7 +1848,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
 
                     <textarea
                       rows={8}
-                      value={bookingRules.customMessageTemplate}
+                      value={effectiveRules.customMessageTemplate}
                       onChange={(e) => {
                         const val = e.target.value;
                         setBookingRules((prev) => ({
