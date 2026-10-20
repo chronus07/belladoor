@@ -46,6 +46,7 @@ export interface MockProfessional {
   workEndHour?: number;
   lunchBreakEnabled?: boolean;
   blockedPeriods?: { id: string; startDate: string; endDate: string; reason: string; dates: string[] }[];
+  bookingRules?: import('../types/belladoor').BookingConfirmationSettings;
   services: MockService[];
   neighborhoods: MockNeighborhood[];
   portfolio: { url: string; title: string }[];

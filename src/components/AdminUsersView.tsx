@@ -23,15 +23,17 @@ import {
   ExternalLink,
   KeyRound,
   MessageCircle,
+  TrendingUp,
 } from 'lucide-react';
 import { AuthUser } from '../../lib/supabaseClient';
 import { MockProfessional } from '../data/mockData';
-import { UiDialogPayload } from '../types/belladoor';
+import { UiDialogPayload, ClientAppointment } from '../types/belladoor';
 import {
   CouponItem,
   MercadoPagoConfig,
   OFFICIAL_MP_RECURRING_PLAN_URL,
 } from '../utils/mercadoPago';
+import { AdminDashboardTab } from './AdminDashboardTab';
 
 export interface UnifiedAdminUser {
   key: string;
@@ -52,12 +54,15 @@ export interface UnifiedAdminUser {
   inDirectory?: boolean;
   updatedAt?: string;
   newPasswordPlain?: string;
+  paymentMethod?: string;
+  appliedCoupon?: string;
 }
 
 interface AdminUsersViewProps {
   currentUserEmail: string;
   cloudAccounts: Record<string, any>;
   directoryPros: Record<string, MockProfessional>;
+  allAppointments?: ClientAppointment[];
   coupons: CouponItem[];
   mpConfig: MercadoPagoConfig;
   subscriptionStatus: 'TRIAL' | 'ACTIVE';
@@ -78,6 +83,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   currentUserEmail,
   cloudAccounts,
   directoryPros,
+  allAppointments = [],
   coupons,
   mpConfig,
   subscriptionStatus,
@@ -90,7 +96,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   onShowUiDialog,
   onCloseAdmin,
 }) => {
-  const [adminSection, setAdminSection] = useState<'USERS' | 'COUPONS' | 'MERCADO_PAGO'>('USERS');
+  const [adminSection, setAdminSection] = useState<'DASHBOARD' | 'USERS' | 'COUPONS' | 'MERCADO_PAGO'>('DASHBOARD');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'CLIENT' | 'PROFESSIONAL'>('ALL');
   const [proStatusFilter, setProStatusFilter] = useState<
@@ -192,6 +198,8 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         proKey,
         inDirectory: Boolean(dirPro && dirPro.name),
         updatedAt: acc.updatedAt || acc.createdAt,
+        paymentMethod: acc.paymentMethod,
+        appliedCoupon: acc.appliedCoupon,
       });
     });
 
@@ -301,11 +309,11 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       : `https://wa.me/?text=${encodeURIComponent(msg)}`;
   };
 
-  const handleQuickGrantSevenDays = async (u: UnifiedAdminUser) => {
+  const handleQuickGrantDays = async (u: UnifiedAdminUser, days: number = 7) => {
     setSaving(true);
     setFeedbackMsg(null);
     try {
-      const nextDays = Math.max(7, (u.trialDaysLeft || 0) + 7);
+      const nextDays = Math.max(days, (u.trialDaysLeft || 0) + days);
       const res = await onSaveUser(u.email, {
         ...u,
         subscriptionStatus: 'TRIAL',
@@ -314,7 +322,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       if (res.ok) {
         setFeedbackMsg({
           type: 'success',
-          text: `🎁 Liberados +7 dias grátis para "${u.fullName}" (Total agora: ${nextDays} dias livres)!`,
+          text: `🎁 Liberados +${days} dias para "${u.fullName}" (Total agora: ${nextDays} dias livres)!`,
         });
       } else {
         setFeedbackMsg({
@@ -325,6 +333,10 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleQuickGrantSevenDays = async (u: UnifiedAdminUser) => {
+    return handleQuickGrantDays(u, 7);
   };
 
   const formatBirthDateMask = (raw: string) => {
@@ -485,7 +497,23 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         </div>
 
         {/* Seletor de Módulos do Painel Admin */}
-        <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/15">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-4 border-t border-white/15">
+          <button
+            type="button"
+            onClick={() => {
+              setAdminSection('DASHBOARD');
+              setFeedbackMsg(null);
+            }}
+            className={`py-2.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+              adminSection === 'DASHBOARD'
+                ? 'bg-amber-400 text-stone-950 shadow-md ring-2 ring-amber-300/40'
+                : 'bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Cockpit & Métricas</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -494,7 +522,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             }}
             className={`py-2.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
               adminSection === 'USERS'
-                ? 'bg-amber-400 text-stone-950 shadow-md'
+                ? 'bg-amber-400 text-stone-950 shadow-md ring-2 ring-amber-300/40'
                 : 'bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10'
             }`}
           >
@@ -510,7 +538,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             }}
             className={`py-2.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
               adminSection === 'COUPONS'
-                ? 'bg-amber-400 text-stone-950 shadow-md'
+                ? 'bg-amber-400 text-stone-950 shadow-md ring-2 ring-amber-300/40'
                 : 'bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10'
             }`}
           >
@@ -526,7 +554,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             }}
             className={`py-2.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
               adminSection === 'MERCADO_PAGO'
-                ? 'bg-amber-400 text-stone-950 shadow-md'
+                ? 'bg-amber-400 text-stone-950 shadow-md ring-2 ring-amber-300/40'
                 : 'bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10'
             }`}
           >
@@ -561,6 +589,18 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* MÓDULO 0: COCKPIT GERENCIAL, FATURAMENTO & DESEMPENHO (EVERTON)      */}
+      {/* ==================================================================== */}
+      {adminSection === 'DASHBOARD' && (
+        <AdminDashboardTab
+          unifiedUsers={unifiedUsers}
+          allAppointments={allAppointments}
+          onQuickGrantDays={handleQuickGrantDays}
+          onOpenWhatsApp={(u) => window.open(buildCommercialWhatsAppUrl(u), '_blank')}
+        />
       )}
 
       {/* ==================================================================== */}

@@ -239,9 +239,9 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {proAppointments.filter((a) => a.status === 'Confirmado').length === 0 && (
-            <div className="bg-white rounded-2xl p-4 text-center border border-dashed border-stone-200 flex items-center justify-between gap-2 flex-wrap">
+            <div className="md:col-span-2 bg-white rounded-2xl p-4 text-center border border-dashed border-stone-200 flex items-center justify-between gap-2 flex-wrap">
               <p className="text-xs font-semibold text-stone-500">
                 Nenhum atendimento ativo pendente no momento. Veja abaixo seu histórico de atendimentos concluídos.
               </p>

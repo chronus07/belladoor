@@ -50,7 +50,8 @@ import {
   TrendingUp,
   MessageSquarePlus,
   RotateCcw,
-  Palette
+  Palette,
+  Sliders,
 } from 'lucide-react';
 import { mockProfessional, MockService, MockNeighborhood, mockProfessionalsList, MockProfessional } from './data/mockData';
 import { BELLADOOR_PLANS } from '../lib/subscriptionService';
@@ -81,6 +82,8 @@ import {
   DEFAULT_REVIEWS,
   WEEKDAYS,
   MONTH_NAMES,
+  BookingConfirmationSettings,
+  PixKeyType,
 } from './types/belladoor';
 import { loadFromStorage, formatWhatsappForLink, getDatesInRange } from './utils/storage';
 import {
@@ -96,6 +99,14 @@ import {
   PLAN_PRICES,
   verifyProfessionalSubscriptionInMercadoPago,
 } from './utils/mercadoPago';
+import {
+  getEffectiveBookingRules,
+  getDefaultBookingRules,
+  formatConfirmationMessage,
+  calculateDeposit,
+  buildWhatsAppLink,
+  PIX_KEY_LABELS,
+} from './utils/bookingRules';
 import { HeaderBar } from './components/HeaderBar';
 import { AuthView } from './components/AuthView';
 import { ClientBookingsView } from './components/ClientBookingsView';
@@ -107,6 +118,7 @@ import { ProOnboardingWizardModal } from './components/ProOnboardingWizardModal'
 import { ProPromoCardModal } from './components/ProPromoCardModal';
 import { ManualAppointmentModal } from './components/ManualAppointmentModal';
 import { LgpdTermsModal } from './components/LgpdTermsModal';
+import { BookingRulesModal } from './components/BookingRulesModal';
 import { getThemeClasses, VisualTheme } from './utils/theme';
 
 export default function App() {
@@ -412,6 +424,20 @@ export default function App() {
   const [reviewComment, setReviewComment] = useState<string>('');
   const [reviewAppointmentId, setReviewAppointmentId] = useState<string | null>(null);
 
+  // Configurações de Confirmação de Agendamento & Regras de Sinal (50%)
+  const [bookingRules, setBookingRules] = useState<BookingConfirmationSettings>(() => {
+    const key = activeProKey ? `belladoor_v2_booking_rules_${activeProKey}` : 'belladoor_v2_booking_rules_guest';
+    const saved = loadFromStorage<Partial<BookingConfirmationSettings> | null>(key, null);
+    return getEffectiveBookingRules(saved, {
+      name: savedVitrine.name,
+      whatsapp: savedVitrine.whatsapp || mockProfessional.whatsapp,
+      email: currentUser?.email,
+      businessNiche: savedVitrine.businessNiche,
+    });
+  });
+  const [showBookingRulesModal, setShowBookingRulesModal] = useState<boolean>(false);
+  const [copiedClientPix, setCopiedClientPix] = useState<boolean>(false);
+
   // Normaliza o número de WhatsApp para links wa.me
   const formattedWhatsappForLink = formatWhatsappForLink(proWhatsapp, mockProfessional.whatsapp);
 
@@ -506,6 +532,7 @@ export default function App() {
     blockedPeriods,
     rating: calculatedRating,
     reviewCount: myProReviews.length,
+    bookingRules,
   };
 
   const rawPro =
@@ -2771,6 +2798,17 @@ export default function App() {
         if (data.planInterval === 'ANNUAL' || data.planInterval === 'MONTHLY') {
           setPlanInterval(data.planInterval);
         }
+        if (data.bookingRules) {
+          applyingRemoteRef.current[rulesDoc] = true;
+          setBookingRules(
+            getEffectiveBookingRules(data.bookingRules, {
+              name: data.name || proDisplayName,
+              whatsapp: data.whatsapp || proWhatsapp,
+              email: currentUser?.email,
+              businessNiche: data.businessNiche || proBusinessNiche,
+            })
+          );
+        }
       },
       (exists) => {
         cloudHydratedRef.current[vitrineDoc] = true;
@@ -2801,6 +2839,7 @@ export default function App() {
             visualTheme: proVisualTheme,
             subscriptionStatus: currentUser.subscriptionStatus || 'TRIAL',
             planInterval: currentUser.subscriptionPlan || 'ANNUAL',
+            bookingRules,
           });
         }
       }
@@ -2862,11 +2901,36 @@ export default function App() {
       }
     );
 
+    const rulesDoc = `pro_booking_rules_${activeProKey}`;
+    const unsubRules = subscribeToFirestoreDocument<any>(
+      rulesDoc,
+      (data) => {
+        if (data) {
+          applyingRemoteRef.current[rulesDoc] = true;
+          setBookingRules(
+            getEffectiveBookingRules(data, {
+              name: proDisplayName,
+              whatsapp: proWhatsapp,
+              email: currentUser?.email,
+              businessNiche: proBusinessNiche,
+            })
+          );
+        }
+      },
+      (exists) => {
+        cloudHydratedRef.current[rulesDoc] = true;
+        if (!exists && bookingRules) {
+          syncDocumentToFirestore(rulesDoc, bookingRules);
+        }
+      }
+    );
+
     return () => {
       unsubVitrine();
       unsubServices();
       unsubAreas();
       unsubSchedule();
+      unsubRules();
     };
   }, [activeProKey]);
 
@@ -2910,6 +2974,7 @@ export default function App() {
       visualTheme: proVisualTheme,
       subscriptionStatus,
       planInterval,
+      bookingRules,
     };
     try {
       localStorage.setItem(`belladoor_v2_pro_vitrine_${activeProKey}`, JSON.stringify(payload));
@@ -2941,7 +3006,23 @@ export default function App() {
     proVisualTheme,
     subscriptionStatus,
     planInterval,
+    bookingRules,
   ]);
+
+  // Sincronização em tempo real das regras de agendamento e sinal de 50%
+  useEffect(() => {
+    if (!activeProKey) return;
+    const rulesDoc = `pro_booking_rules_${activeProKey}`;
+    try {
+      localStorage.setItem(`belladoor_v2_booking_rules_${activeProKey}`, JSON.stringify(bookingRules));
+    } catch {}
+    if (!cloudHydratedRef.current[rulesDoc]) return;
+    if (applyingRemoteRef.current[rulesDoc]) {
+      applyingRemoteRef.current[rulesDoc] = false;
+      return;
+    }
+    syncDocumentToFirestore(rulesDoc, bookingRules);
+  }, [activeProKey, bookingRules]);
 
   // Atualiza o Diretório Público de Profissionais quando a profissional logada edita sua vitrine, serviços, regiões ou expediente
   useEffect(() => {
@@ -3598,6 +3679,12 @@ export default function App() {
       (activeProKey && activeProKey.includes('_') ? activeProKey.replace(/_/g, '.') : undefined) ||
       (currentUser?.role === 'PROFESSIONAL' ? currentUser.email : undefined);
 
+    const effectiveRules = getEffectiveBookingRules(
+      pro.bookingRules || (isViewingOwnProVitrine ? bookingRules : null),
+      pro
+    );
+    const depositCalc = calculateDeposit(appointmentTotalPrice, effectiveRules);
+
     const newAppointment: ClientAppointment = {
       id: `app-${Date.now()}`,
       clientName: clientName.trim(),
@@ -3622,6 +3709,9 @@ export default function App() {
       proAvatarUrl: pro.avatarUrl,
       proWhatsapp: pro.whatsapp,
       reviewed: false,
+      depositAmount: depositCalc.depositAmount,
+      depositPercentage: depositCalc.depositPercentage,
+      depositPaid: false,
     };
 
     // Grava de forma atômica no Cloud Firestore imediatamente
@@ -3803,42 +3893,21 @@ export default function App() {
     });
   };
 
-  // Gera o link direto para o WhatsApp da Profissional com a mensagem pré-formatada
+  // Gera o link direto para o WhatsApp da Profissional com a mensagem pré-formatada e regras de confirmação
   const getWhatsAppBookingLink = () => {
     if (!lastBooking) return '#';
-    const isStudioBooking = lastBooking.locationType === 'STUDIO';
-    const isBarber = pro.businessNiche === 'BARBERSHOP';
-    const locationText = isStudioBooking
-      ? isBarber
-        ? `🏢 *Local:* Na Barbearia (${lastBooking.address})`
-        : `🏢 *Local:* No Studio / Atelier (${lastBooking.address})`
-      : `📍 *Endereço:* ${lastBooking.address} (${lastBooking.neighborhood})`;
-    const priceText = isStudioBooking
-      ? `💰 *Total:* R$ ${lastBooking.totalPrice.toFixed(2).replace('.', ',')} (Deslocamento Grátis)`
-      : `💰 *Total:* R$ ${lastBooking.totalPrice.toFixed(2).replace('.', ',')} (com deslocamento)`;
-
-    const message = encodeURIComponent(
-      isBarber
-        ? `Fala, ${pro.name}! 💈\n` +
-          `Acabei de marcar um horário pelo seu link do *BellaDoor*:\n\n` +
-          `✂️ *Serviço:* ${lastBooking.serviceName}\n` +
-          `📅 *Data:* ${lastBooking.date.split('-').reverse().join('/')}\n` +
-          `⏰ *Horário:* ${lastBooking.time}\n` +
-          `${locationText}\n` +
-          `${priceText}\n` +
-          `👤 *Cliente:* ${lastBooking.clientName}\n\n` +
-          `Valeu! Aguardo sua confirmação! 👊🔥`
-        : `Olá, ${pro.name}! ✨\n` +
-          `Acabei de realizar um agendamento pelo *BellaDoor*:\n\n` +
-          `💅 *Serviço:* ${lastBooking.serviceName}\n` +
-          `📅 *Data:* ${lastBooking.date.split('-').reverse().join('/')}\n` +
-          `⏰ *Horário:* ${lastBooking.time}\n` +
-          `${locationText}\n` +
-          `${priceText}\n` +
-          `👤 *Cliente:* ${lastBooking.clientName}\n\n` +
-          `Aguardo sua confirmação! 😊`
+    const effectiveRules = getEffectiveBookingRules(
+      pro.bookingRules || (isViewingOwnProVitrine ? bookingRules : null),
+      pro
     );
-    return `https://wa.me/${pro.whatsapp}?text=${message}`;
+    const message = formatConfirmationMessage({
+      settings: effectiveRules,
+      booking: lastBooking,
+      proName: pro.name || proDisplayName,
+      proWhatsapp: pro.whatsapp,
+      isBarbershop: pro.businessNiche === 'BARBERSHOP',
+    });
+    return buildWhatsAppLink(pro.whatsapp, message);
   };
 
   const resetBooking = (clearPersonalData?: boolean | React.SyntheticEvent) => {
@@ -3900,8 +3969,18 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* CONTEÚDO PRINCIPAL */}
-      <main className="w-full max-w-md sm:max-w-xl py-6 px-4">
+      {/* CONTEÚDO PRINCIPAL COM LARGURA RESPONSIVA EXPANDIDA PARA PC DESKTOP */}
+      <main className={`w-full py-6 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${
+        !currentUser
+          ? 'max-w-md sm:max-w-xl mx-auto'
+          : activeTab === 'client' && !selectedPro
+          ? 'max-w-md sm:max-w-xl lg:max-w-7xl mx-auto'
+          : activeTab === 'client' && selectedPro
+          ? 'max-w-md sm:max-w-xl lg:max-w-6xl xl:max-w-7xl mx-auto'
+          : activeTab === 'pro'
+          ? 'max-w-md sm:max-w-xl lg:max-w-5xl xl:max-w-6xl mx-auto'
+          : 'max-w-md sm:max-w-xl lg:max-w-5xl mx-auto'
+      }`}>
         {/* BARRA DE ACESSO RÁPIDO DO ADMINISTRADOR MASTER (EVERTON) */}
         {currentUser && isMasterAdminAccount && !showAdminPanel && (
           <div className="mb-4 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 border border-amber-500/40 rounded-2xl p-3.5 shadow-md flex items-center justify-between gap-3">
@@ -4000,6 +4079,7 @@ export default function App() {
             currentUserEmail={currentUser.email || 'evertonrcsilva@gmail.com'}
             cloudAccounts={cloudAccounts}
             directoryPros={directoryPros}
+            allAppointments={proAppointments}
             coupons={couponsList}
             mpConfig={mpConfig}
             subscriptionStatus={subscriptionStatus}
@@ -4137,16 +4217,18 @@ export default function App() {
                 </div>
               )}
 
-              <div className={`rounded-3xl shadow-sm border overflow-hidden transition-colors ${proTheme.headerCardBg} ${proTheme.headerCardBorder}`}>
-                {/* Foto de Capa */}
-                <div className={`relative h-36 ${proTheme.coverBg}`}>
-                  <img
-                    src={pro.coverUrl}
-                    alt="Capa"
-                    className="w-full h-full object-cover opacity-80"
-                  />
-                  <div className={`absolute inset-0 ${proTheme.coverGradient}`} />
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* 1. PERFIL DO PROFISSIONAL (TOPO ESQUERDA NO DESKTOP, TOPO NO MOBILE) */}
+                <div className={`col-span-1 lg:col-span-7 xl:col-span-8 rounded-3xl shadow-sm border overflow-hidden transition-colors ${proTheme.headerCardBg} ${proTheme.headerCardBorder}`}>
+                  {/* Foto de Capa */}
+                  <div className={`relative h-40 sm:h-52 lg:h-60 ${proTheme.coverBg}`}>
+                    <img
+                      src={pro.coverUrl}
+                      alt="Capa"
+                      className="w-full h-full object-cover opacity-80"
+                    />
+                    <div className={`absolute inset-0 ${proTheme.coverGradient}`} />
+                  </div>
 
             {/* Cabeçalho do Perfil */}
             <div className="px-6 pt-0 pb-6 relative">
@@ -4318,44 +4400,11 @@ export default function App() {
                   </p>
                 )}
               </div>
-
-              {/* PORTFÓLIO DE TRABALHOS REALIZADOS (LOGO ABAIXO DA BIO) */}
-              {pro.portfolio && pro.portfolio.length > 0 && (
-                <div className="mt-5 pt-5 border-t border-stone-100">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
-                      <Camera className="w-3.5 h-3.5 text-rose-600" />
-                      Portfólio de Trabalhos Realizados
-                    </h3>
-                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">
-                      {pro.portfolio.length} {pro.portfolio.length === 1 ? 'foto' : 'fotos'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {pro.portfolio.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="group relative rounded-2xl overflow-hidden aspect-square bg-stone-100 border border-stone-200/80 shadow-xs"
-                      >
-                        <img
-                          src={item.url}
-                          alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent opacity-95 p-2.5 flex items-end">
-                          <span className="text-[11px] text-white font-bold leading-snug">
-                            {item.title}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
+          </div>
 
-            {/* SEÇÃO DO CATÁLOGO DE SERVIÇOS (SOMENTE VISUALIZAÇÃO PARA PRÓPRIA PROFISSIONAL vs AGENDAMENTO PARA CLIENTE) */}
-            <div className={`border-t p-6 transition-colors ${proTheme.contentBg} ${proTheme.contentBorder}`}>
+            {/* 2. CARTÃO DE AGENDAMENTO & SERVIÇOS (DIREITA STICKY NO DESKTOP, LOGO ABAIXO DO PERFIL NO MOBILE) */}
+            <div className={`col-span-1 lg:col-span-5 xl:col-span-4 lg:row-span-4 lg:sticky lg:top-20 rounded-3xl shadow-sm border p-6 transition-colors ${proTheme.contentBg} ${proTheme.contentBorder}`}>
               {isViewingOwnProVitrine ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -5216,64 +5265,198 @@ export default function App() {
                   )}
                 </div>
               ) : (
-                /* TELA DE SUCESSO COM BOTÃO DIRETO DO WHATSAPP */
-                <div className="text-center py-6">
-                  <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <CheckCircle className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-bold text-stone-900">Agendamento Realizado!</h3>
-                  <p className="text-xs text-stone-600 mt-1 max-w-xs mx-auto">
-                    O horário foi pré-reservado na agenda de <strong>{pro.name}</strong>.
-                  </p>
+                /* TELA DE SUCESSO COM SINAL DE 50%, CHAVE PIX, REGRAS E WHATSAPP */
+                (() => {
+                  const clientEffectiveRules = getEffectiveBookingRules(
+                    pro.bookingRules || (isViewingOwnProVitrine ? bookingRules : null),
+                    pro
+                  );
+                  const clientDepositCalc = calculateDeposit(
+                    lastBooking?.totalPrice || 0,
+                    clientEffectiveRules
+                  );
+                  const pixKeyLabel = PIX_KEY_LABELS[clientEffectiveRules.pixKeyType] || 'PIX';
+                  const effectivePixKey =
+                    clientEffectiveRules.pixKey ||
+                    (pro.whatsapp ? pro.whatsapp.replace(/\D/g, '') : '');
 
-                  <div className="bg-white p-4 rounded-2xl border border-stone-200 text-left mt-4 text-xs space-y-1.5">
-                    <p><strong>Serviço:</strong> {lastBooking?.serviceName}</p>
-                    <p><strong>Data & Hora:</strong> {lastBooking?.date.split('-').reverse().join('/')} às {lastBooking?.time}</p>
-                    <p><strong>Local:</strong> {lastBooking?.address} - {lastBooking?.neighborhood}</p>
-                    <p><strong>Valor Total:</strong> R$ {lastBooking?.totalPrice.toFixed(2).replace('.', ',')}</p>
-                  </div>
+                  return (
+                    <div className="text-center py-6">
+                      <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <CheckCircle className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-lg font-bold text-stone-900">Agendamento Realizado!</h3>
+                      <p className="text-xs text-stone-600 mt-1 max-w-xs mx-auto">
+                        O horário foi pré-reservado na agenda de <strong>{pro.name}</strong>.
+                      </p>
 
-                  {/* BOTÃO DO WHATSAPP COM MENSAGEM PRÉ-FORMATADA */}
-                  <a
-                    href={getWhatsAppBookingLink()}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Confirmar no WhatsApp de {pro.name}
-                  </a>
+                      <div className="bg-white p-4 rounded-2xl border border-stone-200 text-left mt-4 text-xs space-y-1.5 shadow-2xs">
+                        <p><strong>Serviço:</strong> {lastBooking?.serviceName}</p>
+                        <p><strong>Data & Hora:</strong> {lastBooking?.date.split('-').reverse().join('/')} às {lastBooking?.time}</p>
+                        <p><strong>Local:</strong> {lastBooking?.address} - {lastBooking?.neighborhood}</p>
+                        <p><strong>Valor Total:</strong> R$ {lastBooking?.totalPrice.toFixed(2).replace('.', ',')}</p>
+                      </div>
 
-                  <p className="text-[11px] text-stone-400 mt-2">
-                    💡 Clique acima para enviar o comprovante diretamente para {pro.businessNiche === 'BARBERSHOP' ? 'o barbeiro' : 'a profissional'}.
-                  </p>
+                      {/* BOX DE SINAL DE 50% & CHAVE PIX */}
+                      {clientEffectiveRules.requireDeposit && clientDepositCalc.depositAmount > 0 ? (
+                        <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-amber-50/60 via-emerald-50/70 to-teal-50/60 border-2 border-emerald-400 text-left space-y-3 shadow-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                              Sinal de {clientDepositCalc.depositPercentage}% para Garantir o Horário
+                            </span>
+                            <span className="text-[10px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
+                              Segura sua Vaga
+                            </span>
+                          </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetBooking();
-                        setClientSubView('MY_BOOKINGS');
-                      }}
-                      className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      Ver em Meus Agendamentos
-                    </button>
-                    <button
-                      type="button"
-                      onClick={resetBooking}
-                      className="w-full py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl text-xs hover:bg-stone-200 transition cursor-pointer"
-                    >
-                      Fazer Novo Agendamento
-                    </button>
-                  </div>
-                </div>
+                          <div className="grid grid-cols-2 gap-2 text-center">
+                            <div className="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-2xs">
+                              <p className="text-[10px] text-stone-500 font-bold">
+                                Sinal a Pagar Agora ({clientDepositCalc.depositPercentage}%)
+                              </p>
+                              <p className="text-base font-black text-emerald-700">
+                                R$ {clientDepositCalc.depositAmount.toFixed(2).replace('.', ',')}
+                              </p>
+                            </div>
+                            <div className="bg-white p-2.5 rounded-xl border border-stone-200 shadow-2xs">
+                              <p className="text-[10px] text-stone-500 font-bold">Restante no Atendimento</p>
+                              <p className="text-base font-black text-stone-700">
+                                R$ {clientDepositCalc.remainingAmount.toFixed(2).replace('.', ',')}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-xl border border-emerald-200 space-y-1.5 shadow-2xs">
+                            <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wide">
+                              Chave PIX ({pixKeyLabel}):
+                            </p>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-mono font-black text-stone-900 truncate">
+                                {effectivePixKey || 'Chave a combinar no WhatsApp'}
+                              </span>
+                              {effectivePixKey && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(effectivePixKey);
+                                    setCopiedClientPix(true);
+                                    setTimeout(() => setCopiedClientPix(false), 2000);
+                                  }}
+                                  className="py-1 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition shrink-0 flex items-center gap-1 cursor-pointer"
+                                >
+                                  {copiedClientPix ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                  {copiedClientPix ? 'Copiado!' : 'Copiar Chave'}
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-stone-600">
+                              Titular da Conta: <strong>{clientEffectiveRules.pixReceiverName || pro.name}</strong>
+                            </p>
+                          </div>
+
+                          <div className="text-[11px] text-amber-900 bg-amber-100/80 p-2.5 rounded-xl flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                            <span>
+                              Envie o comprovante em até <strong>{clientEffectiveRules.depositTimeLimitHours}h</strong> para confirmar sua vaga na agenda.
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* REGRAS DO ATENDIMENTO */}
+                      <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 text-left mt-3 space-y-1.5 shadow-2xs">
+                        <p className="text-[10px] font-extrabold uppercase tracking-wider text-stone-700">
+                          Regras e Orientações do Atendimento:
+                        </p>
+                        <ul className="text-[11px] text-stone-600 space-y-1">
+                          <li>• Tolerância máxima de atraso: <strong>{clientEffectiveRules.delayToleranceMinutes} minutos</strong></li>
+                          <li>• Remarcações com no mínimo <strong>{clientEffectiveRules.cancellationNoticeHours}h</strong> de antecedência</li>
+                          {clientEffectiveRules.customRules && (
+                            <li className="whitespace-pre-wrap">{clientEffectiveRules.customRules}</li>
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* BOTÃO DO WHATSAPP COM MENSAGEM PRÉ-FORMATADA */}
+                      <a
+                        href={getWhatsAppBookingLink()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-4 w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        {clientEffectiveRules.requireDeposit
+                          ? 'Enviar Comprovante e Confirmar no WhatsApp'
+                          : `Confirmar no WhatsApp de ${pro.name}`}
+                      </a>
+
+                      <p className="text-[11px] text-stone-400 mt-2">
+                        💡 Clique acima para abrir a conversa no WhatsApp com os dados e enviar seu comprovante.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetBooking();
+                            setClientSubView('MY_BOOKINGS');
+                          }}
+                          className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          Ver em Meus Agendamentos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetBooking}
+                          className="w-full py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl text-xs hover:bg-stone-200 transition cursor-pointer"
+                        >
+                          Fazer Novo Agendamento
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
               )}
             </div>
 
-            {/* SEÇÃO DE AVALIAÇÕES REAIS DAS CLIENTES (PASSO 4) */}
-            <div className="border-t border-stone-200 bg-white p-6 space-y-4">
+            {/* 3. PORTFÓLIO DE TRABALHOS REALIZADOS (SE HOUVER FOTOS CADASTRADAS) */}
+            {pro.portfolio && pro.portfolio.length > 0 && (
+              <div className={`col-span-1 lg:col-span-7 xl:col-span-8 rounded-3xl shadow-sm border p-6 transition-colors ${proTheme.headerCardBg} ${proTheme.headerCardBorder}`}>
+                <div className="flex items-center justify-between mb-3.5">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-rose-600" />
+                    Portfólio de Trabalhos Realizados
+                  </h3>
+                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full">
+                    {pro.portfolio.length} {pro.portfolio.length === 1 ? 'foto' : 'fotos'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
+                  {pro.portfolio.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="group relative rounded-2xl overflow-hidden aspect-square bg-stone-100 border border-stone-200/80 shadow-xs"
+                    >
+                      <img
+                        src={item.url}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent opacity-95 p-2.5 flex items-end">
+                        <span className="text-[11px] text-white font-bold leading-snug">
+                          {item.title}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 4. SEÇÃO DE AVALIAÇÕES REAIS DAS CLIENTES */}
+            <div className="col-span-1 lg:col-span-7 xl:col-span-8 rounded-3xl shadow-sm border border-stone-200 bg-white p-6 space-y-4">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div>
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-800 flex items-center gap-1.5">
@@ -5673,25 +5856,35 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Atalho para abrir a Janela do Assistente Passo a Passo quando quiser */}
-                <div className="mt-3 pt-2.5 border-t border-stone-800 flex items-center justify-between gap-2">
+                {/* Atalho para abrir a Janela do Assistente Passo a Passo e Regras & Sinal */}
+                <div className="mt-3 pt-2.5 border-t border-stone-800 flex items-center justify-between flex-wrap gap-2">
                   <p className="text-[10px] text-stone-400">
-                    Quer configurar ou revisar sua conta passo a passo em outra janela?
+                    Ajuste suas regras anti-furo ou revise sua conta passo a passo:
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isProTrialExpired) {
-                        showExpiredTrialLockDialog();
-                        return;
-                      }
-                      startProOnboardingWizard();
-                    }}
-                    className={`text-[10px] font-extrabold ${panelTheme.primaryBgLight} hover:opacity-90 ${panelTheme.primaryText} border ${panelTheme.primaryBorderLight} px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0`}
-                  >
-                    <Sparkles className={`w-3 h-3 ${panelTheme.primaryText}`} />
-                    {isProTrialExpired ? '🔒 Assistente Bloqueado' : 'Abrir Assistente Passo a Passo'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowBookingRulesModal(true)}
+                      className="text-[10px] font-extrabold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0"
+                    >
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      Regras & Sinal 50%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isProTrialExpired) {
+                          showExpiredTrialLockDialog();
+                          return;
+                        }
+                        startProOnboardingWizard();
+                      }}
+                      className={`text-[10px] font-extrabold ${panelTheme.primaryBgLight} hover:opacity-90 ${panelTheme.primaryText} border ${panelTheme.primaryBorderLight} px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0`}
+                    >
+                      <Sparkles className={`w-3 h-3 ${panelTheme.primaryText}`} />
+                      {isProTrialExpired ? '🔒 Assistente Bloqueado' : 'Assistente'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -5910,6 +6103,44 @@ export default function App() {
                           </div>
                         </div>
 
+                        {/* CARD DE CONFIGURAÇÃO DE REGRAS & SINAL DE 50% (ANTI-FURO) */}
+                        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-300 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                          <div className="flex items-start sm:items-center gap-3">
+                            <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0 mt-0.5 sm:mt-0">
+                              <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-extrabold text-sm text-stone-900">
+                                  Regras de Agendamento & Sinal ({bookingRules.depositPercentage}%)
+                                </h4>
+                                <span
+                                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                                    bookingRules.requireDeposit
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-stone-200 text-stone-700'
+                                  }`}
+                                >
+                                  {bookingRules.requireDeposit ? 'Sinal Ativo' : 'Sinal Desativado'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-stone-600 mt-0.5">
+                                {bookingRules.requireDeposit
+                                  ? `Sinal de ${bookingRules.depositPercentage}% para confirmar • PIX: ${bookingRules.pixKey || 'Não cadastrada'} • Tolerância: ${bookingRules.delayToleranceMinutes} min`
+                                  : `Tolerância de atraso: ${bookingRules.delayToleranceMinutes} min • Remarcação: ${bookingRules.cancellationNoticeHours}h`}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowBookingRulesModal(true)}
+                            className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-xs transition shrink-0 flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                            Configurar Regras & Sinal
+                          </button>
+                        </div>
+
                         {/* CABEÇALHO ENFÁTICO: ATENDIMENTOS */}
                         <div className={`${panelTheme.primaryBgLight} border-2 ${panelTheme.primaryBorderLight} rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs`}>
                           <div className="flex items-center gap-3">
@@ -6026,9 +6257,38 @@ export default function App() {
                                         </p>
                                       </div>
                                     </div>
-                                    <span className="text-xs font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
-                                      R$ {item.totalPrice.toFixed(2).replace('.', ',')}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                      {bookingRules.requireDeposit && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const nextPaid = !item.depositPaid;
+                                            setProAppointments((prev) => {
+                                              const updated = prev.map((a) => (a.id === item.id ? { ...a, depositPaid: nextPaid } : a));
+                                              try {
+                                                localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updated));
+                                              } catch {}
+                                              syncDocumentToFirestore('appointments', { items: updated });
+                                              return updated;
+                                            });
+                                          }}
+                                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                                            item.depositPaid
+                                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
+                                              : 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200'
+                                          }`}
+                                          title="Clique para alternar o status do sinal de 50%"
+                                        >
+                                          <ShieldCheck className="w-3 h-3" />
+                                          {item.depositPaid
+                                            ? 'Sinal Pago'
+                                            : `Sinal R$ ${(item.depositAmount || item.totalPrice * 0.5).toFixed(2).replace('.', ',')} (Aguardando)`}
+                                        </button>
+                                      )}
+                                      <span className="text-xs font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
+                                        Total: R$ {item.totalPrice.toFixed(2).replace('.', ',')}
+                                      </span>
+                                    </div>
                                   </div>
 
                                   <p className="text-xs text-stone-600 flex items-center gap-1.5 pt-1">
@@ -6051,21 +6311,13 @@ export default function App() {
                                         <>
                                           <a
                                             href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                              proBusinessNiche === 'BARBERSHOP'
-                                                ? `Fala, ${item.clientName}! 💈 Aqui é o *${proDisplayName || currentUser?.fullName || 'seu barbeiro'}* da barbearia.\n\n` +
-                                                  `Passando pra te lembrar do seu horário hoje:\n` +
-                                                  `✂️ *Serviço:* ${item.serviceName}\n` +
-                                                  `📅 *Data:* ${item.date.split('-').reverse().join('/')} às *${item.time}*\n` +
-                                                  `🏢 *Local:* ${item.address}\n` +
-                                                  `💰 *Valor:* R$ ${item.totalPrice.toFixed(2).replace('.', ',')}\n\n` +
-                                                  `Tudo certo pro nosso horário, irmão? Te aguardo na cadeira! Se tiver algum imprevisto me avisa antes. Tamo junto! 👊🔥`
-                                                : `Olá, ${item.clientName}! ✨ Aqui é *${proDisplayName || currentUser?.fullName || 'sua profissional'}* da plataforma *BellaDoor*.\n\n` +
-                                                  `Passando para confirmar seu atendimento no Studio:\n` +
-                                                  `💅 *Serviço:* ${item.serviceName}\n` +
-                                                  `📅 *Data:* ${item.date.split('-').reverse().join('/')} às *${item.time}*\n` +
-                                                  `🏢 *Local:* ${item.address}\n` +
-                                                  `💰 *Valor:* R$ ${item.totalPrice.toFixed(2).replace('.', ',')}\n\n` +
-                                                  `Tudo certo para o nosso horário no Studio? Te aguardo lá! 😊`
+                                              formatConfirmationMessage({
+                                                settings: bookingRules,
+                                                booking: item,
+                                                proName: proDisplayName || currentUser?.fullName || (proBusinessNiche === 'BARBERSHOP' ? 'seu barbeiro' : 'sua profissional'),
+                                                proWhatsapp,
+                                                isBarbershop: proBusinessNiche === 'BARBERSHOP',
+                                              })
                                             )}`}
                                             target="_blank"
                                             rel="noreferrer"
@@ -6073,7 +6325,7 @@ export default function App() {
                                             title="Enviar confirmação e endereço para o cliente"
                                           >
                                             <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                                            {proBusinessNiche === 'BARBERSHOP' ? 'Lembrar / Confirmar Horário' : 'Confirmar / Lembrete Studio'}
+                                            {proBusinessNiche === 'BARBERSHOP' ? 'Lembrar / Confirmar Horário' : 'Confirmar & Regras WhatsApp'}
                                           </a>
 
                                           <a
@@ -6095,21 +6347,13 @@ export default function App() {
                                         <>
                                           <a
                                             href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                              proBusinessNiche === 'BARBERSHOP'
-                                                ? `Fala, ${item.clientName}! 💈 Aqui é o *${proDisplayName || currentUser?.fullName || 'seu barbeiro'}*.\n\n` +
-                                                  `Passando pra te lembrar e confirmar nosso atendimento VIP a domicílio:\n` +
-                                                  `✂️ *Serviço:* ${item.serviceName}\n` +
-                                                  `📅 *Data:* ${item.date.split('-').reverse().join('/')} às *${item.time}*\n` +
-                                                  `📍 *Endereço:* ${item.address} (${item.neighborhood})\n` +
-                                                  `💰 *Valor Total:* R$ ${item.totalPrice.toFixed(2).replace('.', ',')} (com deslocamento)\n\n` +
-                                                  `Já tô com as máquinas e ferramentas no jeito pra ir até você. Tudo confirmado pro nosso horário, irmão? Tamo junto! 👊🔥`
-                                                : `Olá, ${item.clientName}! ✨ Aqui é *${proDisplayName || currentUser?.fullName || 'sua profissional'}* da plataforma *BellaDoor*.\n\n` +
-                                                  `Passando para confirmar nosso atendimento a domicílio:\n` +
-                                                  `💅 *Serviço:* ${item.serviceName}\n` +
-                                                  `📅 *Data:* ${item.date.split('-').reverse().join('/')} às *${item.time}*\n` +
-                                                  `📍 *Endereço:* ${item.address} (${item.neighborhood})\n` +
-                                                  `💰 *Valor Total:* R$ ${item.totalPrice.toFixed(2).replace('.', ',')} (com deslocamento)\n\n` +
-                                                  `Pode me confirmar se está tudo certinho para o nosso horário? 😊`
+                                              formatConfirmationMessage({
+                                                settings: bookingRules,
+                                                booking: item,
+                                                proName: proDisplayName || currentUser?.fullName || (proBusinessNiche === 'BARBERSHOP' ? 'seu barbeiro' : 'sua profissional'),
+                                                proWhatsapp,
+                                                isBarbershop: proBusinessNiche === 'BARBERSHOP',
+                                              })
                                             )}`}
                                             target="_blank"
                                             rel="noreferrer"
@@ -6117,7 +6361,7 @@ export default function App() {
                                             title="Enviar resumo e pedir confirmação no WhatsApp para evitar faltas"
                                           >
                                             <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                                            {proBusinessNiche === 'BARBERSHOP' ? 'Lembrar Atendimento VIP' : 'Confirmar / Lembrete Domicílio'}
+                                            {proBusinessNiche === 'BARBERSHOP' ? 'Lembrar VIP & Regras' : 'Confirmar & Regras WhatsApp'}
                                           </a>
 
                                           <a
@@ -9482,6 +9726,38 @@ export default function App() {
         proSlug={myCustomProProfile.slug || dynamicSlug}
         proAvatarUrl={proAvatarUrl}
         proWhatsapp={proWhatsapp}
+      />
+
+      {/* MODAL DE CONFIGURAÇÃO DE REGRAS DE AGENDAMENTO & SINAL DE 50% */}
+      <BookingRulesModal
+        isOpen={showBookingRulesModal}
+        onClose={() => setShowBookingRulesModal(false)}
+        currentSettings={bookingRules}
+        onSave={(newRules) => {
+          setBookingRules(newRules);
+          try {
+            if (activeProKey) {
+              localStorage.setItem(`belladoor_v2_booking_rules_${activeProKey}`, JSON.stringify(newRules));
+            }
+          } catch {}
+          if (activeProKey && isFirebaseConfigured()) {
+            syncDocumentToFirestore(`pro_booking_rules_${activeProKey}`, newRules);
+          }
+          setUiDialog({
+            emoji: '🛡️',
+            badge: 'Regras Atualizadas',
+            title: 'Regras de Agendamento Salvas!',
+            message: newRules.requireDeposit
+              ? `O sinal de ${newRules.depositPercentage}% e as regras de confirmação no WhatsApp foram atualizados com sucesso.`
+              : 'As regras de atendimento e a mensagem de confirmação foram atualizadas.',
+            buttonText: 'Continuar',
+            variant: 'success',
+          });
+        }}
+        proName={proDisplayName || currentUser?.fullName || ''}
+        proWhatsapp={proWhatsapp}
+        proEmail={currentUser?.email}
+        isBarbershop={proBusinessNiche === 'BARBERSHOP'}
       />
 
       {/* MODAIS GLOBAIS: ONBOARDING 7 DIAS GRÁTIS & JANELINHA PADRÃO BELLADOOR */}

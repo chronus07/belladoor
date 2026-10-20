@@ -22,6 +22,25 @@ export interface ClientAppointment {
   proAvatarUrl?: string;
   proWhatsapp?: string;
   reviewed?: boolean;
+  depositAmount?: number;
+  depositPercentage?: number;
+  depositPaid?: boolean;
+}
+
+export type PixKeyType = 'PHONE' | 'CPF' | 'CNPJ' | 'EMAIL' | 'RANDOM';
+
+export interface BookingConfirmationSettings {
+  enabled: boolean;
+  requireDeposit: boolean;
+  depositPercentage: number;
+  pixKey: string;
+  pixKeyType: PixKeyType;
+  pixReceiverName: string;
+  depositTimeLimitHours: number;
+  delayToleranceMinutes: number;
+  cancellationNoticeHours: number;
+  customRules: string;
+  customMessageTemplate: string;
 }
 
 export interface ClientReview {

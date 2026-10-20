@@ -24,19 +24,31 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   return (
     <div className="space-y-4">
       {/* Banner de Boas-Vindas */}
-      <div className="bg-gradient-to-r from-rose-950 via-rose-900 to-stone-900 text-white p-5 rounded-3xl shadow-sm relative overflow-hidden">
-        <div className="relative z-10 space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 bg-rose-900/60 px-2.5 py-0.5 rounded-full border border-rose-700/50">
-            Atendimento a Domicílio
+      <div className="bg-gradient-to-r from-rose-950 via-rose-900 to-stone-900 text-white p-5 sm:p-7 lg:p-8 rounded-3xl shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="relative z-10 space-y-2 max-w-xl">
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-rose-300 bg-rose-900/60 px-3 py-1 rounded-full border border-rose-700/50 inline-block">
+            ✨ Atendimento a Domicílio ou Studio
           </span>
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight pt-1">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight pt-1">
             A beleza que vai até você.
           </h1>
-          <p className="text-xs text-rose-100/80 leading-relaxed max-w-sm">
-            Encontre profissionais qualificadas e agende seu atendimento no conforto da sua casa.
+          <p className="text-xs sm:text-sm text-rose-100/80 leading-relaxed">
+            Encontre profissionais qualificadas e agende seu atendimento no conforto da sua casa ou no espaço da profissional.
           </p>
         </div>
-        <div className="absolute -right-4 -bottom-6 opacity-20 text-8xl select-none">🚪</div>
+        <div className="hidden md:flex flex-col gap-2 z-10 shrink-0">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 px-3.5 py-2 rounded-2xl flex items-center gap-2.5 text-xs">
+            <span className="text-amber-300">★</span>
+            <span className="font-extrabold text-white">4.9 / 5.0</span>
+            <span className="text-rose-200 text-[11px]">Avaliações Verificadas</span>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 px-3.5 py-2 rounded-2xl flex items-center gap-2.5 text-xs">
+            <span className="text-emerald-400">🛡️</span>
+            <span className="font-extrabold text-white">100% Verificados</span>
+            <span className="text-rose-200 text-[11px]">Profissionais Checados</span>
+          </div>
+        </div>
+        <div className="absolute -right-4 -bottom-6 opacity-15 text-8xl select-none pointer-events-none">🚪</div>
       </div>
 
       {/* Barra de Pesquisa */}
@@ -52,7 +64,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
       </div>
 
       {/* Filtro por Categorias */}
-      <div className="flex gap-2 overflow-x-auto pb-1 text-xs font-bold">
+      <div className="flex gap-2 overflow-x-auto md:flex-wrap pb-1 text-xs font-bold">
         {[
           { id: 'TODAS', label: '🌟 Todas' },
           { id: 'Maquiagem', label: '💄 Maquiagem' },
@@ -109,111 +121,117 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
             )}
           </div>
         ) : (
-          filteredPros.map((p) => {
-            const minPrice =
-              p.services.length > 0
-                ? Math.min(...p.services.map((s) => Number(s.price) || 0))
-                : p.startingPrice || 0;
-            const mainNeighborhood =
-              p.neighborhoods.length > 0
-                ? p.neighborhoods[0].name
-                : p.baseNeighborhood || 'Atendimento a Domicílio';
-            const mainCity = p.neighborhoods[0]?.city || p.baseCity || '';
-            const mainArea = mainCity ? `${mainNeighborhood} • ${mainCity}` : mainNeighborhood;
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {filteredPros.map((p) => {
+              const minPrice =
+                p.services.length > 0
+                  ? Math.min(...p.services.map((s) => Number(s.price) || 0))
+                  : p.startingPrice || 0;
+              const mainNeighborhood =
+                p.neighborhoods.length > 0
+                  ? p.neighborhoods[0].name
+                  : p.baseNeighborhood || 'Atendimento a Domicílio';
+              const mainCity = p.neighborhoods[0]?.city || p.baseCity || '';
+              const mainArea = mainCity ? `${mainNeighborhood} • ${mainCity}` : mainNeighborhood;
 
-            return (
-              <div
-                key={p.id}
-                onClick={() => onSelectProfessional(p)}
-                className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden hover:shadow-md hover:border-rose-300 transition cursor-pointer group"
-              >
-                {/* Capa */}
-                <div className="relative h-24 bg-stone-900">
-                  <img
-                    src={p.coverUrl}
-                    alt={p.name}
-                    className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <span className="absolute top-2.5 right-2.5 bg-white/95 backdrop-blur-sm text-stone-900 text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-sm">
-                    {minPrice > 0 ? `A partir de R$ ${minPrice.toFixed(0)}` : 'Atendimento a Domicílio'}
-                  </span>
-                </div>
-
-                <div className="p-4 pt-0 relative">
-                  <div className="flex justify-between items-end -mt-8 mb-2">
-                    <img
-                      src={p.avatarUrl}
-                      alt={p.name}
-                      referrerPolicy="no-referrer"
-                      className="w-16 h-16 rounded-2xl object-cover border-3 border-white shadow-md bg-white"
-                    />
-                    <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-xs font-extrabold text-amber-700">
-                      <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                      {p.rating}
-                      <span className="text-[10px] text-stone-400 font-normal">
-                        ({p.reviewCount})
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => onSelectProfessional(p)}
+                  className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden hover:shadow-xl hover:border-rose-300 transition duration-300 cursor-pointer group flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Capa */}
+                    <div className="relative h-28 sm:h-32 bg-stone-900 overflow-hidden">
+                      <img
+                        src={p.coverUrl}
+                        alt={p.name}
+                        className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <span className="absolute top-2.5 right-2.5 bg-white/95 backdrop-blur-sm text-stone-900 text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-sm">
+                        {minPrice > 0 ? `A partir de R$ ${minPrice.toFixed(0)}` : 'Atendimento a Domicílio'}
                       </span>
+                    </div>
+
+                    <div className="p-4 pt-0 relative">
+                      <div className="flex justify-between items-end -mt-8 mb-2">
+                        <img
+                          src={p.avatarUrl}
+                          alt={p.name}
+                          referrerPolicy="no-referrer"
+                          className="w-16 h-16 rounded-2xl object-cover border-3 border-white shadow-md bg-white"
+                        />
+                        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-xs font-extrabold text-amber-700">
+                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          {p.rating}
+                          <span className="text-[10px] text-stone-400 font-normal">
+                            ({p.reviewCount})
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-extrabold text-sm text-stone-900 group-hover:text-rose-600 transition">
+                            {p.name}
+                          </h3>
+                          <span className="bg-rose-100 text-rose-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                            <ShieldCheck className="w-2.5 h-2.5 text-rose-600" /> Verificada
+                          </span>
+                        </div>
+                        <p className="text-xs text-rose-600 font-semibold mt-0.5">
+                          {p.title || 'Especialista em Beleza a Domicílio'}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                          {p.serviceMode === 'STUDIO' ? (
+                            <span className="text-[9px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
+                              🏢 No Studio {p.studioName ? `• ${p.studioName}` : ''}
+                            </span>
+                          ) : p.serviceMode === 'DOMICILIO' ? (
+                            <span className="text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
+                              🏡 A Domicílio
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full">
+                              ✨ No Studio & A Domicílio
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Especialidades / Serviços */}
+                        {p.services.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {p.services.slice(0, 3).map((srv) => (
+                              <span
+                                key={srv.id}
+                                className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md font-medium"
+                              >
+                                {srv.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="font-extrabold text-sm text-stone-900 group-hover:text-rose-600 transition">
-                        {p.name}
-                      </h3>
-                      <span className="bg-rose-100 text-rose-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                        <ShieldCheck className="w-2.5 h-2.5 text-rose-600" /> Verificada
+                  {/* Rodapé do Card */}
+                  <div className="p-4 pt-0">
+                    <div className="flex items-center justify-between pt-3 border-t border-stone-100 text-[11px] text-stone-500">
+                      <span className="flex items-center gap-1 truncate max-w-[55%]">
+                        <MapPin className="w-3 h-3 text-stone-400 shrink-0" />
+                        <span className="truncate">{mainArea}</span>
                       </span>
-                    </div>
-                    <p className="text-xs text-rose-600 font-semibold mt-0.5">
-                      {p.title || 'Especialista em Beleza a Domicílio'}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                      {p.serviceMode === 'STUDIO' ? (
-                        <span className="text-[9px] font-extrabold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
-                          🏢 No Studio {p.studioName ? `• ${p.studioName}` : ''}
-                        </span>
-                      ) : p.serviceMode === 'DOMICILIO' ? (
-                        <span className="text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
-                          🏡 A Domicílio
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full">
-                          ✨ No Studio & A Domicílio
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Especialidades / Serviços */}
-                    {p.services.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {p.services.slice(0, 3).map((srv) => (
-                          <span
-                            key={srv.id}
-                            className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-md font-medium"
-                          >
-                            {srv.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Rodapé do Card */}
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-stone-100 text-[11px] text-stone-500">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-stone-400" />
-                        {mainArea}
-                      </span>
-                      <span className="font-bold text-rose-600 flex items-center gap-0.5 group-hover:translate-x-0.5 transition">
+                      <span className="font-bold text-rose-600 flex items-center gap-0.5 group-hover:translate-x-0.5 transition shrink-0">
                         Ver Perfil & Agendar ➔
                       </span>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
