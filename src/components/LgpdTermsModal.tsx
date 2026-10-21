@@ -22,6 +22,7 @@ interface LgpdTermsModalProps {
   isOpen: boolean;
   initialTab?: 'TERMS' | 'PRIVACY' | 'BETA' | 'RIGHTS';
   currentUser: AuthUser | null;
+  isAccepted?: boolean;
   onClose: () => void;
   onAcceptTerms?: () => void;
   onDeleteOwnAccount?: () => Promise<void>;
@@ -31,6 +32,7 @@ export const LgpdTermsModal: React.FC<LgpdTermsModalProps> = ({
   isOpen,
   initialTab = 'TERMS',
   currentUser,
+  isAccepted = false,
   onClose,
   onAcceptTerms,
   onDeleteOwnAccount,
@@ -38,11 +40,13 @@ export const LgpdTermsModal: React.FC<LgpdTermsModalProps> = ({
   const [activeSection, setActiveSection] = useState<'TERMS' | 'PRIVACY' | 'BETA' | 'RIGHTS'>(initialTab);
   const [confirmDeleteStep, setConfirmDeleteStep] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [hasAcceptedNow, setHasAcceptedNow] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
       setActiveSection(initialTab);
       setConfirmDeleteStep(false);
+      setHasAcceptedNow(false);
     }
   }, [isOpen, initialTab]);
 
@@ -50,6 +54,15 @@ export const LgpdTermsModal: React.FC<LgpdTermsModalProps> = ({
 
   const isRealLoggedUser =
     Boolean(currentUser?.email) && currentUser?.id !== 'usr-visitor-link';
+
+  const isAlreadyAccepted = Boolean(
+    isAccepted ||
+    hasAcceptedNow ||
+    isRealLoggedUser ||
+    currentUser?.termsAcceptedAt ||
+    currentUser?.privacyAcceptedAt ||
+    currentUser?.lgpdConsentAt
+  );
 
   const handleConfirmSelfDelete = async () => {
     if (!onDeleteOwnAccount) return;
@@ -522,18 +535,28 @@ export const LgpdTermsModal: React.FC<LgpdTermsModalProps> = ({
             Versão 2026.2 • Ambiente Seguro SSL &amp; LGPD
           </span>
           <div className="flex items-center gap-2">
-            {onAcceptTerms && (
+            {isAlreadyAccepted ? (
+              <button
+                type="button"
+                disabled
+                title="Você já aceitou expressamente os Termos de Uso e a Política de Privacidade."
+                className="px-4 py-2 rounded-xl bg-stone-200 border border-stone-300 text-stone-500 text-xs font-bold flex items-center gap-1.5 cursor-not-allowed select-none opacity-90 shadow-none"
+              >
+                <Check className="w-3.5 h-3.5 text-stone-500" />
+                <span>Termos &amp; Políticas Já Aceitos</span>
+              </button>
+            ) : onAcceptTerms ? (
               <button
                 type="button"
                 onClick={() => {
-                  onAcceptTerms();
-                  onClose();
+                  setHasAcceptedNow(true);
+                  if (onAcceptTerms) onAcceptTerms();
                 }}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold transition cursor-pointer shadow-xs"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold transition cursor-pointer shadow-xs flex items-center gap-1.5"
               >
                 Li e Concordo com os Termos
               </button>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={onClose}

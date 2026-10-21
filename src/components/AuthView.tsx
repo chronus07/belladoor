@@ -709,6 +709,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     <span className="text-rose-600 font-bold">*</span>
                   </span>
                 </label>
+
+                {termsAccepted && privacyAccepted && (
+                  <div className="flex items-center gap-1.5 pt-1 text-[10px] text-emerald-700 font-bold animate-in fade-in">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Termos e Políticas de Privacidade aceitos para o cadastro</span>
+                  </div>
+                )}
               </div>
             )}
 

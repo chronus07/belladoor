@@ -10241,8 +10241,31 @@ export default function App() {
         isOpen={lgpdModalState.open}
         initialTab={lgpdModalState.tab}
         currentUser={currentUser}
+        isAccepted={
+          Boolean(
+            (currentUser?.email && currentUser?.id !== 'usr-visitor-link') ||
+            (termsAccepted && privacyAccepted) ||
+            currentUser?.termsAcceptedAt ||
+            currentUser?.privacyAcceptedAt ||
+            currentUser?.lgpdConsentAt
+          )
+        }
         onClose={() => setLgpdModalState((prev) => ({ ...prev, open: false }))}
-        onAcceptTerms={() => setLgpdAccepted(true)}
+        onAcceptTerms={() => {
+          setTermsAccepted(true);
+          setPrivacyAccepted(true);
+          setLgpdAccepted(true);
+          if (currentUser?.email) {
+            currentUser.termsAcceptedAt = currentUser.termsAcceptedAt || new Date().toISOString();
+            currentUser.privacyAcceptedAt = currentUser.privacyAcceptedAt || new Date().toISOString();
+            currentUser.termsVersion = currentUser.termsVersion || '2026.2';
+            currentUser.privacyVersion = currentUser.privacyVersion || '2026.2';
+            currentUser.lgpdConsentAt = currentUser.lgpdConsentAt || new Date().toISOString();
+            try {
+              localStorage.setItem('belladoor_v2_user', JSON.stringify(currentUser));
+            } catch {}
+          }
+        }}
         onDeleteOwnAccount={currentUser ? handleDeleteOwnAccount : undefined}
       />
 
