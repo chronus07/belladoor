@@ -13,6 +13,8 @@ import {
   Users,
   DollarSign,
   HeartHandshake,
+  Check,
+  Calendar,
 } from 'lucide-react';
 import { AuthUser } from '../../lib/supabaseClient';
 
@@ -149,6 +151,29 @@ export const LgpdTermsModal: React.FC<LgpdTermsModalProps> = ({
           {/* ========================================================= */}
           {activeSection === 'TERMS' && (
             <div className="space-y-4">
+              {/* Confirmação de Aceite Prévio Salvo */}
+              {isRealLoggedUser && currentUser && (
+                <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="text-[11px] text-emerald-950 font-bold truncate">
+                      Você aceitou os Termos de Uso em{' '}
+                      <strong className="underline">
+                        {currentUser.termsAcceptedAt
+                          ? new Date(currentUser.termsAcceptedAt).toLocaleDateString('pt-BR')
+                          : currentUser.lgpdConsentAt
+                          ? new Date(currentUser.lgpdConsentAt).toLocaleDateString('pt-BR')
+                          : 'no seu cadastro'}
+                      </strong>{' '}
+                      (Versão {currentUser.termsVersion || '2026.2'})
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 text-emerald-800 shrink-0">
+                    ✓ Aceito
+                  </span>
+                </div>
+              )}
+
               <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-3.5 flex items-start gap-2.5">
                 <HeartHandshake className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                 <div>
@@ -226,6 +251,29 @@ export const LgpdTermsModal: React.FC<LgpdTermsModalProps> = ({
           {/* ========================================================= */}
           {activeSection === 'PRIVACY' && (
             <div className="space-y-4">
+              {/* Confirmação de Aceite Prévio Salvo */}
+              {isRealLoggedUser && currentUser && (
+                <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="text-[11px] text-emerald-950 font-bold truncate">
+                      Você aceitou a Política de Privacidade em{' '}
+                      <strong className="underline">
+                        {currentUser.privacyAcceptedAt
+                          ? new Date(currentUser.privacyAcceptedAt).toLocaleDateString('pt-BR')
+                          : currentUser.lgpdConsentAt
+                          ? new Date(currentUser.lgpdConsentAt).toLocaleDateString('pt-BR')
+                          : 'no seu cadastro'}
+                      </strong>{' '}
+                      (Versão {currentUser.privacyVersion || '2026.2'})
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 text-emerald-800 shrink-0">
+                    ✓ Aceito
+                  </span>
+                </div>
+              )}
+
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-start gap-2.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
@@ -361,14 +409,54 @@ export const LgpdTermsModal: React.FC<LgpdTermsModalProps> = ({
               {/* Se o usuário estiver logado: mostra o status do consentimento + botão de Exclusão da própria conta */}
               {isRealLoggedUser && currentUser && (
                 <div className="border-t border-stone-200 pt-4 space-y-3">
-                  <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between text-[11px]">
-                    <span className="text-emerald-950 font-semibold flex items-center gap-1.5">
-                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                      Conta vinculada: <strong>{currentUser.email}</strong>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-full border border-emerald-200">
-                      Consentimento Ativo
-                    </span>
+                  <div className="bg-emerald-50/80 border border-emerald-300 rounded-2xl p-3.5 space-y-2.5 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-950 font-bold flex items-center gap-1.5">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        Conta vinculada: <strong>{currentUser.email}</strong>
+                      </span>
+                      <span className="text-[10px] font-black text-emerald-800 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        Consentimentos Salvos &amp; Ativos
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-emerald-200/70 text-[10px]">
+                      <div className="bg-white/90 border border-emerald-200 p-2 rounded-xl text-emerald-950">
+                        <span className="text-emerald-800 font-extrabold flex items-center gap-1 block">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          Termos de Uso
+                        </span>
+                        <p className="mt-0.5 text-stone-600">
+                          Aceito em:{' '}
+                          <strong>
+                            {currentUser.termsAcceptedAt
+                              ? new Date(currentUser.termsAcceptedAt).toLocaleDateString('pt-BR')
+                              : currentUser.lgpdConsentAt
+                              ? new Date(currentUser.lgpdConsentAt).toLocaleDateString('pt-BR')
+                              : 'no cadastro'}
+                          </strong>{' '}
+                          (v{currentUser.termsVersion || '2026.2'})
+                        </p>
+                      </div>
+
+                      <div className="bg-white/90 border border-emerald-200 p-2 rounded-xl text-emerald-950">
+                        <span className="text-emerald-800 font-extrabold flex items-center gap-1 block">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          Política de Privacidade (LGPD)
+                        </span>
+                        <p className="mt-0.5 text-stone-600">
+                          Aceita em:{' '}
+                          <strong>
+                            {currentUser.privacyAcceptedAt
+                              ? new Date(currentUser.privacyAcceptedAt).toLocaleDateString('pt-BR')
+                              : currentUser.lgpdConsentAt
+                              ? new Date(currentUser.lgpdConsentAt).toLocaleDateString('pt-BR')
+                              : 'no cadastro'}
+                          </strong>{' '}
+                          (v{currentUser.privacyVersion || '2026.2'})
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {!confirmDeleteStep ? (

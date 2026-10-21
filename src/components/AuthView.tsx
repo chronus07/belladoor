@@ -46,9 +46,13 @@ interface AuthViewProps {
   onVerifyEmailCheck: () => void;
   onResendVerificationEmail: () => void;
   onCancelVerification: () => void;
-  lgpdAccepted: boolean;
-  onChangeLgpdAccepted: (val: boolean) => void;
-  onOpenLgpdModal: (tab: 'PRIVACY' | 'TERMS' | 'RIGHTS') => void;
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
+  onChangeTermsAccepted?: (val: boolean) => void;
+  onChangePrivacyAccepted?: (val: boolean) => void;
+  lgpdAccepted?: boolean;
+  onChangeLgpdAccepted?: (val: boolean) => void;
+  onOpenLgpdModal: (tab: 'PRIVACY' | 'TERMS' | 'RIGHTS' | 'BETA') => void;
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({
@@ -76,6 +80,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onVerifyEmailCheck,
   onResendVerificationEmail,
   onCancelVerification,
+  termsAccepted = false,
+  privacyAccepted = false,
+  onChangeTermsAccepted,
+  onChangePrivacyAccepted,
   lgpdAccepted,
   onChangeLgpdAccepted,
   onOpenLgpdModal,
@@ -633,40 +641,72 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </div>
             )}
 
-            {/* Consentimento Expresso LGPD (Obrigatório na Criação de Conta - Art. 7º e 8º LGPD) */}
+            {/* Consentimento Expresso Obrigatório: Termos de Uso e Política de Privacidade (Dois Aceites Separados) */}
             {authMode === 'REGISTER' && (
-              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3">
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-2.5">
+                {/* Caixinha 1: Termos de Uso */}
                 <label className="flex items-start gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
-                    checked={lgpdAccepted}
-                    onChange={(e) => onChangeLgpdAccepted(e.target.checked)}
+                    checked={termsAccepted}
+                    onChange={(e) => {
+                      if (onChangeTermsAccepted) {
+                        onChangeTermsAccepted(e.target.checked);
+                      } else if (onChangeLgpdAccepted) {
+                        onChangeLgpdAccepted(e.target.checked);
+                      }
+                    }}
                     className="mt-0.5 w-4 h-4 rounded accent-rose-600 cursor-pointer shrink-0"
                   />
-                  <span className="text-[11px] text-stone-600 leading-relaxed">
-                    Declaro ter 18 anos ou mais e concordo com os{' '}
+                  <span className="text-[11px] text-stone-700 leading-relaxed">
+                    Li e concordo com os{' '}
                     <button
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         onOpenLgpdModal('TERMS');
                       }}
-                      className="text-rose-600 font-bold hover:underline cursor-pointer"
+                      className="text-rose-600 font-extrabold underline hover:text-rose-800 cursor-pointer"
                     >
                       Termos de Uso
                     </button>{' '}
-                    e a{' '}
+                    (incluindo regras de agendamento, cancelamento e isenção da plataforma sobre o sinal).{' '}
+                    <span className="text-rose-600 font-bold">*</span>
+                  </span>
+                </label>
+
+                <div className="border-t border-stone-200/60" />
+
+                {/* Caixinha 2: Política de Privacidade (LGPD) */}
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={privacyAccepted}
+                    onChange={(e) => {
+                      if (onChangePrivacyAccepted) {
+                        onChangePrivacyAccepted(e.target.checked);
+                      } else if (onChangeLgpdAccepted) {
+                        onChangeLgpdAccepted(e.target.checked);
+                      }
+                    }}
+                    className="mt-0.5 w-4 h-4 rounded accent-rose-600 cursor-pointer shrink-0"
+                  />
+                  <span className="text-[11px] text-stone-700 leading-relaxed">
+                    Li e concordo com a{' '}
                     <button
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         onOpenLgpdModal('PRIVACY');
                       }}
-                      className="text-rose-600 font-bold hover:underline cursor-pointer"
+                      className="text-rose-600 font-extrabold underline hover:text-rose-800 cursor-pointer"
                     >
                       Política de Privacidade (LGPD)
                     </button>{' '}
-                    da plataforma BellaDoor. <span className="text-rose-600 font-bold">*</span>
+                    e autorizo o tratamento seguro dos meus dados para fins de agendamento.{' '}
+                    <span className="text-rose-600 font-bold">*</span>
                   </span>
                 </label>
               </div>

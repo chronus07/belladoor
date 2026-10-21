@@ -36,6 +36,10 @@ export interface AuthUser {
   onboardingCompleted?: boolean;
   lgpdConsentAt?: string;
   lgpdPolicyVersion?: string;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
+  privacyAcceptedAt?: string;
+  privacyVersion?: string;
 }
 
 export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';

@@ -68,6 +68,12 @@ export interface UnifiedAdminUser {
   verificationDocType?: 'RG' | 'CNH' | 'OUTRO';
   verifiedAt?: string;
   verificationNotes?: string;
+  lgpdConsentAt?: string;
+  lgpdPolicyVersion?: string;
+  termsAcceptedAt?: string;
+  termsVersion?: string;
+  privacyAcceptedAt?: string;
+  privacyVersion?: string;
 }
 
 interface AdminUsersViewProps {
@@ -225,6 +231,12 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         verificationDocType: dirPro?.verificationDocType || acc.verificationDocType || 'RG',
         verifiedAt: dirPro?.verifiedAt || acc.verifiedAt,
         verificationNotes: dirPro?.verificationNotes || acc.verificationNotes,
+        lgpdConsentAt: acc.lgpdConsentAt,
+        lgpdPolicyVersion: acc.lgpdPolicyVersion || '2026.2',
+        termsAcceptedAt: acc.termsAcceptedAt || acc.lgpdConsentAt,
+        termsVersion: acc.termsVersion || '2026.2',
+        privacyAcceptedAt: acc.privacyAcceptedAt || acc.lgpdConsentAt,
+        privacyVersion: acc.privacyVersion || '2026.2',
       });
     });
 
@@ -268,6 +280,12 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         verificationDocType: dirPro.verificationDocType || 'RG',
         verifiedAt: dirPro.verifiedAt,
         verificationNotes: dirPro.verificationNotes,
+        lgpdConsentAt: (dirPro as any).lgpdConsentAt,
+        lgpdPolicyVersion: (dirPro as any).lgpdPolicyVersion || '2026.2',
+        termsAcceptedAt: (dirPro as any).termsAcceptedAt || (dirPro as any).lgpdConsentAt,
+        termsVersion: (dirPro as any).termsVersion || '2026.2',
+        privacyAcceptedAt: (dirPro as any).privacyAcceptedAt || (dirPro as any).lgpdConsentAt,
+        privacyVersion: (dirPro as any).privacyVersion || '2026.2',
       });
     });
 
@@ -956,6 +974,28 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                               <span className="flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-stone-400" />
                                 {[u.baseNeighborhood, u.baseCity].filter(Boolean).join(' • ')}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Auditoria Legal de Consentimento (LGPD & Termos) */}
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                              Termos &amp; Privacidade Aceitos
+                              {u.termsAcceptedAt ? (
+                                <span className="text-emerald-700/80 font-normal">
+                                  ({new Date(u.termsAcceptedAt).toLocaleDateString('pt-BR')})
+                                </span>
+                              ) : u.lgpdConsentAt ? (
+                                <span className="text-emerald-700/80 font-normal">
+                                  ({new Date(u.lgpdConsentAt).toLocaleDateString('pt-BR')})
+                                </span>
+                              ) : null}
+                            </span>
+                            {u.role === 'PROFESSIONAL' && u.isVerified && (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 flex items-center gap-1">
+                                🛡️ Identidade Verificada
                               </span>
                             )}
                           </div>
@@ -2051,6 +2091,57 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Bloco de Auditoria de Consentimentos Legais (Para Proteção Jurídica do Admin) */}
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3.5 space-y-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500 block">
+                  Auditoria de Aceites Legais (LGPD Art. 8º &amp; Marco Civil)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="bg-white p-2.5 rounded-xl border border-stone-200">
+                    <span className="font-bold text-stone-900 flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      Termos de Uso
+                    </span>
+                    <p className="text-[10px] text-stone-600 mt-0.5">
+                      Aceito em:{' '}
+                      <strong>
+                        {editingUser.termsAcceptedAt
+                          ? new Date(editingUser.termsAcceptedAt).toLocaleString('pt-BR')
+                          : editingUser.lgpdConsentAt
+                          ? new Date(editingUser.lgpdConsentAt).toLocaleString('pt-BR')
+                          : 'No cadastro'}
+                      </strong>
+                    </p>
+                    <span className="text-[9px] text-stone-400 font-mono">
+                      Versão: {editingUser.termsVersion || '2026.2'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-xl border border-stone-200">
+                    <span className="font-bold text-stone-900 flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      Privacidade (LGPD)
+                    </span>
+                    <p className="text-[10px] text-stone-600 mt-0.5">
+                      Aceita em:{' '}
+                      <strong>
+                        {editingUser.privacyAcceptedAt
+                          ? new Date(editingUser.privacyAcceptedAt).toLocaleString('pt-BR')
+                          : editingUser.lgpdConsentAt
+                          ? new Date(editingUser.lgpdConsentAt).toLocaleString('pt-BR')
+                          : 'No cadastro'}
+                      </strong>
+                    </p>
+                    <span className="text-[9px] text-stone-400 font-mono">
+                      Versão: {editingUser.privacyVersion || '2026.2'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-emerald-800 bg-emerald-50/70 p-2 rounded-lg border border-emerald-200/60 leading-tight">
+                  🛡️ Registro de consentimento digital válido perante os Artigos 7º e 8º da Lei nº 13.709/2018 (LGPD).
+                </p>
+              </div>
 
               <div className="flex gap-2 pt-3">
                 <button

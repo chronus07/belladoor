@@ -873,6 +873,8 @@ export default function App() {
   };
 
   // Estados de Consentimento e Modal da LGPD (Lei nº 13.709/2018)
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState<boolean>(false);
   const [lgpdAccepted, setLgpdAccepted] = useState<boolean>(false);
   const [lgpdModalState, setLgpdModalState] = useState<{
     open: boolean;
@@ -923,9 +925,9 @@ export default function App() {
 
   // Login Social com Google (Gmail)
   const handleGoogleAuth = async () => {
-    if (authMode === 'REGISTER' && !lgpdAccepted) {
+    if (authMode === 'REGISTER' && (!termsAccepted || !privacyAccepted)) {
       setAuthError(
-        'Para criar sua conta, marque a opção abaixo confirmando que leu e concorda com os Termos de Uso e a Política de Privacidade (LGPD).'
+        'Para criar sua conta, é obrigatório marcar as duas caixinhas confirmando que leu e concorda com os Termos de Uso e com a Política de Privacidade (LGPD).'
       );
       return;
     }
@@ -1110,9 +1112,16 @@ export default function App() {
         return;
       }
 
-      if (!lgpdAccepted) {
+      if (!termsAccepted) {
         setAuthError(
-          'Para criar sua conta, marque a opção confirmando que leu e concorda com os Termos de Uso e a Política de Privacidade (LGPD).'
+          'Para criar sua conta, é obrigatório marcar a caixinha confirmando que leu e concorda com os Termos de Uso.'
+        );
+        return;
+      }
+
+      if (!privacyAccepted) {
+        setAuthError(
+          'Para criar sua conta, é obrigatório marcar a caixinha confirmando que leu e concorda com a Política de Privacidade (LGPD).'
         );
         return;
       }
@@ -4156,7 +4165,11 @@ export default function App() {
               authEmail={authEmail}
               authPassword={authPassword}
               authConfirmPassword={authConfirmPassword}
-              lgpdAccepted={lgpdAccepted}
+              termsAccepted={termsAccepted}
+              privacyAccepted={privacyAccepted}
+              onChangeTermsAccepted={setTermsAccepted}
+              onChangePrivacyAccepted={setPrivacyAccepted}
+              lgpdAccepted={termsAccepted && privacyAccepted}
               authLoading={authLoading}
               authError={authError}
               pendingVerificationEmail={pendingVerificationEmail}

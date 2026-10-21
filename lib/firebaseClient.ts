@@ -228,7 +228,11 @@ export async function signInWithFirebaseGoogle(
           subscriptionPlan: 'ANNUAL',
           subscriptionStatus: 'TRIAL',
           lgpdConsentAt: nowIso,
-          lgpdPolicyVersion: '2026.1',
+          lgpdPolicyVersion: '2026.2',
+          termsAcceptedAt: nowIso,
+          termsVersion: '2026.2',
+          privacyAcceptedAt: nowIso,
+          privacyVersion: '2026.2',
         };
 
         existingUsers[normalizedEmail] = sanitizeForFirestore({
@@ -377,7 +381,11 @@ export async function signUpWithFirebaseEmail(
     trialEndsAt: role === 'PROFESSIONAL' ? trialEnd.toISOString() : undefined,
     subscriptionPlan: 'ANNUAL',
     lgpdConsentAt: nowIso,
-    lgpdPolicyVersion: '2026.1',
+    lgpdPolicyVersion: '2026.2',
+    termsAcceptedAt: nowIso,
+    termsVersion: '2026.2',
+    privacyAcceptedAt: nowIso,
+    privacyVersion: '2026.2',
   };
 
   // 3. Salva perfil completo no Cloud Firestore com hash criptográfico irreversível SHA-256 (LGPD Art. 46)
