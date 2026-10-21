@@ -317,6 +317,13 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                     </div>
                   </div>
                 )}
+
+                <div className="mt-3 pt-2.5 border-t border-emerald-200/60 text-[11px] text-stone-600 flex items-start gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Autonomia Profissional:</strong> Você define livremente sua porcentagem de sinal e suas regras de cancelamento. Os recebimentos e eventuais estornos ocorrem diretamente entre você e sua cliente via PIX.
+                  </span>
+                </div>
               </div>
 
               {/* DADOS DO PIX */}

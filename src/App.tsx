@@ -846,8 +846,8 @@ export default function App() {
   const [lgpdAccepted, setLgpdAccepted] = useState<boolean>(false);
   const [lgpdModalState, setLgpdModalState] = useState<{
     open: boolean;
-    tab: 'PRIVACY' | 'TERMS' | 'RIGHTS';
-  }>({ open: false, tab: 'PRIVACY' });
+    tab: 'PRIVACY' | 'TERMS' | 'BETA' | 'RIGHTS';
+  }>({ open: false, tab: 'TERMS' });
 
   // [LGPD Art. 18, VI] Permite que a própria usuária exclua sua conta e dados pessoais
   const handleDeleteOwnAccount = async () => {
@@ -5305,6 +5305,17 @@ export default function App() {
                           Confirmar Agendamento
                         </button>
                       </div>
+                      <p className="text-[10px] text-stone-500 text-center mt-2.5 leading-relaxed">
+                        Ao confirmar, você concorda com os{' '}
+                        <button
+                          type="button"
+                          onClick={() => setLgpdModalState({ open: true, tab: 'TERMS' })}
+                          className="underline font-bold text-stone-700 hover:text-stone-900 cursor-pointer"
+                        >
+                          Termos de Uso
+                        </button>{' '}
+                        e com as regras e tolerâncias estabelecidas pela profissional.
+                      </p>
                     </form>
                   )}
                 </div>
@@ -5420,6 +5431,14 @@ export default function App() {
                             <li className="whitespace-pre-wrap">{clientEffectiveRules.customRules}</li>
                           )}
                         </ul>
+                      </div>
+
+                      {/* DISCLAIMER DE ISENÇÃO SOBRE SINAL E REGRAS */}
+                      <div className="bg-stone-100/90 border border-stone-200 rounded-xl p-2.5 text-[10px] text-stone-600 leading-relaxed text-left flex items-start gap-2 mt-3">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Aviso Legal:</strong> O sinal, as tolerâncias e as regras de cancelamento são estabelecidos diretamente por <strong>{pro.name}</strong>. O BellaDoor é uma ferramenta tecnológica de agendamento e vitrine e não custodia nem intermedeia valores financeiros.
+                        </span>
                       </div>
 
                       {/* BOTÃO DO WHATSAPP COM MENSAGEM PRÉ-FORMATADA */}
