@@ -215,6 +215,11 @@ export default function App() {
       studioName: mockProfessional.studioName || '',
       businessNiche: (mockProfessional.businessNiche || 'BEAUTY') as 'BEAUTY' | 'BARBERSHOP' | 'NEUTRAL',
       visualTheme: (mockProfessional.visualTheme || 'ROSE') as 'ROSE' | 'DARK_BARBER' | 'EMERALD' | 'MINIMAL',
+      isVerified: Boolean(mockProfessional.isVerified),
+      verificationStatus: (mockProfessional.verificationStatus || 'UNVERIFIED') as 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED',
+      verificationDocUrl: mockProfessional.verificationDocUrl || '',
+      verificationDocType: (mockProfessional.verificationDocType || 'RG') as 'RG' | 'CNH' | 'OUTRO',
+      verifiedAt: mockProfessional.verifiedAt || '',
     }
   );
 
@@ -275,6 +280,26 @@ export default function App() {
     (savedVitrine as any).visualTheme ||
       ((savedVitrine as any).businessNiche === 'BARBERSHOP' ? 'DARK_BARBER' : 'ROSE')
   );
+
+  // Estados de Verificação de Identidade (Selo de Confiança)
+  const [proIsVerified, setProIsVerified] = useState<boolean>(Boolean((savedVitrine as any).isVerified));
+  const [proVerificationStatus, setProVerificationStatus] = useState<
+    'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED'
+  >(
+    (savedVitrine as any).verificationStatus ||
+      ((savedVitrine as any).isVerified
+        ? 'VERIFIED'
+        : (savedVitrine as any).verificationDocUrl
+        ? 'PENDING'
+        : 'UNVERIFIED')
+  );
+  const [proVerificationDocUrl, setProVerificationDocUrl] = useState<string>(
+    (savedVitrine as any).verificationDocUrl || ''
+  );
+  const [proVerificationDocType, setProVerificationDocType] = useState<'RG' | 'CNH' | 'OUTRO'>(
+    (savedVitrine as any).verificationDocType || 'RG'
+  );
+  const [proVerifiedAt, setProVerifiedAt] = useState<string>((savedVitrine as any).verifiedAt || '');
 
   // Configuração de Expediente Padrão (inicia sem períodos bloqueados fictícios)
   const savedSchedule = loadFromStorage(
@@ -540,6 +565,11 @@ export default function App() {
     rating: calculatedRating,
     reviewCount: myProReviews.length,
     bookingRules,
+    isVerified: proIsVerified,
+    verificationStatus: proVerificationStatus,
+    verificationDocUrl: proVerificationDocUrl,
+    verificationDocType: proVerificationDocType,
+    verifiedAt: proVerifiedAt,
   };
 
   const rawPro =
@@ -1324,6 +1354,12 @@ export default function App() {
         updatedUser.role === 'PROFESSIONAL' &&
         updatedUser.subscriptionStatus !== 'ACTIVE' &&
         daysLeft > 0,
+      isVerified: Boolean(updatedUser.isVerified),
+      verificationStatus:
+        updatedUser.verificationStatus || (updatedUser.isVerified ? 'VERIFIED' : 'UNVERIFIED'),
+      verificationDocUrl: updatedUser.verificationDocUrl,
+      verificationDocType: updatedUser.verificationDocType,
+      verifiedAt: updatedUser.verifiedAt,
     };
 
     const res = await adminSaveUserInFirestore(cleanOldEmail, {
@@ -1370,6 +1406,13 @@ export default function App() {
             }
           : prev
       );
+
+      if (typeof updatedUser.isVerified === 'boolean') {
+        setProIsVerified(updatedUser.isVerified);
+        setProVerificationStatus(
+          updatedUser.verificationStatus || (updatedUser.isVerified ? 'VERIFIED' : 'UNVERIFIED')
+        );
+      }
     }
 
     // Se for profissional e estiver no diretório da vitrine, sincroniza também os dados na vitrine pública
@@ -1382,6 +1425,14 @@ export default function App() {
         baseCity: updatedUser.baseCity?.trim() || directoryPros[proKey].baseCity,
         baseNeighborhood:
           updatedUser.baseNeighborhood?.trim() || directoryPros[proKey].baseNeighborhood,
+        isVerified: Boolean(updatedUser.isVerified),
+        verificationStatus:
+          updatedUser.verificationStatus || (updatedUser.isVerified ? 'VERIFIED' : 'UNVERIFIED'),
+        verificationDocUrl:
+          updatedUser.verificationDocUrl || directoryPros[proKey].verificationDocUrl,
+        verificationDocType:
+          updatedUser.verificationDocType || directoryPros[proKey].verificationDocType,
+        verifiedAt: updatedUser.verifiedAt || directoryPros[proKey].verifiedAt,
       };
       const nextDirectory = {
         ...directoryPros,
@@ -1398,6 +1449,11 @@ export default function App() {
         whatsapp: updatedDirPro.whatsapp,
         baseCity: updatedDirPro.baseCity,
         baseNeighborhood: updatedDirPro.baseNeighborhood,
+        isVerified: updatedDirPro.isVerified,
+        verificationStatus: updatedDirPro.verificationStatus,
+        verificationDocUrl: updatedDirPro.verificationDocUrl,
+        verificationDocType: updatedDirPro.verificationDocType,
+        verifiedAt: updatedDirPro.verifiedAt,
       });
     }
 
@@ -2824,6 +2880,11 @@ export default function App() {
         if (data.planInterval === 'ANNUAL' || data.planInterval === 'MONTHLY') {
           setPlanInterval(data.planInterval);
         }
+        if (typeof data.isVerified === 'boolean') setProIsVerified(data.isVerified);
+        if (typeof data.verificationStatus === 'string') setProVerificationStatus(data.verificationStatus);
+        if (typeof data.verificationDocUrl === 'string') setProVerificationDocUrl(data.verificationDocUrl);
+        if (typeof data.verificationDocType === 'string') setProVerificationDocType(data.verificationDocType);
+        if (typeof data.verifiedAt === 'string') setProVerifiedAt(data.verifiedAt);
         if (data.bookingRules) {
           applyingRemoteRef.current[rulesDoc] = true;
           setBookingRules(
@@ -3001,6 +3062,11 @@ export default function App() {
       subscriptionStatus,
       planInterval,
       bookingRules,
+      isVerified: proIsVerified,
+      verificationStatus: proVerificationStatus,
+      verificationDocUrl: proVerificationDocUrl,
+      verificationDocType: proVerificationDocType,
+      verifiedAt: proVerifiedAt,
     };
     try {
       localStorage.setItem(`belladoor_v2_pro_vitrine_${activeProKey}`, JSON.stringify(payload));
@@ -3033,6 +3099,11 @@ export default function App() {
     subscriptionStatus,
     planInterval,
     bookingRules,
+    proIsVerified,
+    proVerificationStatus,
+    proVerificationDocUrl,
+    proVerificationDocType,
+    proVerifiedAt,
   ]);
 
   // Sincronização em tempo real das regras de agendamento e sinal de 50%
@@ -4366,9 +4437,24 @@ export default function App() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className={`text-xl font-bold ${proTheme.headerTitleText}`}>{pro.name}</h1>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 ${proTheme.accentBadge}`}>
-                    <ShieldCheck className="w-3 h-3" /> Verificado
-                  </span>
+                  {pro.isVerified ? (
+                    <span
+                      className="text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 bg-emerald-600 text-white shadow-xs cursor-pointer"
+                      title="Selo Oficial • Identidade e WhatsApp conferidos pela equipe BellaDoor"
+                      onClick={() =>
+                        setUiDialog({
+                          emoji: '🛡️',
+                          badge: 'Identidade Verificada',
+                          title: 'Profissional com Identidade Verificada',
+                          message: `${pro.name} enviou documento oficial de identificação e teve seus dados e canal de WhatsApp conferidos pela equipe BellaDoor. Mais segurança e tranquilidade para o seu atendimento em domicílio.`,
+                          buttonText: 'Excelente!',
+                          variant: 'success',
+                        })
+                      }
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" /> Identidade Verificada
+                    </span>
+                  ) : null}
                 </div>
                 <p className={`text-xs mt-0.5 ${proTheme.headerSubText}`}>
                   {pro.title || (pro.businessNiche === 'BARBERSHOP' ? 'Barbeiro & Cuidados Masculinos' : 'Especialista em Beleza a Domicílio')}
@@ -8546,6 +8632,221 @@ export default function App() {
 
                       {onboardingWizardStep !== 2 && (
                         <>
+                          {/* ============================================================ */}
+                          {/* BLOCO 0: SELO DE IDENTIDADE VERIFICADA (DOCUMENTO & WHATSAPP)*/}
+                          {/* ============================================================ */}
+                          <div
+                            className={`rounded-3xl p-4 sm:p-5 border shadow-xs transition space-y-3.5 ${
+                              proIsVerified
+                                ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-emerald-300'
+                                : proVerificationStatus === 'PENDING'
+                                ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-amber-300'
+                                : 'bg-gradient-to-br from-rose-50/40 via-white to-amber-50/40 border-stone-200'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-stone-200/60 pb-3">
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
+                                    proIsVerified
+                                      ? 'bg-emerald-600 text-white shadow-xs'
+                                      : proVerificationStatus === 'PENDING'
+                                      ? 'bg-amber-600 text-white shadow-xs'
+                                      : 'bg-rose-100 text-rose-700'
+                                  }`}
+                                >
+                                  <ShieldCheck className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-extrabold text-stone-900">
+                                      Selo de Identidade Verificada 🛡️
+                                    </h4>
+                                    {proIsVerified ? (
+                                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-2xs">
+                                        Ativo na Vitrine
+                                      </span>
+                                    ) : proVerificationStatus === 'PENDING' ? (
+                                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-600 text-white animate-pulse">
+                                        Em Análise
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-200 text-stone-700">
+                                        Opcional
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-stone-600 mt-0.5">
+                                    {proIsVerified
+                                      ? 'Sua identidade e WhatsApp foram conferidos! O selo oficial de confiança está ativo na sua vitrine.'
+                                      : proVerificationStatus === 'PENDING'
+                                      ? 'Seu documento foi enviado e está sendo analisado pela nossa equipe. Em breve o selo estará ativo!'
+                                      : 'Passe mais segurança para clientes em atendimentos domiciliares conquistando o selo oficial.'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Conteúdo dinâmico de acordo com o status */}
+                            {proIsVerified ? (
+                              <div className="bg-white/80 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <span className="text-emerald-950 font-bold">
+                                    Todas as clientes que acessam sua vitrine visualizam seu selo de segurança.
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedPro(myCustomProProfile);
+                                    setActiveTab('client');
+                                  }}
+                                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline shrink-0 cursor-pointer"
+                                >
+                                  Ver na Vitrine
+                                </button>
+                              </div>
+                            ) : proVerificationStatus === 'PENDING' ? (
+                              <div className="space-y-3">
+                                <div className="bg-white/90 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-xs">
+                                  <p className="font-extrabold text-amber-950 flex items-center gap-1.5">
+                                    <Clock className="w-4 h-4 text-amber-600" />
+                                    Documento ({proVerificationDocType || 'RG/CNH'}) em análise
+                                  </p>
+                                  <p className="text-[11px] text-amber-900">
+                                    Nossa equipe analisa os envios em até 24 horas. Se quiser acelerar a liberação do seu selo, você pode falar diretamente com o suporte no WhatsApp:
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={`https://wa.me/5562996222851?text=${encodeURIComponent(
+                                      `Olá equipe BellaDoor! Sou ${proDisplayName || 'uma profissional'}, enviei meu documento para o Selo de Identidade Verificada e gostaria de confirmar.`
+                                    )}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    Avisar Suporte no WhatsApp
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                                      Tipo de Documento:
+                                    </label>
+                                    <select
+                                      value={proVerificationDocType}
+                                      onChange={(e) =>
+                                        setProVerificationDocType(e.target.value as 'RG' | 'CNH' | 'OUTRO')
+                                      }
+                                      className="w-full text-xs font-bold p-2.5 bg-white border border-stone-300 rounded-xl focus:ring-2 focus:ring-rose-500"
+                                    >
+                                      <option value="RG">RG (Documento de Identidade)</option>
+                                      <option value="CNH">CNH (Carteira de Motorista)</option>
+                                      <option value="OUTRO">Outro Documento Oficial com Foto</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                                      Foto do Documento (Frente ou Aberto):
+                                    </label>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        if (file.size > 5 * 1024 * 1024) {
+                                          alert('Por favor, selecione uma imagem de até 5MB.');
+                                          return;
+                                        }
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          const base64 = event.target?.result as string;
+                                          if (base64) {
+                                            setProVerificationDocUrl(base64);
+                                          }
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }}
+                                      className="w-full text-xs p-1.5 bg-white border border-stone-300 rounded-xl file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer"
+                                    />
+                                  </div>
+                                </div>
+
+                                {proVerificationDocUrl && (
+                                  <div className="flex items-center gap-3 p-2.5 bg-white border border-emerald-200 rounded-xl">
+                                    <img
+                                      src={proVerificationDocUrl}
+                                      alt="Prévia do Documento"
+                                      className="w-14 h-10 object-cover rounded-lg border border-stone-200"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-bold text-emerald-900 truncate">
+                                        Foto anexada com sucesso!
+                                      </p>
+                                      <p className="text-[10px] text-stone-500">
+                                        Clique no botão abaixo para enviar para a equipe BellaDoor.
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setProVerificationDocUrl('')}
+                                      className="text-[10px] text-red-600 font-bold hover:underline"
+                                    >
+                                      Remover
+                                    </button>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    disabled={!proVerificationDocUrl}
+                                    onClick={() => {
+                                      if (!proVerificationDocUrl) {
+                                        alert('Por favor, selecione uma foto do documento.');
+                                        return;
+                                      }
+                                      setProVerificationStatus('PENDING');
+                                      setUiDialog({
+                                        emoji: '🛡️',
+                                        badge: 'Documento Enviado',
+                                        title: 'Solicitação Enviada com Sucesso!',
+                                        message:
+                                          'Seu documento foi enviado para nossa equipe de análise. Assim que conferido, o Selo de Identidade Verificada será ativado na sua vitrine.',
+                                        buttonText: 'Maravilha!',
+                                        variant: 'success',
+                                      });
+                                    }}
+                                    className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    Enviar Documento e Solicitar Selo
+                                  </button>
+
+                                  <a
+                                    href={`https://wa.me/5562996222851?text=${encodeURIComponent(
+                                      `Olá Everton! Sou a profissional ${proDisplayName || ''} e gostaria de solicitar meu Selo de Identidade Verificada no BellaDoor.`
+                                    )}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="py-2.5 px-3 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                    Solicitar via WhatsApp
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
                           {/* ============================================================ */}
                           {/* BLOCO 1: APRESENTAÇÃO DA VITRINE (BIO, NOME, INSTA E WHATS)  */}
                           {/* ============================================================ */}

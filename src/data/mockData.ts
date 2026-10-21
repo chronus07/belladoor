@@ -50,6 +50,12 @@ export interface MockProfessional {
   services: MockService[];
   neighborhoods: MockNeighborhood[];
   portfolio: { url: string; title: string }[];
+  isVerified?: boolean;
+  verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verificationDocUrl?: string;
+  verificationDocType?: 'RG' | 'CNH' | 'OUTRO';
+  verifiedAt?: string;
+  verificationNotes?: string;
 }
 
 // Template inicial limpo para a conta da profissional (sem dados de demonstração)
@@ -66,6 +72,8 @@ export const mockProfessional: MockProfessional = {
   rating: 5.0,
   reviewCount: 0,
   startingPrice: 0,
+  isVerified: false,
+  verificationStatus: 'UNVERIFIED',
   avatarUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=400&q=80',
   coverUrl: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80',
   instagram: '',

@@ -24,6 +24,11 @@ import {
   KeyRound,
   MessageCircle,
   TrendingUp,
+  Clock,
+  FileCheck,
+  Check,
+  Eye,
+  Users,
 } from 'lucide-react';
 import { AuthUser } from '../../lib/supabaseClient';
 import { MockProfessional } from '../data/mockData';
@@ -57,6 +62,12 @@ export interface UnifiedAdminUser {
   newPasswordPlain?: string;
   paymentMethod?: string;
   appliedCoupon?: string;
+  isVerified?: boolean;
+  verificationStatus?: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verificationDocUrl?: string;
+  verificationDocType?: 'RG' | 'CNH' | 'OUTRO';
+  verifiedAt?: string;
+  verificationNotes?: string;
 }
 
 interface AdminUsersViewProps {
@@ -99,7 +110,9 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   onShowUiDialog,
   onCloseAdmin,
 }) => {
-  const [adminSection, setAdminSection] = useState<'DASHBOARD' | 'USERS' | 'COUPONS' | 'MERCADO_PAGO'>('DASHBOARD');
+  const [adminSection, setAdminSection] = useState<'DASHBOARD' | 'USERS' | 'VERIFICATIONS' | 'COUPONS' | 'MERCADO_PAGO'>('DASHBOARD');
+  const [inspectingDocUser, setInspectingDocUser] = useState<UnifiedAdminUser | null>(null);
+  const [verificationFilter, setVerificationFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'UNVERIFIED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'CLIENT' | 'PROFESSIONAL'>('ALL');
   const [proStatusFilter, setProStatusFilter] = useState<
@@ -203,6 +216,15 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         updatedAt: acc.updatedAt || acc.createdAt,
         paymentMethod: acc.paymentMethod,
         appliedCoupon: acc.appliedCoupon,
+        isVerified: Boolean(dirPro?.isVerified ?? acc.isVerified),
+        verificationStatus:
+          dirPro?.verificationStatus ||
+          acc.verificationStatus ||
+          ((dirPro?.isVerified ?? acc.isVerified) ? 'VERIFIED' : (dirPro?.verificationDocUrl ?? acc.verificationDocUrl) ? 'PENDING' : 'UNVERIFIED'),
+        verificationDocUrl: dirPro?.verificationDocUrl || acc.verificationDocUrl,
+        verificationDocType: dirPro?.verificationDocType || acc.verificationDocType || 'RG',
+        verifiedAt: dirPro?.verifiedAt || acc.verifiedAt,
+        verificationNotes: dirPro?.verificationNotes || acc.verificationNotes,
       });
     });
 
@@ -238,6 +260,14 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         trialDaysLeft: 7,
         proKey,
         inDirectory: true,
+        isVerified: Boolean(dirPro.isVerified),
+        verificationStatus:
+          dirPro.verificationStatus ||
+          (dirPro.isVerified ? 'VERIFIED' : dirPro.verificationDocUrl ? 'PENDING' : 'UNVERIFIED'),
+        verificationDocUrl: dirPro.verificationDocUrl,
+        verificationDocType: dirPro.verificationDocType || 'RG',
+        verifiedAt: dirPro.verifiedAt,
+        verificationNotes: dirPro.verificationNotes,
       });
     });
 
@@ -342,6 +372,38 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     return handleQuickGrantDays(u, 7);
   };
 
+  const handleToggleVerification = async (u: UnifiedAdminUser, approve: boolean) => {
+    setSaving(true);
+    setFeedbackMsg(null);
+    try {
+      const updated: UnifiedAdminUser = {
+        ...u,
+        isVerified: approve,
+        verificationStatus: approve ? 'VERIFIED' : 'UNVERIFIED',
+        verifiedAt: approve ? new Date().toISOString() : undefined,
+      };
+      const res = await onSaveUser(u.email, updated);
+      if (res.ok) {
+        setFeedbackMsg({
+          type: 'success',
+          text: approve
+            ? `Selo de Identidade Verificada 🛡️ concedido a "${u.fullName}" com sucesso!`
+            : `Selo de Verificação removido de "${u.fullName}".`,
+        });
+        if (inspectingDocUser && inspectingDocUser.email === u.email) {
+          setInspectingDocUser({ ...inspectingDocUser, ...updated });
+        }
+      } else {
+        setFeedbackMsg({
+          type: 'error',
+          text: res.error || 'Erro ao atualizar verificação.',
+        });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const formatBirthDateMask = (raw: string) => {
     const digits = raw.replace(/\D/g, '').slice(0, 8);
     if (digits.length > 4) {
@@ -439,6 +501,12 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
     }
   };
 
+  const proUsersList = unifiedUsers.filter((u) => u.role === 'PROFESSIONAL');
+  const verifiedProsCount = proUsersList.filter((u) => u.isVerified).length;
+  const pendingVerificationsCount = proUsersList.filter(
+    (u) => !u.isVerified && (u.verificationStatus === 'PENDING' || Boolean(u.verificationDocUrl))
+  ).length;
+
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       {/* Cabeçalho do Painel Admin */}
@@ -458,7 +526,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                 Painel de Administração BellaDoor
               </h1>
               <p className="text-[11px] text-stone-300">
-                Logado como <strong>{currentUserEmail}</strong> • Usuários, Cupons e Mercado Pago
+                Logado como <strong>{currentUserEmail}</strong> • Usuários, Selos, Cupons e Mercado Pago
               </p>
             </div>
           </div>
@@ -474,7 +542,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         </div>
 
         {/* Resumo Rápido */}
-        <div className="grid grid-cols-3 gap-2.5 mt-5">
+        <div className="grid grid-cols-4 gap-2.5 mt-5">
           <div className="bg-white/10 border border-white/10 rounded-2xl p-3 text-center">
             <span className="text-xl sm:text-2xl font-extrabold block">{totalCount}</span>
             <span className="text-[10px] text-stone-300 uppercase tracking-wider font-semibold">
@@ -497,10 +565,18 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
               💄 Profissionais
             </span>
           </div>
+          <div className="bg-white/10 border border-white/10 rounded-2xl p-3 text-center">
+            <span className="text-xl sm:text-2xl font-extrabold text-amber-300 block">
+              {verifiedProsCount}
+            </span>
+            <span className="text-[10px] text-stone-300 uppercase tracking-wider font-semibold flex items-center justify-center gap-1">
+              🛡️ Selos Ativos
+            </span>
+          </div>
         </div>
 
         {/* Seletor de Módulos do Painel Admin */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-4 border-t border-white/15">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-4 pt-4 border-t border-white/15">
           <button
             type="button"
             onClick={() => {
@@ -514,7 +590,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             }`}
           >
             <TrendingUp className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Cockpit & Métricas</span>
+            <span className="truncate">Cockpit</span>
           </button>
 
           <button
@@ -531,6 +607,27 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
           >
             <User className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">Usuários ({totalCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAdminSection('VERIFICATIONS');
+              setFeedbackMsg(null);
+            }}
+            className={`py-2.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer relative ${
+              adminSection === 'VERIFICATIONS'
+                ? 'bg-amber-400 text-stone-950 shadow-md ring-2 ring-amber-300/40'
+                : 'bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Selos & Docs</span>
+            {pendingVerificationsCount > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-black rounded-full animate-pulse ml-0.5">
+                {pendingVerificationsCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -964,6 +1061,368 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
             )}
           </div>
         </>
+      )}
+
+      {/* ==================================================================== */}
+      {/* SEÇÃO: VERIFICAÇÃO DE IDENTIDADE & SELOS DE CONFIANÇA               */}
+      {/* ==================================================================== */}
+      {adminSection === 'VERIFICATIONS' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Card de Apresentação e Métricas */}
+          <div className="bg-gradient-to-br from-emerald-950 via-stone-900 to-stone-900 text-white rounded-3xl p-5 sm:p-6 border border-emerald-800/40 shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                    Segurança &amp; Confiança no Domicílio
+                  </span>
+                  <h3 className="text-base font-extrabold text-white mt-1">
+                    Gestão de Selos de Identidade &amp; Documentos
+                  </h3>
+                  <p className="text-xs text-stone-300">
+                    Analise os documentos enviados (RG/CNH), valide as profissionais e conceda o selo de confiança para a vitrine pública.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Métricas dos Selos */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shrink-0">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xl font-black text-emerald-300 block">
+                    {verifiedProsCount}
+                  </span>
+                  <span className="text-[11px] text-stone-300 font-bold uppercase tracking-wide">
+                    Selo Ativo na Vitrine
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xl font-black text-amber-300 block">
+                    {pendingVerificationsCount}
+                  </span>
+                  <span className="text-[11px] text-stone-300 font-bold uppercase tracking-wide">
+                    Aguardando Análise
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-stone-500/20 border border-stone-400/30 flex items-center justify-center text-stone-300 shrink-0">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xl font-black text-stone-200 block">
+                    {proUsersList.length - verifiedProsCount}
+                  </span>
+                  <span className="text-[11px] text-stone-300 font-bold uppercase tracking-wide">
+                    Sem Selo (Podem Conquistar)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filtros da Seção de Selos */}
+          <div className="bg-white rounded-2xl p-3 border border-stone-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5 text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-stone-500 font-bold text-[11px] mr-1">Filtrar por:</span>
+              <button
+                type="button"
+                onClick={() => setVerificationFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl font-extrabold transition cursor-pointer border ${
+                  verificationFilter === 'ALL'
+                    ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
+                    : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                }`}
+              >
+                Todas ({proUsersList.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVerificationFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-xl font-extrabold transition cursor-pointer border flex items-center gap-1 ${
+                  verificationFilter === 'PENDING'
+                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                    : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Pendentes de Análise ({pendingVerificationsCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVerificationFilter('VERIFIED')}
+                className={`px-3 py-1.5 rounded-xl font-extrabold transition cursor-pointer border flex items-center gap-1 ${
+                  verificationFilter === 'VERIFIED'
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                    : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Com Selo Ativo ({verifiedProsCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVerificationFilter('UNVERIFIED')}
+                className={`px-3 py-1.5 rounded-xl font-extrabold transition cursor-pointer border ${
+                  verificationFilter === 'UNVERIFIED'
+                    ? 'bg-stone-700 text-white border-stone-800 shadow-xs'
+                    : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                }`}
+              >
+                Sem Selo ({proUsersList.length - verifiedProsCount})
+              </button>
+            </div>
+
+            {/* Busca Rápida */}
+            <div className="relative w-full sm:w-56">
+              <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por nome ou whats..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-stone-50 border border-stone-300 rounded-xl pl-8 pr-3 py-1.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Lista de Profissionais e seus Documentos */}
+          <div className="space-y-3">
+            {(() => {
+              const term = searchTerm.trim().toLowerCase();
+              const list = proUsersList.filter((u) => {
+                if (term) {
+                  const match =
+                    u.fullName.toLowerCase().includes(term) ||
+                    u.email.toLowerCase().includes(term) ||
+                    (u.whatsapp && u.whatsapp.includes(term));
+                  if (!match) return false;
+                }
+                if (verificationFilter === 'PENDING') {
+                  return !u.isVerified && (u.verificationStatus === 'PENDING' || Boolean(u.verificationDocUrl));
+                }
+                if (verificationFilter === 'VERIFIED') {
+                  return u.isVerified;
+                }
+                if (verificationFilter === 'UNVERIFIED') {
+                  return !u.isVerified && !u.verificationDocUrl && u.verificationStatus !== 'PENDING';
+                }
+                return true;
+              });
+
+              if (list.length === 0) {
+                return (
+                  <div className="bg-white rounded-3xl p-8 text-center border border-stone-200 shadow-2xs space-y-2">
+                    <ShieldCheck className="w-10 h-10 text-stone-300 mx-auto" />
+                    <h4 className="text-sm font-bold text-stone-800">
+                      Nenhuma profissional encontrada nesta categoria
+                    </h4>
+                    <p className="text-xs text-stone-500">
+                      Altere o filtro acima para visualizar outros cadastros.
+                    </p>
+                  </div>
+                );
+              }
+
+              return list.map((u) => {
+                const cleanPhone = (u.whatsapp || '').replace(/\D/g, '');
+                const waMessage = u.isVerified
+                  ? `Olá ${u.fullName}! Passando para avisar que seu Selo de Identidade Verificada 🛡️ está ATIVO na sua vitrine do BellaDoor. Boas vendas!`
+                  : u.verificationDocUrl
+                  ? `Olá ${u.fullName}, tudo bem? Sou o Everton da equipe BellaDoor. Vi seu envio de documento (${u.verificationDocType || 'RG/CNH'}) para o Selo de Identidade Verificada...`
+                  : `Olá ${u.fullName}! Sou o Everton do BellaDoor. Gostaria de te convidar para ativar o Selo de Identidade Verificada 🛡️ na sua vitrine sem custo, para passar mais segurança às suas clientes de atendimento a domicílio!`;
+
+                const waUrl = cleanPhone
+                  ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(waMessage)}`
+                  : null;
+
+                const hasDoc = Boolean(u.verificationDocUrl);
+
+                return (
+                  <div
+                    key={u.key}
+                    className={`bg-white rounded-3xl p-4 sm:p-5 border transition shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                      u.isVerified
+                        ? 'border-emerald-300 bg-gradient-to-r from-emerald-50/20 via-white to-white'
+                        : hasDoc
+                        ? 'border-amber-300 bg-gradient-to-r from-amber-50/20 via-white to-white ring-1 ring-amber-200'
+                        : 'border-stone-200'
+                    }`}
+                  >
+                    {/* Dados da Profissional */}
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <div className="relative shrink-0">
+                        {u.avatarUrl ? (
+                          <img
+                            src={u.avatarUrl}
+                            alt={u.fullName}
+                            referrerPolicy="no-referrer"
+                            className="w-12 h-12 rounded-2xl object-cover border-2 border-stone-200"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-2xl bg-stone-100 border-2 border-stone-200 flex items-center justify-center font-bold text-stone-600">
+                            {u.fullName.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        {u.isVerified && (
+                          <span
+                            className="absolute -bottom-1 -right-1 p-0.5 bg-emerald-600 text-white rounded-full border-2 border-white"
+                            title="Selo Verificado Ativo"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-extrabold text-stone-900 truncate">
+                            {u.fullName}
+                          </h4>
+                          {u.isVerified ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                              Selo Ativo
+                            </span>
+                          ) : hasDoc ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 animate-pulse">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              Documento Aguardando Aprovação
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-600 border border-stone-200">
+                              Sem Selo
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-stone-600 mt-0.5">
+                          {u.title || 'Especialista em Beleza a Domicílio'}
+                          {u.baseCity ? ` • ${u.baseCity}` : ''}
+                        </p>
+
+                        <div className="flex items-center gap-3 text-[11px] text-stone-500 mt-1.5 flex-wrap">
+                          <span className="flex items-center gap-1 font-mono">
+                            <Mail className="w-3 h-3 text-stone-400" />
+                            {u.email}
+                          </span>
+                          {u.whatsapp && (
+                            <span className="flex items-center gap-1 font-bold text-stone-700">
+                              <Phone className="w-3 h-3 text-emerald-600" />
+                              {u.whatsapp}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bloco Central: Documento Anexado */}
+                    <div className="md:px-4 md:border-x md:border-stone-200/80 shrink-0 flex items-center gap-3">
+                      {hasDoc ? (
+                        <div className="flex items-center gap-2.5 bg-stone-50 border border-stone-200 p-2 rounded-2xl">
+                          <button
+                            type="button"
+                            onClick={() => setInspectingDocUser(u)}
+                            className="relative group cursor-pointer"
+                            title="Clique para ampliar o documento"
+                          >
+                            <img
+                              src={u.verificationDocUrl}
+                              alt="Documento"
+                              className="w-14 h-11 object-cover rounded-xl border border-stone-300 group-hover:opacity-90 transition"
+                            />
+                            <div className="absolute inset-0 bg-black/30 rounded-xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                              <Eye className="w-3.5 h-3.5" />
+                            </div>
+                          </button>
+                          <div className="text-left">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500 block">
+                              {u.verificationDocType || 'Documento'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setInspectingDocUser(u)}
+                              className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                            >
+                              Ver Documento
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-stone-400 italic py-1">
+                          Nenhum documento anexado
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ações do Administrador */}
+                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      {!u.isVerified ? (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => handleToggleVerification(u, true)}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+                        >
+                          <ShieldCheck className="w-4 h-4" />
+                          Aprovar Selo 🛡️
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => handleToggleVerification(u, false)}
+                          className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold border border-stone-300 transition cursor-pointer disabled:opacity-50"
+                        >
+                          Remover Selo
+                        </button>
+                      )}
+
+                      {waUrl && (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold flex items-center gap-1 transition"
+                          title="Falar com a profissional no WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          WhatsApp
+                        </a>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(u)}
+                        className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition cursor-pointer"
+                        title="Editar cadastro completo"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
       )}
 
       {/* ==================================================================== */}
@@ -1548,6 +2007,48 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Campo de Selo de Identidade Verificada */}
+                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-extrabold text-xs text-emerald-950 flex items-center gap-1.5 cursor-pointer">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        Selo de Identidade Verificada 🛡️
+                      </label>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editingUser.isVerified)}
+                        onChange={(e) =>
+                          setEditingUser({
+                            ...editingUser,
+                            isVerified: e.target.checked,
+                            verificationStatus: e.target.checked ? 'VERIFIED' : 'UNVERIFIED',
+                            verifiedAt: e.target.checked ? (editingUser.verifiedAt || new Date().toISOString()) : undefined,
+                          })
+                        }
+                        className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
+                      />
+                    </div>
+                    <p className="text-[11px] text-emerald-900 leading-snug">
+                      {editingUser.isVerified
+                        ? '🟢 Selo ATIVO na vitrine pública. As clientes visualizam o selo de confiança.'
+                        : '⚪ Sem selo. Ative para exibir o selo de verificação de identidade na vitrine.'}
+                    </p>
+                    {editingUser.verificationDocUrl && (
+                      <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-emerald-800">
+                          Documento Anexado ({editingUser.verificationDocType || 'RG/CNH'})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setInspectingDocUser(editingUser)}
+                          className="text-[10px] font-extrabold text-emerald-700 underline cursor-pointer hover:text-emerald-900"
+                        >
+                          Visualizar Documento
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1627,6 +2128,100 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ==================================================================== */}
+      {/* MODAL DE VISUALIZAÇÃO AMPLIADA DO DOCUMENTO (LIGHTBOX)               */}
+      {/* ==================================================================== */}
+      {inspectingDocUser && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl border border-stone-200 space-y-4 my-auto max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-stone-900">
+                    Documento de Identidade • {inspectingDocUser.fullName}
+                  </h3>
+                  <p className="text-[11px] text-stone-500">
+                    Tipo declarado: <strong>{inspectingDocUser.verificationDocType || 'RG / CNH'}</strong> • {inspectingDocUser.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingDocUser(null)}
+                className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto flex items-center justify-center bg-stone-950 rounded-2xl p-2 min-h-[300px]">
+              {inspectingDocUser.verificationDocUrl ? (
+                <img
+                  src={inspectingDocUser.verificationDocUrl}
+                  alt={`Documento de ${inspectingDocUser.fullName}`}
+                  className="max-h-[60vh] max-w-full object-contain rounded-xl shadow-lg"
+                />
+              ) : (
+                <div className="text-xs text-stone-400">Nenhum documento disponível para visualização.</div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-stone-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-stone-600">Status atual:</span>
+                {inspectingDocUser.isVerified ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Selo Ativo
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                    Aguardando Aprovação
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInspectingDocUser(null)}
+                  className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+                {!inspectingDocUser.isVerified ? (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={async () => {
+                      await handleToggleVerification(inspectingDocUser, true);
+                      setInspectingDocUser(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Aprovar Selo Verificado 🛡️
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={async () => {
+                      await handleToggleVerification(inspectingDocUser, false);
+                      setInspectingDocUser(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-800 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    Remover Selo
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
