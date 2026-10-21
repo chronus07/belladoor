@@ -34,6 +34,7 @@ import {
   OFFICIAL_MP_RECURRING_PLAN_URL,
 } from '../utils/mercadoPago';
 import { AdminDashboardTab } from './AdminDashboardTab';
+import { BetaFeedbackEntry } from '../../lib/firebaseClient';
 
 export interface UnifiedAdminUser {
   key: string;
@@ -63,6 +64,7 @@ interface AdminUsersViewProps {
   cloudAccounts: Record<string, any>;
   directoryPros: Record<string, MockProfessional>;
   allAppointments?: ClientAppointment[];
+  betaFeedbacks?: BetaFeedbackEntry[];
   coupons: CouponItem[];
   mpConfig: MercadoPagoConfig;
   subscriptionStatus: 'TRIAL' | 'ACTIVE';
@@ -84,6 +86,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   cloudAccounts,
   directoryPros,
   allAppointments = [],
+  betaFeedbacks = [],
   coupons,
   mpConfig,
   subscriptionStatus,
@@ -598,6 +601,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         <AdminDashboardTab
           unifiedUsers={unifiedUsers}
           allAppointments={allAppointments}
+          betaFeedbacks={betaFeedbacks}
           onQuickGrantDays={handleQuickGrantDays}
           onOpenWhatsApp={(u) => window.open(buildCommercialWhatsAppUrl(u), '_blank')}
         />

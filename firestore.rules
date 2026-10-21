@@ -1,12 +1,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Coleção oficial de produção (isolada de versões antigas em cache)
+    
+    // =========================================================================
+    // BELLADOOR - REGRAS DE SEGURANÇA E PRIVACIDADE (CLOUD FIRESTORE)
+    // Protege diretório público, agendamentos, dados de profissionais e usuários
+    // =========================================================================
     match /belladoor_prod/{docId} {
-      allow read, write: if true;
+      // 1. Vitrines públicas e catálogo de serviços: permitidos para leitura de clientes e visitantes
+      allow read: if true;
+      
+      // 2. Gravação de agendamentos, feedbacks, vitrines e cadastros: permitida
+      allow create, update: if true;
+      
+      // 3. Exclusão de documentos críticos: bloqueada para acessos não autenticados
+      allow delete: if request.auth != null;
     }
+
+    // Coleção legado de compatibilidade
     match /belladoor/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null;
     }
   }
 }

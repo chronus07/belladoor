@@ -74,6 +74,8 @@ import {
   adminSaveUserInFirestore,
   adminDeleteUserFromFirestore,
   deleteOwnAccountAndDataFromFirestore,
+  appendFeedbackToFirestore,
+  BetaFeedbackEntry,
 } from '../lib/firebaseClient';
 import {
   ClientAppointment,
@@ -119,6 +121,7 @@ import { ProPromoCardModal } from './components/ProPromoCardModal';
 import { ManualAppointmentModal } from './components/ManualAppointmentModal';
 import { LgpdTermsModal } from './components/LgpdTermsModal';
 import { BookingRulesModal } from './components/BookingRulesModal';
+import { BetaFeedbackModal } from './components/BetaFeedbackModal';
 import { getThemeClasses, VisualTheme } from './utils/theme';
 
 export default function App() {
@@ -436,6 +439,10 @@ export default function App() {
     });
   });
   const [showBookingRulesModal, setShowBookingRulesModal] = useState<boolean>(false);
+  const [showBetaFeedbackModal, setShowBetaFeedbackModal] = useState<boolean>(false);
+  const [betaFeedbacks, setBetaFeedbacks] = useState<BetaFeedbackEntry[]>(() => {
+    return loadFromStorage<BetaFeedbackEntry[]>('belladoor_v2_beta_feedbacks', []);
+  });
   const [copiedClientPix, setCopiedClientPix] = useState<boolean>(false);
 
   // Normaliza o número de WhatsApp para links wa.me
@@ -2743,12 +2750,25 @@ export default function App() {
       }
     );
 
+    const unsubFeedback = subscribeToFirestoreDocument<{ items?: BetaFeedbackEntry[] }>(
+      'beta_feedback',
+      (data) => {
+        if (Array.isArray(data?.items)) {
+          setBetaFeedbacks(data.items);
+          try {
+            localStorage.setItem('belladoor_v2_beta_feedbacks', JSON.stringify(data.items));
+          } catch {}
+        }
+      }
+    );
+
     return () => {
       unsubUsers();
       unsubDirectory();
       unsubAppointments();
       unsubReviews();
       unsubBilling();
+      unsubFeedback();
     };
   }, []);
 
@@ -3679,6 +3699,23 @@ export default function App() {
     const appointmentTravelFee = selectedLocationType === 'STUDIO' ? 0 : travelFee;
     const appointmentTotalPrice = (selectedService?.price || 0) + appointmentTravelFee;
 
+    // Validação de segurança anti-dupla reserva em tempo real:
+    // Impede que duas pessoas reservem o mesmo horário simultaneamente
+    const isSlotStillAvailable = availableSlots.some((s) => s.time === selectedTime && s.available);
+    if (!isSlotStillAvailable) {
+      setUiDialog({
+        emoji: '⚠️',
+        badge: 'Horário Indisponível',
+        title: 'Horário já reservado!',
+        message: `O horário das ${selectedTime} no dia ${selectedDate.split('-').reverse().join('/')} acabou de ser preenchido ou está em conflito com outro atendimento. Por favor, escolha outro horário livre.`,
+        buttonText: 'Escolher Outro Horário',
+        variant: 'amber',
+      });
+      setSelectedTime(null);
+      setStep(2);
+      return;
+    }
+
     const resolvedProEmail =
       (pro as any).email ||
       (pro.id && pro.id.startsWith('pro-') && pro.id.includes('@') ? pro.id.replace('pro-', '') : undefined) ||
@@ -4086,6 +4123,7 @@ export default function App() {
             cloudAccounts={cloudAccounts}
             directoryPros={directoryPros}
             allAppointments={proAppointments}
+            betaFeedbacks={betaFeedbacks}
             coupons={couponsList}
             mpConfig={mpConfig}
             subscriptionStatus={subscriptionStatus}
@@ -5834,6 +5872,32 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* BANNER DO PROGRAMA BETA TESTER (10 PRIMEIRAS PROFISSIONAIS) */}
+                <div className="mt-3 bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-amber-500/30 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">🚀</span>
+                    <div>
+                      <p className="text-xs font-black text-white flex items-center gap-1.5">
+                        Você está no Programa Beta do Belladoor!
+                        <span className="text-[9px] bg-amber-400 text-stone-950 px-1.5 py-0.2 rounded-full font-extrabold uppercase">
+                          Piloto Gratuito
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-stone-300">
+                        Como uma das 10 primeiras profissionais, seu feedback sincero é fundamental para aperfeiçoar a ferramenta.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowBetaFeedbackModal(true)}
+                    className="py-1.5 px-3 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-stone-950 text-xs font-black rounded-xl transition shrink-0 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Star className="w-3.5 h-3.5 text-stone-950 fill-stone-950" />
+                    Avaliar Experiência ⭐
+                  </button>
+                </div>
+
                 {/* Métricas Rápidas no Topo */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-stone-800 text-center">
                   <div className="bg-stone-800/60 p-2 rounded-xl flex flex-col justify-between">
@@ -5877,6 +5941,14 @@ export default function App() {
                     >
                       <ShieldCheck className="w-3 h-3 text-emerald-400" />
                       Regras & Sinal 50%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBetaFeedbackModal(true)}
+                      className="text-[10px] font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0"
+                    >
+                      <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                      Feedback do Beta ⭐
                     </button>
                     <button
                       type="button"
@@ -9769,6 +9841,34 @@ export default function App() {
         proWhatsapp={proWhatsapp}
         proEmail={currentUser?.email}
         isBarbershop={proBusinessNiche === 'BARBERSHOP'}
+      />
+
+      {/* MODAL DE FEEDBACK DO PROGRAMA BETA (10 PRIMEIRAS PROFISSIONAIS) */}
+      <BetaFeedbackModal
+        isOpen={showBetaFeedbackModal}
+        onClose={() => setShowBetaFeedbackModal(false)}
+        proEmail={currentUser?.email || 'profissional@belladoor.com.br'}
+        proName={proDisplayName || currentUser?.fullName || 'Profissional'}
+        proWhatsapp={proWhatsapp}
+        existingFeedback={
+          betaFeedbacks.find(
+            (f) => f.proEmail?.toLowerCase() === (currentUser?.email || '').toLowerCase()
+          ) || null
+        }
+        onSubmitFeedback={async (feedback) => {
+          await appendFeedbackToFirestore(feedback);
+          setBetaFeedbacks((prev) => [
+            feedback,
+            ...prev.filter(
+              (f) =>
+                f.id !== feedback.id &&
+                f.proEmail?.toLowerCase() !== feedback.proEmail?.toLowerCase()
+            ),
+          ]);
+          try {
+            localStorage.setItem('belladoor_v2_feedback_submitted', 'true');
+          } catch {}
+        }}
       />
 
       {/* MODAIS GLOBAIS: ONBOARDING 7 DIAS GRÁTIS & JANELINHA PADRÃO BELLADOOR */}

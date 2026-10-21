@@ -19,10 +19,12 @@ import {
 } from 'lucide-react';
 import { UnifiedAdminUser } from './AdminUsersView';
 import { ClientAppointment } from '../types/belladoor';
+import { BetaFeedbackEntry } from '../../lib/firebaseClient';
 
 interface AdminDashboardTabProps {
   unifiedUsers: UnifiedAdminUser[];
   allAppointments?: ClientAppointment[];
+  betaFeedbacks?: BetaFeedbackEntry[];
   onQuickGrantDays?: (user: UnifiedAdminUser, days: number) => void;
   onOpenWhatsApp?: (user: UnifiedAdminUser) => void;
 }
@@ -47,6 +49,7 @@ interface MonthData {
 export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
   unifiedUsers,
   allAppointments = [],
+  betaFeedbacks = [],
   onQuickGrantDays,
   onOpenWhatsApp,
 }) => {
@@ -55,6 +58,22 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
   const [proSearchQuery, setProSearchQuery] = useState('');
   const [proSortBy, setProSortBy] = useState<'FATURAMENTO' | 'SUCESSO' | 'SERVICOS'>('FATURAMENTO');
   const [inspectingPro, setInspectingPro] = useState<any | null>(null);
+
+  // Estatísticas de feedbacks das 10 primeiras profissionais beta
+  const feedbackStats = useMemo(() => {
+    const total = betaFeedbacks.length;
+    const avg =
+      total > 0
+        ? (betaFeedbacks.reduce((acc, f) => acc + (f.rating || 5), 0) / total).toFixed(1)
+        : '5.0';
+    const wouldPayYesCount = betaFeedbacks.filter((f) => f.willingnessToPay === 'YES').length;
+    const wouldPayPercent = total > 0 ? Math.round((wouldPayYesCount / total) * 100) : 100;
+    return {
+      total,
+      avgRating: avg,
+      wouldPayPercent,
+    };
+  }, [betaFeedbacks]);
 
   // Filtra profissionais
   const proUsers = useMemo(() => {
@@ -745,6 +764,151 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 3.5 SEÇÃO ESPECIAL: FEEDBACKS DO PILOTO BETA (10 PRIMEIRAS PROFISSIONAIS) */}
+      <div className="bg-gradient-to-br from-stone-900 via-stone-900 to-stone-950 p-6 rounded-3xl border border-stone-800 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-800/80 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⭐</span>
+              <h3 className="text-base sm:text-lg font-black text-white">
+                Feedbacks do Piloto Beta ({betaFeedbacks.length} {betaFeedbacks.length === 1 ? 'Resposta' : 'Respostas'})
+              </h3>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                Beta Testers
+              </span>
+            </div>
+            <p className="text-xs text-stone-400 mt-1">
+              Avaliações reais das 10 primeiras maquiadoras e profissionais sobre facilidade de uso e disposição para pagar R$ 39,90/mês
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="bg-stone-950/80 border border-stone-800 px-3.5 py-1.5 rounded-2xl text-center">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Média de Nota</span>
+              <div className="flex items-center gap-1 justify-center">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span className="text-sm font-black text-white">{feedbackStats.avgRating}</span>
+                <span className="text-[10px] text-stone-500">/ 5.0</span>
+              </div>
+            </div>
+
+            <div className="bg-stone-950/80 border border-stone-800 px-3.5 py-1.5 rounded-2xl text-center">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Pagariam R$ 39,90</span>
+              <span className="text-sm font-black text-emerald-400">{feedbackStats.wouldPayPercent}%</span>
+            </div>
+          </div>
+        </div>
+
+        {betaFeedbacks.length === 0 ? (
+          <div className="bg-stone-950/50 border border-dashed border-stone-800 rounded-2xl p-6 text-center text-xs text-stone-500 space-y-1">
+            <Sparkles className="w-5 h-5 text-amber-400/60 mx-auto mb-1" />
+            <p className="font-bold text-stone-300">Nenhum feedback enviado ainda pelas beta testers</p>
+            <p className="text-[11px] text-stone-500">
+              As 10 primeiras profissionais podem responder a pesquisa rápida direto pelo botão "Feedback do Beta" no painel delas!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {betaFeedbacks.map((fb) => (
+              <div
+                key={fb.id}
+                className="bg-stone-950/70 border border-stone-800/90 rounded-2xl p-4 space-y-3 hover:border-stone-700 transition"
+              >
+                <div className="flex items-start justify-between gap-2 border-b border-stone-900 pb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-rose-600/30 text-rose-300 font-bold flex items-center justify-center text-xs border border-rose-500/30">
+                      {fb.proName.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-white leading-tight">{fb.proName}</h4>
+                      <p className="text-[10px] text-stone-400">{fb.proEmail}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-0.5 text-amber-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-3.5 h-3.5 ${
+                            i < fb.rating
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-stone-700'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    {fb.proWhatsapp && (
+                      <a
+                        href={`https://wa.me/55${fb.proWhatsapp.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Conversar com a profissional no WhatsApp"
+                        className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 rounded-lg text-[10px] flex items-center gap-1 border border-emerald-500/30 transition"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider block">
+                      O que mais gostou:
+                    </span>
+                    <p className="text-stone-200 mt-0.5 italic text-[11px] bg-stone-900/60 p-2 rounded-xl border border-stone-850">
+                      "{fb.likedMost || 'Nenhum comentário adicional'}"
+                    </p>
+                  </div>
+
+                  {fb.missingOrHard && (
+                    <div>
+                      <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-wider block">
+                        O que sentiu falta / dificuldade:
+                      </span>
+                      <p className="text-stone-300 mt-0.5 text-[11px] bg-stone-900/60 p-2 rounded-xl border border-stone-850">
+                        "{fb.missingOrHard}"
+                      </p>
+                    </div>
+                  )}
+
+                  {fb.additionalComments && (
+                    <div>
+                      <span className="text-[10px] font-extrabold text-purple-400 uppercase tracking-wider block">
+                        Recado / Sugestão:
+                      </span>
+                      <p className="text-stone-300 mt-0.5 text-[11px] bg-stone-900/60 p-2 rounded-xl border border-stone-850">
+                        "{fb.additionalComments}"
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-1 flex items-center justify-between text-[11px]">
+                    <span className="text-stone-400">Disposição para pagar R$ 39,90:</span>
+                    <span
+                      className={`font-black px-2 py-0.5 rounded-full text-[10px] ${
+                        fb.willingnessToPay === 'YES'
+                          ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30'
+                          : fb.willingnessToPay === 'MAYBE'
+                          ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-stone-800 text-stone-400'
+                      }`}
+                    >
+                      {fb.willingnessToPay === 'YES'
+                        ? 'Sim, com certeza!'
+                        : fb.willingnessToPay === 'MAYBE'
+                        ? 'Talvez / Depende'
+                        : 'Não no momento'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 4. TABELA DE AUDITORIA: FATURAMENTO & TAXA DE SUCESSO DAS PROFISSIONAIS */}

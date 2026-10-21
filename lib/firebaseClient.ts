@@ -961,6 +961,50 @@ export async function appendAppointmentToFirestore(
   }
 }
 
+export interface BetaFeedbackEntry {
+  id: string;
+  proEmail: string;
+  proName: string;
+  proWhatsapp?: string;
+  rating: number;
+  likedMost: string;
+  missingOrHard: string;
+  willingnessToPay: 'YES' | 'MAYBE' | 'NO';
+  additionalComments?: string;
+  submittedAt: string;
+}
+
+/**
+ * Adiciona ou atualiza feedback do programa beta das 10 primeiras profissionais
+ */
+export async function appendFeedbackToFirestore(feedback: BetaFeedbackEntry): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+
+  try {
+    const docRef = doc(db, 'belladoor_prod', 'beta_feedback');
+    const snap = await getDoc(docRef);
+    const existingItems = snap.exists() && Array.isArray(snap.data()?.items) ? snap.data()?.items : [];
+    const filtered = existingItems.filter(
+      (item: BetaFeedbackEntry) =>
+        item.id !== feedback.id &&
+        item.proEmail?.toLowerCase() !== feedback.proEmail?.toLowerCase()
+    );
+    const newItems = [feedback, ...filtered];
+
+    await setDoc(
+      docRef,
+      sanitizeForFirestore({
+        items: newItems,
+        updatedAt: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('[Firebase Cloud] Erro ao gravar feedback no Firestore:', err);
+  }
+}
+
 /**
  * Escuta atualizações em tempo real de um documento do Cloud Firestore
  */
