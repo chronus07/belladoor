@@ -54,12 +54,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   return (
     <header className="w-full bg-white border-b border-stone-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
           {/* Ícone Oficial BellaDoor (Arco Dourado/Rose com Folha e Brilho) */}
           <svg
             viewBox="0 0 64 64"
-            className="w-9 h-9 shrink-0 drop-shadow-2xs"
+            className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-2xs"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
             aria-label="Logo BellaDoor"
@@ -112,11 +112,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               fill="url(#belladoorGrad)"
             />
           </svg>
-          <div className="flex items-center flex-wrap gap-2">
-            <span className="font-extrabold text-xl tracking-tight text-stone-900">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="font-extrabold text-lg sm:text-xl tracking-tight text-stone-900">
               Bella<span className="text-rose-600">Door</span>
             </span>
-            <span className="inline-block text-[11px] sm:text-xs px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-full font-medium border border-rose-200">
+            <span className="hidden md:inline-block text-[11px] sm:text-xs px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-full font-medium border border-rose-200">
               A beleza na sua porta
             </span>
           </div>
@@ -124,13 +124,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
         {/* LADO DIREITO: PERFIL E SAIR (SOMENTE QUANDO LOGADO) */}
         {currentUser && (
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Botão Exclusivo de Administração de Usuários (Somente evertonrcsilva@gmail.com) */}
             {isMasterAdmin && onToggleAdminPanel && (
               <button
                 type="button"
                 onClick={onToggleAdminPanel}
-                className={`text-xs font-extrabold px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 border shadow-xs ${
+                className={`text-[11px] sm:text-xs font-extrabold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border shadow-xs shrink-0 ${
                   showAdminPanel
                     ? 'bg-rose-600 text-white border-rose-600'
                     : 'bg-stone-900 hover:bg-black text-amber-300 border-stone-800'
@@ -138,7 +138,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 title="Painel exclusivo de administração (Usuários, Cupons e Mercado Pago)"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
-                <span>{showAdminPanel ? 'Fechar Admin' : '🛡️ Painel Admin'}</span>
+                <span className="hidden sm:inline">{showAdminPanel ? 'Fechar Admin' : '🛡️ Painel Admin'}</span>
+                <span className="sm:hidden">{showAdminPanel ? 'Fechar' : '🛡️ Admin'}</span>
               </button>
             )}
 
@@ -147,54 +148,60 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 type="button"
                 onClick={onToggleClientSubView}
-                className={`text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 border ${
+                className={`text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border shrink-0 ${
                   clientSubView === 'MY_BOOKINGS'
                     ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
                     : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
-                <span>
+                <span className="hidden sm:inline">
                   {clientSubView === 'MY_BOOKINGS'
                     ? '🔍 Voltar à Vitrine'
                     : `Meus Agendamentos (${activeAppointmentsCount})`}
+                </span>
+                <span className="sm:hidden">
+                  {clientSubView === 'MY_BOOKINGS' ? 'Vitrine' : `Agenda (${activeAppointmentsCount})`}
                 </span>
               </button>
             )}
 
             {/* Se for profissional: botões de Navegação */}
             {currentUser.role === 'PROFESSIONAL' && !showAdminPanel && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 {isProVitrinePreview ? (
                   <button
                     type="button"
                     onClick={onExitVitrinePreview}
-                    className="text-xs font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-stone-900 hover:bg-stone-800 text-white shadow-xs flex items-center gap-1.5"
+                    className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-stone-900 hover:bg-stone-800 text-white shadow-xs flex items-center gap-1"
                     title="Fechar modo de prévia da vitrine e voltar ao Painel Pro"
                   >
-                    ← Voltar ao Painel Pro
+                    <span className="hidden sm:inline">← Voltar ao Painel Pro</span>
+                    <span className="sm:hidden">← Painel Pro</span>
                   </button>
                 ) : activeTab === 'pro' ? (
                   <>
                     <button
                       type="button"
                       onClick={onEnterClientMode}
-                      className="text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shadow-2xs"
+                      className="text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shadow-2xs shrink-0"
                       title="Navegar no BellaDoor como cliente (explorar outras profissionais e agendar serviços)"
                     >
-                      <span>🛍️ Modo Cliente</span>
+                      <span>🛍️</span>
+                      <span className="hidden sm:inline">Modo </span>Cliente
                     </button>
                     <button
                       type="button"
                       onClick={onToggleProPreview}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                      className={`text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer shrink-0 ${
                         isProTrialExpired
                           ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
                           : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
                       }`}
                       title="Pré-visualizar como sua vitrine pública está sendo exibida (somente leitura)"
                     >
-                      {isProTrialExpired ? '🔒 Vitrine Bloqueada' : '👁️ Minha Vitrine'}
+                      <span>👁️</span>
+                      <span className="hidden sm:inline">Minha </span>Vitrine
                     </button>
                   </>
                 ) : (
@@ -204,17 +211,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       if (onExitVitrinePreview) onExitVitrinePreview();
                       else if (onToggleProPreview) onToggleProPreview();
                     }}
-                    className="text-xs font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1"
+                    className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1"
                     title="Retornar ao seu Painel Profissional"
                   >
-                    ← Voltar ao Painel Pro
+                    <span className="hidden sm:inline">← Voltar ao Painel Pro</span>
+                    <span className="sm:hidden">← Painel Pro</span>
                   </button>
                 )}
               </div>
             )}
 
             {/* Card do Usuário Logado */}
-            <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 pl-2 pr-1.5 py-1 rounded-xl text-xs">
+            <div className="flex items-center gap-1 sm:gap-2 bg-stone-50 border border-stone-200 pl-1.5 sm:pl-2 pr-1 sm:pr-1.5 py-1 rounded-xl text-xs shrink-0">
               <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-bold flex items-center justify-center text-[10px] overflow-hidden shrink-0">
                 {(() => {
                   const defaultStockAvatar =
@@ -238,7 +246,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   );
                 })()}
               </div>
-              <div className="hidden sm:block leading-tight text-left">
+              <div className="hidden md:block leading-tight text-left">
                 <p className="font-bold text-stone-900 text-[11px] truncate max-w-[140px]">
                   {currentUser.role === 'PROFESSIONAL'
                     ? proDisplayName.trim() || currentUser.fullName

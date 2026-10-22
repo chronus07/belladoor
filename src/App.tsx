@@ -239,6 +239,9 @@ export default function App() {
   const [isAtendimentosCollapsed, setIsAtendimentosCollapsed] = useState<boolean>(false);
   const [appointmentsFilter, setAppointmentsFilter] = useState<'ALL' | 'SCHEDULED' | 'COMPLETED'>('ALL');
   const [isScheduleCollapsed, setIsScheduleCollapsed] = useState<boolean>(false);
+  const [isVitrinePortfolioCollapsed, setIsVitrinePortfolioCollapsed] = useState<boolean>(false);
+  const [isVitrineReviewsCollapsed, setIsVitrineReviewsCollapsed] = useState<boolean>(false);
+  const [isVitrineServicesCollapsed, setIsVitrineServicesCollapsed] = useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -4637,80 +4640,95 @@ export default function App() {
             <div className={`col-span-1 lg:col-span-5 xl:col-span-4 lg:row-span-4 lg:sticky lg:top-20 rounded-3xl shadow-sm border p-6 transition-colors ${proTheme.contentBg} ${proTheme.contentBorder}`}>
               {isViewingOwnProVitrine ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <h2 className={`font-bold text-base flex items-center gap-2 ${proTheme.headerTitleText}`}>
                       <Sparkles className={`w-4 h-4 ${proTheme.primaryText}`} />
-                      Tabela de Serviços da Vitrine
+                      Tabela de Serviços ({(pro.services || proServicesList).length})
                     </h2>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> Somente Visualização
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> Somente Visualização
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsVitrineServicesCollapsed(!isVitrineServicesCollapsed)}
+                        className="p-1 sm:px-2.5 sm:py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none"
+                        title={isVitrineServicesCollapsed ? 'Expandir serviços' : 'Recolher serviços'}
+                      >
+                        <span className="hidden sm:inline">{isVitrineServicesCollapsed ? 'Expandir' : 'Recolher'}</span>
+                        {isVitrineServicesCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
 
-                  {(pro.services || proServicesList).length === 0 ? (
-                    <div className="bg-white rounded-2xl p-6 text-center border border-stone-200 text-stone-500 space-y-1">
-                      <p className="text-xs font-bold text-stone-800">
-                        Nenhum serviço cadastrado ainda
-                      </p>
-                      <p className="text-[11px]">
-                        Cadastre seus serviços na aba &ldquo;Serviços &amp; Taxas&rdquo; do seu painel para que apareçam aqui.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {(pro.services || proServicesList).map((service) => (
-                        <div
-                          key={service.id}
-                          className={`p-4 rounded-2xl border select-none transition ${proTheme.serviceCardBg} ${proTheme.serviceCardBorder}`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className={`font-bold text-sm ${proTheme.serviceTitleText}`}>{service.name}</h3>
-                                {service.popular && (
-                                  <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                                    Mais pedido
+                  {!isVitrineServicesCollapsed && (
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      {(pro.services || proServicesList).length === 0 ? (
+                        <div className="bg-white rounded-2xl p-6 text-center border border-stone-200 text-stone-500 space-y-1">
+                          <p className="text-xs font-bold text-stone-800">
+                            Nenhum serviço cadastrado ainda
+                          </p>
+                          <p className="text-[11px]">
+                            Cadastre seus serviços na aba &ldquo;Serviços &amp; Taxas&rdquo; do seu painel para que apareçam aqui.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {(pro.services || proServicesList).map((service) => (
+                            <div
+                              key={service.id}
+                              className={`p-4 rounded-2xl border select-none transition ${proTheme.serviceCardBg} ${proTheme.serviceCardBorder}`}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className={`font-bold text-sm ${proTheme.serviceTitleText}`}>{service.name}</h3>
+                                    {service.popular && (
+                                      <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                                        Mais pedido
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className={`text-xs mt-1 leading-relaxed ${proTheme.isDark ? 'text-stone-300' : 'text-stone-500'}`}>
+                                    {service.description}
+                                  </p>
+                                  <span className={`inline-flex items-center gap-1 text-[11px] mt-2 font-medium ${proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}`}>
+                                    <Clock className="w-3 h-3 text-stone-400" /> {service.durationMinutes} minutos
                                   </span>
-                                )}
+                                </div>
+                                <div className="text-right pl-3 shrink-0">
+                                  <span className={`text-base font-extrabold ${proTheme.servicePriceText}`}>
+                                    R$ {service.price.toFixed(2).replace('.', ',')}
+                                  </span>
+                                </div>
                               </div>
-                              <p className={`text-xs mt-1 leading-relaxed ${proTheme.isDark ? 'text-stone-300' : 'text-stone-500'}`}>
-                                {service.description}
-                              </p>
-                              <span className={`inline-flex items-center gap-1 text-[11px] mt-2 font-medium ${proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}`}>
-                                <Clock className="w-3 h-3 text-stone-400" /> {service.durationMinutes} minutos
-                              </span>
                             </div>
-                            <div className="text-right pl-3 shrink-0">
-                              <span className={`text-base font-extrabold ${proTheme.servicePriceText}`}>
-                                R$ {service.price.toFixed(2).replace('.', ',')}
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Regiões e Taxas de Deslocamento (Somente Visualização) */}
+                      {(pro.neighborhoods || proNeighborhoodsList).length > 0 && (
+                        <div className="pt-3 border-t border-stone-200/80">
+                          <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-700 flex items-center gap-1.5 mb-2.5">
+                            <Car className="w-3.5 h-3.5 text-rose-600" />
+                            Bairros Atendidos &amp; Taxas de Deslocamento
+                          </h3>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(pro.neighborhoods || proNeighborhoodsList).map((n) => (
+                              <span
+                                key={n.name}
+                                className="inline-flex items-center gap-1.5 text-[11px] bg-white border border-stone-200 text-stone-700 px-2.5 py-1 rounded-xl font-medium"
+                              >
+                                <span>{n.name}</span>
+                                <strong className="text-rose-700">
+                                  {n.travelFee === 0 ? 'Grátis' : `+ R$ ${n.travelFee.toFixed(2).replace('.', ',')}`}
+                                </strong>
                               </span>
-                            </div>
+                            ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Regiões e Taxas de Deslocamento (Somente Visualização) */}
-                  {(pro.neighborhoods || proNeighborhoodsList).length > 0 && (
-                    <div className="pt-3 border-t border-stone-200/80">
-                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-700 flex items-center gap-1.5 mb-2.5">
-                        <Car className="w-3.5 h-3.5 text-rose-600" />
-                        Bairros Atendidos &amp; Taxas de Deslocamento
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(pro.neighborhoods || proNeighborhoodsList).map((n) => (
-                          <span
-                            key={n.name}
-                            className="inline-flex items-center gap-1.5 text-[11px] bg-white border border-stone-200 text-stone-700 px-2.5 py-1 rounded-xl font-medium"
-                          >
-                            <span>{n.name}</span>
-                            <strong className="text-rose-700">
-                              {n.travelFee === 0 ? 'Grátis' : `+ R$ ${n.travelFee.toFixed(2).replace('.', ',')}`}
-                            </strong>
-                          </span>
-                        ))}
-                      </div>
+                      )}
                     </div>
                   )}
 
@@ -5708,34 +5726,53 @@ export default function App() {
             {/* 3. PORTFÓLIO DE TRABALHOS REALIZADOS (SE HOUVER FOTOS CADASTRADAS) */}
             {pro.portfolio && pro.portfolio.length > 0 && (
               <div className={`col-span-1 lg:col-span-7 xl:col-span-8 rounded-3xl shadow-sm border p-6 transition-colors ${proTheme.headerCardBg} ${proTheme.headerCardBorder}`}>
-                <div className="flex items-center justify-between mb-3.5">
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-rose-600" />
-                    Portfólio de Trabalhos Realizados
-                  </h3>
-                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full">
-                    {pro.portfolio.length} {pro.portfolio.length === 1 ? 'foto' : 'fotos'}
-                  </span>
+                <div className="flex items-center justify-between mb-3.5 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-rose-600" />
+                      Portfólio de Trabalhos Realizados
+                    </h3>
+                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full">
+                      {pro.portfolio.length} {pro.portfolio.length === 1 ? 'foto' : 'fotos'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsVitrinePortfolioCollapsed(!isVitrinePortfolioCollapsed)}
+                    className="p-1.5 sm:px-2.5 sm:py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none"
+                    title={isVitrinePortfolioCollapsed ? 'Expandir fotos' : 'Recolher fotos'}
+                  >
+                    <span className="hidden sm:inline">
+                      {isVitrinePortfolioCollapsed ? 'Expandir' : 'Recolher'}
+                    </span>
+                    {isVitrinePortfolioCollapsed ? (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
-                  {pro.portfolio.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="group relative rounded-2xl overflow-hidden aspect-square bg-stone-100 border border-stone-200/80 shadow-xs"
-                    >
-                      <img
-                        src={item.url}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent opacity-95 p-2.5 flex items-end">
-                        <span className="text-[11px] text-white font-bold leading-snug">
-                          {item.title}
-                        </span>
+                {!isVitrinePortfolioCollapsed && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 animate-in fade-in duration-200">
+                    {pro.portfolio.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="group relative rounded-2xl overflow-hidden aspect-square bg-stone-100 border border-stone-200/80 shadow-xs"
+                      >
+                        <img
+                          src={item.url}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent opacity-95 p-2.5 flex items-end">
+                          <span className="text-[11px] text-white font-bold leading-snug">
+                            {item.title}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -5752,141 +5789,162 @@ export default function App() {
                   </p>
                 </div>
 
-                {currentUser.role === 'CLIENT' && pendingCompletedAppointmentForClient ? (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenReviewForAppointment(pendingCompletedAppointmentForClient)}
-                    className="text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
-                  >
-                    <MessageSquarePlus className="w-3.5 h-3.5 text-amber-600" />
-                    Avaliar Meu Atendimento Concluído
-                  </button>
-                ) : (
-                  <span
-                    className="text-[10px] font-bold bg-stone-100 text-stone-600 border border-stone-200 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5"
-                    title="Somente clientes que contrataram e tiveram o agendamento marcado como Concluído pela profissional podem avaliar"
-                  >
-                    <Lock className="w-3 h-3 text-stone-500 shrink-0" />
-                    Avaliação liberada após conclusão do atendimento
-                  </span>
-                )}
-              </div>
-
-              {/* Formulário de Avaliação Verificada (apenas quando há atendimento Concluído da cliente) */}
-              {currentUser.role === 'CLIENT' && showReviewForm && pendingCompletedAppointmentForClient && (
-                <form
-                  onSubmit={handleSubmitClientReview}
-                  className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-3 animate-in fade-in duration-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                        Atendimento Concluído Verificado
-                      </span>
-                      <p className="text-xs font-extrabold text-stone-900 mt-1">
-                        Deixe sua avaliação para {pro.name}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setReviewRating(star)}
-                          className="p-0.5 cursor-pointer"
-                        >
-                          <Star
-                            className={`w-5 h-5 ${
-                              star <= reviewRating
-                                ? 'fill-amber-400 text-amber-400'
-                                : 'text-stone-300'
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <input
-                      type="text"
-                      value={reviewClientName}
-                      readOnly
-                      className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
-                    />
-                    <input
-                      type="text"
-                      value={reviewServiceName}
-                      readOnly
-                      className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
-                    />
-                  </div>
-
-                  <textarea
-                    rows={2}
-                    placeholder="Escreva como foi sua experiência..."
-                    value={reviewComment}
-                    onChange={(e) => setReviewComment(e.target.value)}
-                    className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  />
-
-                  <div className="flex justify-end gap-2">
+                <div className="flex items-center gap-2">
+                  {currentUser.role === 'CLIENT' && pendingCompletedAppointmentForClient ? (
                     <button
                       type="button"
-                      onClick={() => setShowReviewForm(false)}
-                      className="px-3 py-2 bg-white border border-stone-200 text-stone-600 rounded-xl text-xs font-bold cursor-pointer"
+                      onClick={() => handleOpenReviewForAppointment(pendingCompletedAppointmentForClient)}
+                      className="text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
                     >
-                      Cancelar
+                      <MessageSquarePlus className="w-3.5 h-3.5 text-amber-600" />
+                      Avaliar Meu Atendimento Concluído
                     </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-xs cursor-pointer"
+                  ) : (
+                    <span
+                      className="hidden sm:flex text-[10px] font-bold bg-stone-100 text-stone-600 border border-stone-200 px-2.5 py-1.5 rounded-xl items-center gap-1.5"
+                      title="Somente clientes que contrataram e tiveram o agendamento marcado como Concluído pela profissional podem avaliar"
                     >
-                      Publicar Avaliação
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Lista de Depoimentos das Clientes */}
-              <div className="space-y-2.5">
-                {currentProReviews.map((rev) => (
-                  <div
-                    key={rev.id}
-                    className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-1.5"
+                      <Lock className="w-3 h-3 text-stone-500 shrink-0" />
+                      Avaliação após conclusão
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsVitrineReviewsCollapsed(!isVitrineReviewsCollapsed)}
+                    className="p-1.5 sm:px-2.5 sm:py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none"
+                    title={isVitrineReviewsCollapsed ? 'Expandir avaliações' : 'Recolher avaliações'}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center justify-center">
-                          {rev.clientName.charAt(0).toUpperCase()}
-                        </div>
+                    <span className="hidden sm:inline">
+                      {isVitrineReviewsCollapsed ? 'Expandir' : 'Recolher'}
+                    </span>
+                    {isVitrineReviewsCollapsed ? (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {!isVitrineReviewsCollapsed && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Formulário de Avaliação Verificada (apenas quando há atendimento Concluído da cliente) */}
+                  {currentUser.role === 'CLIENT' && showReviewForm && pendingCompletedAppointmentForClient && (
+                    <form
+                      onSubmit={handleSubmitClientReview}
+                      className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-3 animate-in fade-in duration-200"
+                    >
+                      <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-xs font-bold text-stone-900 leading-none">
-                            {rev.clientName}
-                          </p>
-                          <p className="text-[10px] text-rose-600 font-semibold mt-0.5">
-                            {rev.serviceName}
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                            Atendimento Concluído Verificado
+                          </span>
+                          <p className="text-xs font-extrabold text-stone-900 mt-1">
+                            Deixe sua avaliação para {pro.name}
                           </p>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-0.5 justify-end">
-                          {Array.from({ length: rev.rating }).map((_, idx) => (
-                            <Star
-                              key={idx}
-                              className="w-3 h-3 fill-amber-400 text-amber-400"
-                            />
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setReviewRating(star)}
+                              className="p-0.5 cursor-pointer"
+                            >
+                              <Star
+                                className={`w-5 h-5 ${
+                                  star <= reviewRating
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : 'text-stone-300'
+                                }`}
+                              />
+                            </button>
                           ))}
                         </div>
-                        <span className="text-[10px] text-stone-400">{rev.date}</span>
                       </div>
-                    </div>
-                    <p className="text-xs text-stone-600 leading-relaxed pl-9">
-                      "{rev.comment}"
-                    </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <input
+                          type="text"
+                          value={reviewClientName}
+                          readOnly
+                          className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
+                        />
+                        <input
+                          type="text"
+                          value={reviewServiceName}
+                          readOnly
+                          className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
+                        />
+                      </div>
+
+                      <textarea
+                        rows={2}
+                        placeholder="Escreva como foi sua experiência..."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      />
+
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowReviewForm(false)}
+                          className="px-3 py-2 bg-white border border-stone-200 text-stone-600 rounded-xl text-xs font-bold cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-xs cursor-pointer"
+                        >
+                          Publicar Avaliação
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Lista de Depoimentos das Clientes */}
+                  <div className="space-y-2.5">
+                    {currentProReviews.map((rev) => (
+                      <div
+                        key={rev.id}
+                        className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-700 font-extrabold text-[11px] flex items-center justify-center">
+                              {rev.clientName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-stone-900 leading-none">
+                                {rev.clientName}
+                              </p>
+                              <p className="text-[10px] text-rose-600 font-semibold mt-0.5">
+                                {rev.serviceName}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center gap-0.5 justify-end">
+                              {Array.from({ length: rev.rating }).map((_, idx) => (
+                                <Star
+                                  key={idx}
+                                  className="w-3 h-3 fill-amber-400 text-amber-400"
+                                />
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-stone-400">{rev.date}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-stone-600 leading-relaxed pl-9">
+                          "{rev.comment}"
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -6224,7 +6282,7 @@ export default function App() {
                   <p className="text-[10px] text-stone-400">
                     Ajuste suas regras anti-furo ou revise sua conta passo a passo:
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setShowBookingRulesModal(true)}
@@ -6260,9 +6318,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* BARRA DE NAVEGAÇÃO DE ABAS DO APP */}
-            <div className="flex border-b border-stone-200 bg-stone-50 text-[11px] font-semibold text-stone-600 overflow-x-auto">
+            {/* BARRA DE NAVEGAÇÃO DE ABAS DO APP (5 ABAS PRINCIPAIS VISÍVEIS SEM ROLAR NO CELULAR) */}
+            <div className="grid grid-cols-5 border-b border-stone-200 bg-stone-50 text-[10px] sm:text-[11px] font-semibold text-stone-600">
               <button
+                type="button"
                 onClick={() => {
                   if (isProTrialExpired) {
                     showExpiredTrialLockDialog();
@@ -6273,7 +6332,7 @@ export default function App() {
                   setAreaFormMode('LIST');
                   setPortfolioFormMode('LIST');
                 }}
-                className={`flex-1 py-3 px-1.5 text-center border-b-2 transition cursor-pointer whitespace-nowrap ${
+                className={`py-2.5 sm:py-3 px-1 text-center border-b-2 transition cursor-pointer truncate ${
                   isProTrialExpired
                     ? 'border-transparent text-stone-400 bg-stone-100/80'
                     : proSubTab === 'agenda'
@@ -6284,6 +6343,7 @@ export default function App() {
                 {isProTrialExpired ? '🔒 Agenda' : '📅 Agenda'}
               </button>
               <button
+                type="button"
                 onClick={() => {
                   if (isProTrialExpired) {
                     showExpiredTrialLockDialog();
@@ -6294,7 +6354,7 @@ export default function App() {
                   setAreaFormMode('LIST');
                   setPortfolioFormMode('LIST');
                 }}
-                className={`flex-1 py-3 px-1.5 text-center border-b-2 transition cursor-pointer whitespace-nowrap ${
+                className={`py-2.5 sm:py-3 px-1 text-center border-b-2 transition cursor-pointer truncate ${
                   isProTrialExpired
                     ? 'border-transparent text-stone-400 bg-stone-100/80'
                     : proSubTab === 'portfolio'
@@ -6302,9 +6362,11 @@ export default function App() {
                     : 'border-transparent hover:text-stone-900'
                 }`}
               >
-                {isProTrialExpired ? '🔒 Vitrine & Fotos' : '📸 Vitrine & Fotos'}
+                <span className="hidden sm:inline">{isProTrialExpired ? '🔒 Vitrine & Fotos' : '📸 Vitrine & Fotos'}</span>
+                <span className="sm:hidden">{isProTrialExpired ? '🔒 Vitrine' : '📸 Vitrine'}</span>
               </button>
               <button
+                type="button"
                 onClick={() => {
                   if (isProTrialExpired) {
                     showExpiredTrialLockDialog();
@@ -6315,7 +6377,7 @@ export default function App() {
                   setAreaFormMode('LIST');
                   setPortfolioFormMode('LIST');
                 }}
-                className={`flex-1 py-3 px-1.5 text-center border-b-2 transition cursor-pointer whitespace-nowrap ${
+                className={`py-2.5 sm:py-3 px-1 text-center border-b-2 transition cursor-pointer truncate ${
                   isProTrialExpired
                     ? 'border-transparent text-stone-400 bg-stone-100/80'
                     : proSubTab === 'services'
@@ -6330,6 +6392,7 @@ export default function App() {
                   : '💅 Serviços'}
               </button>
               <button
+                type="button"
                 onClick={() => {
                   if (isProTrialExpired) {
                     showExpiredTrialLockDialog();
@@ -6340,7 +6403,7 @@ export default function App() {
                   setAreaFormMode('LIST');
                   setPortfolioFormMode('LIST');
                 }}
-                className={`flex-1 py-3 px-1.5 text-center border-b-2 transition cursor-pointer whitespace-nowrap ${
+                className={`py-2.5 sm:py-3 px-1 text-center border-b-2 transition cursor-pointer truncate ${
                   isProTrialExpired
                     ? 'border-transparent text-stone-400 bg-stone-100/80'
                     : proSubTab === 'areas'
@@ -6351,36 +6414,21 @@ export default function App() {
                 {isProTrialExpired ? '🔒 Regiões' : '🚗 Regiões'}
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setProSubTab('billing');
                   setServiceFormMode('LIST');
                   setAreaFormMode('LIST');
                   setPortfolioFormMode('LIST');
                 }}
-                className={`flex-1 py-3 px-1.5 text-center border-b-2 transition cursor-pointer whitespace-nowrap ${
+                className={`py-2.5 sm:py-3 px-1 text-center border-b-2 transition cursor-pointer truncate ${
                   proSubTab === 'billing' || isProTrialExpired
                     ? `${panelTheme.activeTabBorder} ${panelTheme.activeTabText} bg-white font-bold`
                     : 'border-transparent hover:text-stone-900'
                 }`}
               >
-                💳 Plano {isProTrialExpired ? '(Liberar)' : ''}
+                💳 Plano {isProTrialExpired ? '🔒' : ''}
               </button>
-              <button
-                type="button"
-                onClick={handleEnterClientMode}
-                className="flex-1 py-3 px-2 text-center border-b-2 border-transparent bg-rose-50 text-rose-700 hover:bg-rose-100 font-extrabold transition cursor-pointer whitespace-nowrap"
-                title="Acessar o BellaDoor como cliente para agendar com outras profissionais"
-              >
-                🛍️ Modo Cliente
-              </button>
-              {isMasterAdminAccount && (
-                <button
-                  onClick={() => setShowAdminPanel(true)}
-                  className="flex-1 py-3 px-2 text-center border-b-2 border-transparent bg-stone-900 text-amber-300 hover:bg-stone-800 font-extrabold transition cursor-pointer whitespace-nowrap"
-                >
-                  🛡️ Admin
-                </button>
-              )}
             </div>
 
             {/* CONTEÚDO DAS ABAS DO APP */}
@@ -6570,7 +6618,7 @@ export default function App() {
                             </div>
 
                             {/* Ações do Topo: Margem, Novo Agendamento e Botão Expandir/Recolher */}
-                            <div className="flex items-center gap-2 self-end md:self-center flex-wrap">
+                            <div className="flex items-center gap-1.5 sm:gap-2 self-start w-full sm:w-auto sm:self-auto justify-between sm:justify-end flex-wrap">
                               <span className={`text-xs font-bold ${panelTheme.primaryText} ${panelTheme.primaryBgLight} border ${panelTheme.primaryBorderLight} px-3 py-1.5 rounded-xl shadow-2xs`}>
                                 ⏱️ {proBufferTime} min margem
                               </span>
@@ -7065,7 +7113,7 @@ export default function App() {
                       </div>
 
                       {/* Ações do Topo */}
-                      <div className="flex items-center gap-2 self-end md:self-center flex-wrap">
+                      <div className="flex items-center gap-1.5 sm:gap-2 self-start w-full sm:w-auto sm:self-auto justify-between sm:justify-end flex-wrap">
                         {isScheduleDirty ? (
                           <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl flex items-center gap-1 shrink-0 animate-pulse">
                             ● Alterações pendentes
