@@ -4075,6 +4075,11 @@ export default function App() {
         onToggleClientSubView={() =>
           setClientSubView(clientSubView === 'MY_BOOKINGS' ? 'EXPLORE' : 'MY_BOOKINGS')
         }
+        onEnterClientMode={() => {
+          setSelectedPro(null);
+          setClientSubView('EXPLORE');
+          setActiveTab('client');
+        }}
         onToggleProPreview={() => {
           if (isProTrialExpired) {
             showExpiredTrialLockDialog();
@@ -4104,6 +4109,35 @@ export default function App() {
           ? 'max-w-md sm:max-w-xl lg:max-w-5xl xl:max-w-6xl mx-auto'
           : 'max-w-md sm:max-w-xl lg:max-w-5xl mx-auto'
       }`}>
+        {/* BANNER INFORMATIVO: PROFISSIONAL NAVEGANDO EM MODO CLIENTE */}
+        {currentUser && currentUser.role === 'PROFESSIONAL' && activeTab === 'client' && (
+          <div className="mb-4 bg-gradient-to-r from-rose-50 via-pink-50 to-rose-50 border border-rose-200 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-700 shrink-0 font-extrabold text-sm">
+                🛍️
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-rose-950 truncate">
+                  Modo Cliente Ativo ({proDisplayName.trim() || currentUser.fullName})
+                </p>
+                <p className="text-[11px] text-rose-800 truncate">
+                  Você está navegando como cliente. Pode agendar serviços com outras profissionais ou consultar seus agendamentos.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('pro');
+                setClientSubView('EXPLORE');
+              }}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold transition cursor-pointer shadow-xs shrink-0 flex items-center gap-1.5"
+            >
+              ← Voltar ao Painel Pro
+            </button>
+          </div>
+        )}
+
         {/* BARRA DE ACESSO RÁPIDO DO ADMINISTRADOR MASTER (EVERTON) */}
         {currentUser && isMasterAdminAccount && !showAdminPanel && (
           <div className="mb-4 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 border border-amber-500/40 rounded-2xl p-3.5 shadow-md flex items-center justify-between gap-3">
@@ -6191,6 +6225,18 @@ export default function App() {
                 }`}
               >
                 💳 Plano {isProTrialExpired ? '(Liberar)' : ''}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPro(null);
+                  setClientSubView('EXPLORE');
+                  setActiveTab('client');
+                }}
+                className="flex-1 py-3 px-2 text-center border-b-2 border-transparent bg-rose-50 text-rose-700 hover:bg-rose-100 font-extrabold transition cursor-pointer whitespace-nowrap"
+                title="Acessar o BellaDoor como cliente para agendar com outras profissionais"
+              >
+                🛍️ Modo Cliente
               </button>
               {isMasterAdminAccount && (
                 <button

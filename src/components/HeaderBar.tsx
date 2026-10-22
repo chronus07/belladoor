@@ -13,6 +13,7 @@ interface HeaderBarProps {
   proAvatarUrl: string;
   onToggleClientSubView: () => void;
   onToggleProPreview: () => void;
+  onEnterClientMode?: () => void;
   onToggleAdminPanel?: () => void;
   onLogout: () => void;
 }
@@ -28,6 +29,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   proAvatarUrl,
   onToggleClientSubView,
   onToggleProPreview,
+  onEnterClientMode,
   onToggleAdminPanel,
   onLogout,
 }) => {
@@ -136,8 +138,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </button>
             )}
 
-            {/* Botão Meus Agendamentos exclusivo para Cliente */}
-            {currentUser.role === 'CLIENT' && activeTab === 'client' && !showAdminPanel && (
+            {/* Botão Meus Agendamentos: visível quando em modo cliente (para cliente ou pro navegando como cliente) */}
+            {activeTab === 'client' && !showAdminPanel && (
               <button
                 type="button"
                 onClick={onToggleClientSubView}
@@ -156,25 +158,41 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </button>
             )}
 
-            {/* Se for profissional, botão para alternar entre Painel Pro e Pré-Visualização da Vitrine */}
+            {/* Se for profissional: botões de Navegação */}
             {currentUser.role === 'PROFESSIONAL' && !showAdminPanel && (
-              <button
-                type="button"
-                onClick={onToggleProPreview}
-                className={`text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer ${
-                  isProTrialExpired
-                    ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
-                    : activeTab === 'client'
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs'
-                    : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
-                }`}
-              >
-                {isProTrialExpired
-                  ? '🔒 Vitrine Bloqueada'
-                  : activeTab === 'pro'
-                  ? '👁️ Ver Minha Vitrine'
-                  : '← Voltar ao Meu Painel Pro'}
-              </button>
+              <div className="flex items-center gap-1.5">
+                {activeTab === 'pro' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onEnterClientMode}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shadow-2xs"
+                      title="Navegar no BellaDoor como cliente (explorar outras profissionais e agendar serviços)"
+                    >
+                      <span>🛍️ Modo Cliente</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onToggleProPreview}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                        isProTrialExpired
+                          ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
+                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      {isProTrialExpired ? '🔒 Vitrine Bloqueada' : '👁️ Minha Vitrine'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onToggleProPreview}
+                    className="text-xs font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1"
+                  >
+                    ← Voltar ao Painel Pro
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Card do Usuário Logado */}

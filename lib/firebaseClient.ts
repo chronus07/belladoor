@@ -164,12 +164,24 @@ export async function signInWithFirebaseGoogle(
         const stored = existingUsers[normalizedEmail];
 
         if (stored && stored.email && stored.email.toLowerCase() === normalizedEmail) {
+          // TRAVA RIGOROSA DE PAPEL: Impede que Profissional entre na aba Cliente e vice-versa
+          if (stored.role === 'PROFESSIONAL' && role === 'CLIENT') {
+            return {
+              error:
+                'Esta conta Google está cadastrada como Profissional. Por favor, selecione a aba "Sou Profissional da Beleza" para entrar no seu painel.',
+            };
+          }
+          if (stored.role === 'CLIENT' && role === 'PROFESSIONAL') {
+            return {
+              error:
+                'Esta conta Google está cadastrada como Cliente. Por favor, selecione a aba "Sou Cliente" para entrar.',
+            };
+          }
+
           const { passwordHash, ...cleanUser } = stored;
-          // Se o usuário escolheu explicitamente Cliente ou Profissional na tela, respeita a escolha;
-          // caso contrário, se apenas clicou em "Já Tenho Conta (Entrar)", usa o perfil salvo da conta.
-          const resolvedRole: 'CLIENT' | 'PROFESSIONAL' = roleExplicitlyChosen
-            ? role
-            : (cleanUser.role as 'CLIENT' | 'PROFESSIONAL') || role;
+          // O papel cadastrado é sagrado e nunca é sobrescrito no login
+          const resolvedRole: 'CLIENT' | 'PROFESSIONAL' =
+            (cleanUser.role as 'CLIENT' | 'PROFESSIONAL') || role;
 
           const resolvedTrialEndsAt =
             resolvedRole === 'PROFESSIONAL'
@@ -306,7 +318,18 @@ export async function signUpWithFirebaseEmail(
       existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
       deletedEmails = snap.exists() ? snap.data()?.deletedEmails || {} : {};
       if (existingUsers[normalizedEmail]) {
-        return { error: 'Este e-mail já possui conta. Clique em "Já Tenho Conta (Entrar)" para acessar.' };
+        const existingRole = existingUsers[normalizedEmail]?.role;
+        if (existingRole === 'PROFESSIONAL') {
+          return {
+            error:
+              'Este e-mail já possui cadastro como Profissional. Selecione a aba "Sou Profissional da Beleza" e clique em "Já Tenho Conta (Entrar)".',
+          };
+        } else {
+          return {
+            error:
+              'Este e-mail já possui cadastro como Cliente. Selecione a aba "Sou Cliente" e clique em "Já Tenho Conta (Entrar)".',
+          };
+        }
       }
     } catch (e) {
       console.warn('[Firebase Cloud] Aviso ao verificar usuária no Firestore:', e);
@@ -452,13 +475,29 @@ export async function signInWithFirebaseEmail(
     }
   }
 
+  // TRAVA RIGOROSA DE PAPEL: Impede que Profissional entre na aba Cliente e vice-versa
+  if (stored && stored.role) {
+    if (stored.role === 'PROFESSIONAL' && preferredRole === 'CLIENT') {
+      return {
+        error:
+          'Esta conta está cadastrada como Profissional. Por favor, selecione a aba "Sou Profissional da Beleza" acima para entrar no seu painel.',
+      };
+    }
+    if (stored.role === 'CLIENT' && preferredRole === 'PROFESSIONAL') {
+      return {
+        error:
+          'Esta conta está cadastrada como Cliente. Por favor, selecione a aba "Sou Cliente" acima para entrar.',
+      };
+    }
+  }
+
   // Se a senha foi redefinida pelo usuário ("Esqueci minha senha") ou pelo Admin, valida direto pelo hash SHA-256 atualizado no Firestore
   if (stored && stored.passwordResetAt && stored.passwordHash) {
     const check = await verifyStoredPasswordHash(stored.passwordHash, pass, normalizedEmail);
     if (!check.matches) {
       return { error: 'Senha incorreta para este e-mail. Se esqueceu sua senha, clique em "Esqueci minha senha?".' };
     }
-    const targetRole: 'CLIENT' | 'PROFESSIONAL' = preferredRole || (stored.role as 'CLIENT' | 'PROFESSIONAL') || 'CLIENT';
+    const targetRole: 'CLIENT' | 'PROFESSIONAL' = (stored.role as 'CLIENT' | 'PROFESSIONAL') || preferredRole;
     const { passwordHash, ...cleanUser } = stored;
     const remainingDays = computeRemainingTrialDays(cleanUser.trialEndsAt);
     const resolvedUser: AuthUser = {
@@ -470,25 +509,6 @@ export async function signInWithFirebaseEmail(
         cleanUser.subscriptionStatus !== 'ACTIVE' &&
         remainingDays > 0,
     };
-
-    if (targetRole !== stored.role && db) {
-      try {
-        existingUsers[normalizedEmail] = sanitizeForFirestore({
-          ...stored,
-          role: targetRole,
-          updatedAt: new Date().toISOString(),
-        });
-        await setDoc(
-          doc(db, 'belladoor_prod', 'users'),
-          sanitizeForFirestore({
-            accounts: existingUsers,
-            deletedEmails,
-            updatedAt: new Date().toISOString(),
-          }),
-          { merge: true }
-        );
-      } catch {}
-    }
 
     if (stored.requiresEmailVerification && !stored.emailVerified) {
       return {
@@ -515,7 +535,7 @@ export async function signInWithFirebaseEmail(
         stored?.emailVerified !== true;
 
       if (stored) {
-        const targetRole: 'CLIENT' | 'PROFESSIONAL' = preferredRole || (stored.role as 'CLIENT' | 'PROFESSIONAL') || 'CLIENT';
+        const targetRole: 'CLIENT' | 'PROFESSIONAL' = (stored.role as 'CLIENT' | 'PROFESSIONAL') || preferredRole;
         const { passwordHash, ...cleanUser } = stored;
         const remainingDays = computeRemainingTrialDays(cleanUser.trialEndsAt);
         const resolvedUser: AuthUser = {
@@ -531,9 +551,8 @@ export async function signInWithFirebaseEmail(
 
         const needsSha256Upgrade =
           typeof stored.passwordHash === 'string' && !stored.passwordHash.startsWith('sha256:');
-        const roleChanged = targetRole !== stored.role;
 
-        if (((isVerifiedInAuth && !stored.emailVerified) || needsSha256Upgrade || roleChanged) && db) {
+        if (((isVerifiedInAuth && !stored.emailVerified) || needsSha256Upgrade) && db) {
           try {
             const upgradedHash = needsSha256Upgrade
               ? await hashPasswordSHA256(pass, normalizedEmail)
