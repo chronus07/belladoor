@@ -498,6 +498,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
 
   const handleConfirmDelete = async () => {
     if (!deletingUser) return;
+    const targetUser = { ...deletingUser };
     setSaving(true);
     setFeedbackMsg(null);
     try {
@@ -505,7 +506,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       if (res.ok) {
         setFeedbackMsg({
           type: 'success',
-          text: `O cadastro de "${deletingUser.fullName}" (${deletingUser.email}) foi excluído permanentemente.`,
+          text: `O cadastro de "${targetUser.fullName}" (${targetUser.email}) foi excluído com sucesso.`,
         });
         setDeletingUser(null);
       } else {

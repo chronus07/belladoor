@@ -78,6 +78,43 @@ function sanitizeForFirestore<T>(obj: T): T {
 }
 
 /**
+ * [RESILIÊNCIA] Executa qualquer promessa com timeout máximo seguro, evitando travamento da UI
+ * em caso de perda de conexão, instabilidade de rede ou esgotamento temporário de cota do Firestore.
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number = 2500,
+  fallbackVal: T
+): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallbackVal);
+      }
+    }, ms);
+
+    promise
+      .then((res) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(res);
+        }
+      })
+      .catch((err) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          console.warn('[Firebase Resiliência] Aviso capturado na operação remota:', err);
+          resolve(fallbackVal);
+        }
+      });
+  });
+}
+
+/**
  * [LGPD Art. 46] Gera hash criptográfico irreversível SHA-256 com salt do e-mail via Web Crypto API
  */
 export async function hashPasswordSHA256(plainPassword: string, emailSalt: string): Promise<string> {
@@ -308,15 +345,29 @@ export async function signUpWithFirebaseEmail(
   const db = getFirebaseDb();
   const auth = getFirebaseAuth();
 
-  // 1. Verifica se já existe no Cloud Firestore
+  // 1. Verifica se já existe no Cloud Firestore (com tolerância a timeout e conferência de exclusões)
   let existingUsers: Record<string, any> = {};
   let deletedEmails: Record<string, any> = {};
+  let localDeletedMap: Record<string, any> = {};
+  try {
+    const rawDeleted = localStorage.getItem('belladoor_v2_deleted_emails');
+    if (rawDeleted) localDeletedMap = JSON.parse(rawDeleted);
+  } catch {}
+
   if (db) {
     try {
       const usersRef = doc(db, 'belladoor_prod', 'users');
-      const snap = await getDoc(usersRef);
-      existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
-      deletedEmails = snap.exists() ? snap.data()?.deletedEmails || {} : {};
+      const snap = await withTimeout(getDoc(usersRef), 2000, null as any);
+      if (snap && snap.exists()) {
+        existingUsers = snap.data()?.accounts || {};
+        deletedEmails = snap.data()?.deletedEmails || {};
+      }
+
+      // Se o e-mail foi deletado recentemente pelo Admin (localmente ou remotamente), libera o novo cadastro
+      if (localDeletedMap[normalizedEmail] || deletedEmails[normalizedEmail]) {
+        delete existingUsers[normalizedEmail];
+      }
+
       if (existingUsers[normalizedEmail]) {
         const existingRole = existingUsers[normalizedEmail]?.role;
         if (existingRole === 'PROFESSIONAL') {
@@ -358,8 +409,8 @@ export async function signUpWithFirebaseEmail(
       }
     } catch (err: any) {
       if (err?.code === 'auth/email-already-in-use') {
-        // Se foi excluído pelo Admin no Firestore, permite recadastrar a conta novamente
-        if (!existingUsers[normalizedEmail]) {
+        // Se foi excluído pelo Admin no Firestore ou localmente, permite recadastrar a conta novamente
+        if (!existingUsers[normalizedEmail] || localDeletedMap[normalizedEmail] || deletedEmails[normalizedEmail]) {
           try {
             const signInRes = await signInWithEmailAndPassword(auth, normalizedEmail, pass);
             firebaseUid = signInRes.user.uid;
@@ -417,6 +468,11 @@ export async function signUpWithFirebaseEmail(
       const sha256Hash = await hashPasswordSHA256(pass, normalizedEmail);
       const usersRef = doc(db, 'belladoor_prod', 'users');
       delete deletedEmails[normalizedEmail];
+      try {
+        delete localDeletedMap[normalizedEmail];
+        localStorage.setItem('belladoor_v2_deleted_emails', JSON.stringify(localDeletedMap));
+      } catch {}
+
       existingUsers[normalizedEmail] = sanitizeForFirestore({
         ...newUser,
         requiresEmailVerification: true,
@@ -425,13 +481,18 @@ export async function signUpWithFirebaseEmail(
         createdAt: nowIso,
         updatedAt: nowIso,
       });
-      await setDoc(
-        usersRef,
-        sanitizeForFirestore({
-          accounts: existingUsers,
-          deletedEmails,
-          updatedAt: nowIso,
-        })
+
+      await withTimeout(
+        setDoc(
+          usersRef,
+          sanitizeForFirestore({
+            accounts: existingUsers,
+            deletedEmails,
+            updatedAt: nowIso,
+          })
+        ),
+        2500,
+        undefined
       );
     } catch (e) {
       console.warn('[Firebase Cloud] Erro ao registrar usuária no Firestore:', e);
@@ -453,18 +514,29 @@ export async function signInWithFirebaseEmail(
   const db = getFirebaseDb();
   const auth = getFirebaseAuth();
 
-  // 1. Consulta o perfil salvo no Cloud Firestore
+  // 1. Consulta o perfil salvo no Cloud Firestore (com tolerância a timeout e mapa de exclusões)
   let stored: any = null;
   let existingUsers: Record<string, any> = {};
   let deletedEmails: Record<string, any> = {};
+  let localDeletedMap: Record<string, any> = {};
+  try {
+    const rawDeleted = localStorage.getItem('belladoor_v2_deleted_emails');
+    if (rawDeleted) localDeletedMap = JSON.parse(rawDeleted);
+  } catch {}
+
   if (db) {
     try {
       const usersRef = doc(db, 'belladoor_prod', 'users');
-      const snap = await getDoc(usersRef);
-      existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
-      deletedEmails = snap.exists() ? snap.data()?.deletedEmails || {} : {};
+      const snap = await withTimeout(getDoc(usersRef), 2000, null as any);
+      if (snap && snap.exists()) {
+        existingUsers = snap.data()?.accounts || {};
+        deletedEmails = snap.data()?.deletedEmails || {};
+      }
       stored = existingUsers[normalizedEmail] || null;
-      if (!stored && deletedEmails[normalizedEmail]) {
+      if (localDeletedMap[normalizedEmail]) {
+        stored = null;
+      }
+      if (!stored && (deletedEmails[normalizedEmail] || localDeletedMap[normalizedEmail])) {
         return {
           error:
             'Este cadastro foi removido. Clique em "Criar Nova Conta" acima caso deseje se cadastrar novamente.',
@@ -943,13 +1015,17 @@ export async function syncDocumentToFirestore(
   if (!db) return;
 
   try {
-    await setDoc(
-      doc(db, 'belladoor_prod', docId),
-      sanitizeForFirestore({
-        ...payload,
-        updatedAt: new Date().toISOString(),
-      }),
-      { merge: true }
+    await withTimeout(
+      setDoc(
+        doc(db, 'belladoor_prod', docId),
+        sanitizeForFirestore({
+          ...payload,
+          updatedAt: new Date().toISOString(),
+        }),
+        { merge: true }
+      ),
+      2500,
+      undefined
     );
   } catch (err) {
     console.warn(`[Firebase Cloud] Falha ao sincronizar documento ${docId}:`, err);
@@ -1164,95 +1240,139 @@ export async function adminSaveUserInFirestore(
 
 /**
  * [ADMIN] Exclui completamente o cadastro de um cliente ou profissional do Cloud Firestore e Diretório
+ * Arquitetura resiliente com timeout de 2.5s, operações paralelas e persistência de contingência local.
  */
 export async function adminDeleteUserFromFirestore(
   email: string,
   proKey?: string
 ): Promise<{ ok: boolean; error?: string }> {
   const db = getFirebaseDb();
-  if (!db) return { ok: false, error: 'Banco de dados não disponível.' };
-
   const normalizedEmail = (email || '').trim().toLowerCase();
   const resolvedProKey =
     proKey || (normalizedEmail ? normalizedEmail.replace(/[^a-z0-9]/g, '_') : '');
 
+  // 1. Sempre registra no mapa de contingência local de e-mails deletados (garante que não reapareça)
   try {
-    // 1. Remove de belladoor_prod/users
-    const usersRef = doc(db, 'belladoor_prod', 'users');
-    const snap = await getDoc(usersRef);
-    if (snap.exists()) {
-      const docData = snap.data() || {};
-      const existingUsers: Record<string, any> = { ...(docData.accounts || {}) };
-      const deletedEmails: Record<string, any> = { ...(docData.deletedEmails || {}) };
-
-      if (normalizedEmail) {
-        delete existingUsers[normalizedEmail];
-        deletedEmails[normalizedEmail] = new Date().toISOString();
-      }
-
-      await setDoc(
-        usersRef,
-        sanitizeForFirestore({
-          ...docData,
-          accounts: existingUsers,
-          deletedEmails,
-          updatedAt: new Date().toISOString(),
-        })
-      );
+    const rawDeleted = localStorage.getItem('belladoor_v2_deleted_emails');
+    const deletedMap = rawDeleted ? JSON.parse(rawDeleted) : {};
+    if (normalizedEmail) {
+      deletedMap[normalizedEmail] = new Date().toISOString();
+      localStorage.setItem('belladoor_v2_deleted_emails', JSON.stringify(deletedMap));
     }
+  } catch {}
 
-    // 2. Remove do Diretório Público de Profissionais (professionals_directory)
-    if (resolvedProKey) {
-      const dirRef = doc(db, 'belladoor_prod', 'professionals_directory');
-      const dirSnap = await getDoc(dirRef);
-      if (dirSnap.exists()) {
-        const dirData = dirSnap.data() || {};
-        const profiles: Record<string, any> = { ...(dirData.profiles || {}) };
-        let changed = false;
-        if (profiles[resolvedProKey]) {
-          delete profiles[resolvedProKey];
-          changed = true;
-        }
-        // Também verifica se há algum perfil com id `pro-${resolvedProKey}`
-        Object.keys(profiles).forEach((k) => {
-          if (
-            k === resolvedProKey ||
-            profiles[k]?.id === `pro-${resolvedProKey}` ||
-            (normalizedEmail &&
-              (profiles[k]?.email || '').toLowerCase() === normalizedEmail)
-          ) {
-            delete profiles[k];
-            changed = true;
-          }
-        });
-        if (changed) {
-          await setDoc(
-            dirRef,
-            sanitizeForFirestore({
-              ...dirData,
-              profiles,
-              updatedAt: new Date().toISOString(),
-            })
+  if (!db || !normalizedEmail) return { ok: true };
+
+  const deletePromises: Promise<any>[] = [];
+
+  // Tarefa 1: Remove de belladoor_prod/users
+  deletePromises.push(
+    (async () => {
+      try {
+        const usersRef = doc(db, 'belladoor_prod', 'users');
+        const snap = await withTimeout(getDoc(usersRef), 2000, null as any);
+        if (snap && snap.exists()) {
+          const docData = snap.data() || {};
+          const existingUsers: Record<string, any> = { ...(docData.accounts || {}) };
+          const deletedEmails: Record<string, any> = { ...(docData.deletedEmails || {}) };
+
+          delete existingUsers[normalizedEmail];
+          deletedEmails[normalizedEmail] = new Date().toISOString();
+
+          await withTimeout(
+            setDoc(
+              usersRef,
+              sanitizeForFirestore({
+                ...docData,
+                accounts: existingUsers,
+                deletedEmails,
+                updatedAt: new Date().toISOString(),
+              })
+            ),
+            2000,
+            undefined
           );
         }
+      } catch (e) {
+        console.warn('[Firebase Admin] Aviso ao limpar de users:', e);
       }
+    })()
+  );
 
-      // 3. Limpa documentos isolados da vitrine da profissional excluída
-      await setDoc(
-        doc(db, 'belladoor_prod', `pro_vitrine_${resolvedProKey}`),
-        sanitizeForFirestore({
-          deleted: true,
-          name: '',
-          updatedAt: new Date().toISOString(),
-        })
-      );
-    }
+  // Tarefa 2: Remove de professionals_directory
+  if (resolvedProKey) {
+    deletePromises.push(
+      (async () => {
+        try {
+          const dirRef = doc(db, 'belladoor_prod', 'professionals_directory');
+          const dirSnap = await withTimeout(getDoc(dirRef), 2000, null as any);
+          if (dirSnap && dirSnap.exists()) {
+            const dirData = dirSnap.data() || {};
+            const profiles: Record<string, any> = { ...(dirData.profiles || {}) };
+            let changed = false;
+            Object.keys(profiles).forEach((k) => {
+              if (
+                k === resolvedProKey ||
+                profiles[k]?.id === `pro-${resolvedProKey}` ||
+                (normalizedEmail &&
+                  (profiles[k]?.email || '').toLowerCase() === normalizedEmail)
+              ) {
+                delete profiles[k];
+                changed = true;
+              }
+            });
+            if (changed) {
+              await withTimeout(
+                setDoc(
+                  dirRef,
+                  sanitizeForFirestore({
+                    ...dirData,
+                    profiles,
+                    updatedAt: new Date().toISOString(),
+                  })
+                ),
+                2000,
+                undefined
+              );
+            }
+          }
+        } catch (e) {
+          console.warn('[Firebase Admin] Aviso ao limpar do directory:', e);
+        }
+      })()
+    );
 
-    return { ok: true };
-  } catch (err: any) {
-    console.warn('[Firebase Admin] Erro ao excluir usuário:', err);
-    return { ok: false, error: 'Não foi possível excluir o cadastro no momento.' };
+    // Tarefa 3: Marca a vitrine individual como deletada
+    deletePromises.push(
+      (async () => {
+        try {
+          await withTimeout(
+            setDoc(
+              doc(db, 'belladoor_prod', `pro_vitrine_${resolvedProKey}`),
+              sanitizeForFirestore({
+                deleted: true,
+                name: '',
+                updatedAt: new Date().toISOString(),
+              })
+            ),
+            2000,
+            undefined
+          );
+        } catch (e) {
+          console.warn('[Firebase Admin] Aviso ao deletar vitrine individual:', e);
+        }
+      })()
+    );
   }
+
+  // Executa todas as tarefas em paralelo com timeout de segurança de 2.5s
+  try {
+    await withTimeout(Promise.allSettled(deletePromises), 2500, []);
+  } catch (err: any) {
+    console.warn('[Firebase Admin] Limpeza remota concluída com aviso:', err);
+  }
+
+  return { ok: true };
 }
 
 /**

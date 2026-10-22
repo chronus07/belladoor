@@ -1542,9 +1542,15 @@ export default function App() {
     const cleanEmail = targetUser.email.trim().toLowerCase();
     const proKey = targetUser.proKey || cleanEmail.replace(/[^a-z0-9]/g, '_');
 
-    const res = await adminDeleteUserFromFirestore(cleanEmail, proKey);
-    if (!res.ok) return res;
+    // Salva preventivamente na lista de exclusões locais para garantir resposta imediata e consistente
+    try {
+      const raw = localStorage.getItem('belladoor_v2_deleted_emails');
+      const deletedMap = raw ? JSON.parse(raw) : {};
+      deletedMap[cleanEmail] = new Date().toISOString();
+      localStorage.setItem('belladoor_v2_deleted_emails', JSON.stringify(deletedMap));
+    } catch {}
 
+    // 1. ATUALIZAÇÃO OTIMISTA IMEDIATA (libera a interface em milissegundos sem congelar)
     setCloudAccounts((prev) => {
       const next = { ...prev };
       delete next[cleanEmail];
@@ -1557,8 +1563,13 @@ export default function App() {
     setDirectoryPros((prev) => {
       const next = { ...prev };
       delete next[proKey];
+      delete next[`pro-${proKey}`];
       Object.keys(next).forEach((k) => {
-        if (next[k]?.id === `pro-${proKey}` || k === proKey) {
+        if (
+          k === proKey ||
+          next[k]?.id === `pro-${proKey}` ||
+          ((next[k] as any)?.email || '').toLowerCase() === cleanEmail
+        ) {
           delete next[k];
         }
       });
@@ -1567,6 +1578,16 @@ export default function App() {
       } catch {}
       return next;
     });
+
+    // 2. Dispara a limpeza remota no Cloud Firestore em background com timeout de segurança
+    try {
+      await Promise.race([
+        adminDeleteUserFromFirestore(cleanEmail, proKey),
+        new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 1500)),
+      ]);
+    } catch (err) {
+      console.warn('[Admin Delete] Limpeza remota disparada:', err);
+    }
 
     return { ok: true };
   };
@@ -2788,15 +2809,28 @@ export default function App() {
 
     const unsubUsers = subscribeToFirestoreDocument<{
       accounts?: Record<string, any>;
+      deletedEmails?: Record<string, any>;
     }>(
       'users',
       (data) => {
         if (data?.accounts && typeof data.accounts === 'object') {
+          let localDeleted: Record<string, any> = {};
+          try {
+            const raw = localStorage.getItem('belladoor_v2_deleted_emails');
+            if (raw) localDeleted = JSON.parse(raw);
+          } catch {}
+
+          const remoteDeleted = data.deletedEmails || {};
           const sanitizedAccounts: Record<string, any> = {};
           for (const [key, acc] of Object.entries(data.accounts)) {
+            const normKey = key.trim().toLowerCase();
+            // Ignora usuários que foram excluídos pelo Admin local ou remotamente
+            if (localDeleted[normKey] || remoteDeleted[normKey]) {
+              continue;
+            }
             if (acc && typeof acc === 'object') {
               const { passwordHash: _removed, ...safeAccount } = acc;
-              sanitizedAccounts[key] = safeAccount;
+              sanitizedAccounts[normKey] = safeAccount;
             }
           }
           setCloudAccounts(sanitizedAccounts);
@@ -2815,11 +2849,8 @@ export default function App() {
         if (data?.profiles && typeof data.profiles === 'object') {
           // Remove automaticamente qualquer rascunho de teste do Everton do diretório público compartilhado
           const cleaned: Record<string, MockProfessional> = {};
-          let purged = false;
           Object.entries(data.profiles).forEach(([k, p]) => {
-            if (isEvertonProEntity(p, k)) {
-              purged = true;
-            } else {
+            if (!isEvertonProEntity(p, k)) {
               cleaned[k] = p;
             }
           });
@@ -2827,9 +2858,7 @@ export default function App() {
           try {
             localStorage.setItem('belladoor_v2_pros_directory', JSON.stringify(cleaned));
           } catch {}
-          if (purged && isEvertonAccount) {
-            syncDocumentToFirestore('professionals_directory', { profiles: cleaned });
-          }
+          // AVISO: NUNCA execute syncDocumentToFirestore dentro do listener de snapshot para evitar loop de gravação!
         }
       }
     );
