@@ -302,6 +302,79 @@ export function formatConfirmationMessage(params: {
 }
 
 /**
+ * Formata a mensagem enviada PELA CLIENTE PARA A PROFISSIONAL ao finalizar o agendamento
+ */
+export function formatClientToProMessage(params: {
+  settings: BookingConfirmationSettings;
+  booking: Partial<ClientAppointment>;
+  proName: string;
+  isBarbershop?: boolean;
+}): string {
+  const { settings, booking, proName, isBarbershop } = params;
+  const totalPrice = booking.totalPrice || 0;
+  const { depositAmount, depositPercentage } = calculateDeposit(totalPrice, settings);
+
+  const formattedDate = booking.date ? booking.date.split('-').reverse().join('/') : 'Data a combinar';
+  const formattedTime = booking.time || 'Horário a combinar';
+  const clientName = booking.clientName || 'Cliente';
+  const serviceName = booking.serviceName || 'Atendimento';
+
+  let locationStr = 'No Studio / Domicílio';
+  if (booking.locationType === 'STUDIO') {
+    locationStr = isBarbershop
+      ? `Na Barbearia (${booking.address || 'Endereço da Barbearia'})`
+      : `No Studio / Atelier (${booking.address || 'Endereço do Studio'})`;
+  } else if (booking.address) {
+    locationStr = `A domicílio: ${booking.address}${booking.neighborhood ? ` (${booking.neighborhood})` : ''}`;
+  }
+
+  if (isBarbershop) {
+    if (settings.requireDeposit) {
+      return (
+        `Fala, ${proName}! 💈\n` +
+        `Aqui é o *${clientName}*. Acabei de agendar um horário com você pelo *BellaDoor*!\n\n` +
+        `✂️ *Serviço:* ${serviceName}\n` +
+        `📅 *Data:* ${formattedDate} às *${formattedTime}*\n` +
+        `🏢 *Local:* ${locationStr}\n` +
+        `💰 *Valor Total:* R$ ${totalPrice.toFixed(2).replace('.', ',')} (Sinal de ${depositPercentage}%: *R$ ${depositAmount.toFixed(2).replace('.', ',')}*)\n\n` +
+        `Segue em anexo o meu comprovante do PIX de *R$ ${depositAmount.toFixed(2).replace('.', ',')}* para confirmar minha cadeira! Valeu! 👊🔥`
+      );
+    }
+    return (
+      `Fala, ${proName}! 💈\n` +
+      `Aqui é o *${clientName}*. Acabei de agendar um horário com você pelo *BellaDoor*!\n\n` +
+      `✂️ *Serviço:* ${serviceName}\n` +
+      `📅 *Data:* ${formattedDate} às *${formattedTime}*\n` +
+      `🏢 *Local:* ${locationStr}\n` +
+      `💰 *Valor Total:* R$ ${totalPrice.toFixed(2).replace('.', ',')}\n\n` +
+      `Pode me confirmar se o horário das ${formattedTime} deu certo para você? Valeu! 👊🔥`
+    );
+  }
+
+  if (settings.requireDeposit) {
+    return (
+      `Olá, ${proName}! ✨\n` +
+      `Aqui é a *${clientName}*. Acabei de fazer um agendamento com você pelo *BellaDoor*!\n\n` +
+      `💅 *Serviço:* ${serviceName}\n` +
+      `📅 *Data:* ${formattedDate} às *${formattedTime}*\n` +
+      `📍 *Local:* ${locationStr}\n` +
+      `💰 *Valor Total:* R$ ${totalPrice.toFixed(2).replace('.', ',')} (Sinal de ${depositPercentage}%: *R$ ${depositAmount.toFixed(2).replace('.', ',')}*)\n\n` +
+      `Estou enviando em anexo o comprovante do sinal de *R$ ${depositAmount.toFixed(2).replace('.', ',')}* para confirmar meu horário na sua agenda! 💕`
+    );
+  }
+
+  return (
+    `Olá, ${proName}! ✨\n` +
+    `Aqui é a *${clientName}*. Acabei de fazer um agendamento com você pelo *BellaDoor*!\n\n` +
+    `💅 *Serviço:* ${serviceName}\n` +
+    `📅 *Data:* ${formattedDate} às *${formattedTime}*\n` +
+    `📍 *Local:* ${locationStr}\n` +
+    `💰 *Valor Total:* R$ ${totalPrice.toFixed(2).replace('.', ',')}\n\n` +
+    `Pode me confirmar se está tudo certinho para esse horário? Aguardo sua confirmação! 💕`
+  );
+}
+
+/**
  * Gera o link direto do WhatsApp wa.me com a mensagem encodada
  */
 export function buildWhatsAppLink(phone: string, text: string): string {

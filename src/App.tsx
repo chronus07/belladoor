@@ -105,6 +105,7 @@ import {
   getEffectiveBookingRules,
   getDefaultBookingRules,
   formatConfirmationMessage,
+  formatClientToProMessage,
   calculateDeposit,
   buildWhatsAppLink,
   PIX_KEY_LABELS,
@@ -4016,18 +4017,17 @@ export default function App() {
     });
   };
 
-  // Gera o link direto para o WhatsApp da Profissional com a mensagem pré-formatada e regras de confirmação
+  // Gera o link direto para o WhatsApp da Profissional com a mensagem pré-formatada da CLIENTE para a PROFISSIONAL
   const getWhatsAppBookingLink = () => {
     if (!lastBooking) return '#';
     const effectiveRules = getEffectiveBookingRules(
       pro.bookingRules || (isViewingOwnProVitrine ? bookingRules : null),
       pro
     );
-    const message = formatConfirmationMessage({
+    const message = formatClientToProMessage({
       settings: effectiveRules,
       booking: lastBooking,
       proName: pro.name || proDisplayName,
-      proWhatsapp: pro.whatsapp,
       isBarbershop: pro.businessNiche === 'BARBERSHOP',
     });
     return buildWhatsAppLink(pro.whatsapp, message);
