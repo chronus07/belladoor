@@ -197,7 +197,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       title="Navegar no BellaDoor como cliente (explorar outras profissionais e agendar serviços)"
                     >
                       <span className="text-sm leading-none">🛍️</span>
-                      <span className="sm:hidden leading-none font-extrabold text-[8.5px]">Cliente</span>
+                      <span className="sm:hidden leading-none font-extrabold text-[8.5px]">Modo Cliente</span>
                       <span className="hidden sm:inline">Modo Cliente</span>
                     </button>
                     <button
