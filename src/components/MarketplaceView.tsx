@@ -10,6 +10,8 @@ interface MarketplaceViewProps {
   onChangeCategoryFilter: (cat: string) => void;
   onClearFilters: () => void;
   onSelectProfessional: (pro: MockProfessional) => void;
+  currentProSlug?: string;
+  currentProId?: string;
 }
 
 export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
@@ -20,6 +22,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
   onChangeCategoryFilter,
   onClearFilters,
   onSelectProfessional,
+  currentProSlug,
+  currentProId,
 }) => {
   return (
     <div className="space-y-4">
@@ -134,11 +138,18 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
               const mainCity = p.neighborhoods[0]?.city || p.baseCity || '';
               const mainArea = mainCity ? `${mainNeighborhood} • ${mainCity}` : mainNeighborhood;
 
+              const isSelf = Boolean(
+                (currentProSlug && p.slug && p.slug.toLowerCase() === currentProSlug.toLowerCase()) ||
+                (currentProId && (p.id === currentProId || p.id === `pro-${currentProId}`))
+              );
+
               return (
                 <div
                   key={p.id}
                   onClick={() => onSelectProfessional(p)}
-                  className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden hover:shadow-xl hover:border-rose-300 transition duration-300 cursor-pointer group flex flex-col justify-between"
+                  className={`bg-white rounded-3xl border shadow-sm overflow-hidden hover:shadow-xl transition duration-300 cursor-pointer group flex flex-col justify-between ${
+                    isSelf ? 'border-amber-300 ring-1 ring-amber-200 hover:border-amber-400' : 'border-stone-200 hover:border-rose-300'
+                  }`}
                 >
                   <div>
                     {/* Capa */}
@@ -172,13 +183,18 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                       </div>
 
                       <div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <h3 className="font-extrabold text-sm text-stone-900 group-hover:text-rose-600 transition">
                             {p.name}
                           </h3>
                           <span className="bg-rose-100 text-rose-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                             <ShieldCheck className="w-2.5 h-2.5 text-rose-600" /> Verificada
                           </span>
+                          {isSelf && (
+                            <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                              👤 Sua Vitrine
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-rose-600 font-semibold mt-0.5">
                           {p.title || 'Especialista em Beleza a Domicílio'}
@@ -223,8 +239,12 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
                         <MapPin className="w-3 h-3 text-stone-400 shrink-0" />
                         <span className="truncate">{mainArea}</span>
                       </span>
-                      <span className="font-bold text-rose-600 flex items-center gap-0.5 group-hover:translate-x-0.5 transition shrink-0">
-                        Ver Perfil & Agendar ➔
+                      <span
+                        className={`font-bold flex items-center gap-0.5 group-hover:translate-x-0.5 transition shrink-0 ${
+                          isSelf ? 'text-amber-700 text-[10px]' : 'text-rose-600'
+                        }`}
+                      >
+                        {isSelf ? 'Sua Vitrine (Autoagendamento bloqueado) ➔' : 'Ver Perfil & Agendar ➔'}
                       </span>
                     </div>
                   </div>

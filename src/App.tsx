@@ -231,6 +231,7 @@ export default function App() {
     return 'client';
   });
   const [clientSubView, setClientSubView] = useState<'EXPLORE' | 'MY_BOOKINGS'>('EXPLORE');
+  const [isVitrinePreviewOpen, setIsVitrinePreviewOpen] = useState<boolean>(false);
   const [selectedPro, setSelectedPro] = useState<MockProfessional | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -574,7 +575,7 @@ export default function App() {
   };
 
   const rawPro =
-    activeTab === 'pro'
+    isVitrinePreviewOpen || activeTab === 'pro'
       ? myCustomProProfile
       : selectedPro && selectedPro.id !== myCustomProProfile.id
       ? directoryPros[selectedPro.id.replace(/^pro-/, '')] ||
@@ -601,12 +602,23 @@ export default function App() {
 
   const isViewingOwnProVitrine = Boolean(
     currentUser?.role === 'PROFESSIONAL' &&
-      selectedPro &&
-      (selectedPro.id === myCustomProProfile.id ||
-        (selectedPro.slug && selectedPro.slug === myCustomProProfile.slug) ||
-        ((selectedPro as any).email &&
-          currentUser.email &&
-          (selectedPro as any).email.toLowerCase() === currentUser.email.toLowerCase()))
+      (isVitrinePreviewOpen ||
+        (selectedPro &&
+          (selectedPro.id === myCustomProProfile.id ||
+            selectedPro.id === myProId ||
+            (currentUser.id &&
+              (selectedPro.id === currentUser.id ||
+                selectedPro.id === `pro-${currentUser.id}` ||
+                (selectedPro as any).userId === currentUser.id)) ||
+            (selectedPro.slug &&
+              dynamicSlug &&
+              selectedPro.slug.toLowerCase() === dynamicSlug.toLowerCase()) ||
+            (selectedPro.slug &&
+              myCustomProProfile.slug &&
+              selectedPro.slug.toLowerCase() === myCustomProProfile.slug.toLowerCase()) ||
+            ((selectedPro as any).email &&
+              currentUser.email &&
+              (selectedPro as any).email.toLowerCase() === currentUser.email.toLowerCase()))))
   );
 
   const pro: MockProfessional = {
@@ -1242,6 +1254,7 @@ export default function App() {
     // 1. Limpa usuário logado e painéis restritos
     setCurrentUser(null);
     setShowAdminPanel(false);
+    setIsVitrinePreviewOpen(false);
 
     // 2. Reseta a tela para a Vitrine Geral de Profissionais (Marketplace)
     setSelectedPro(null);
@@ -3303,12 +3316,14 @@ export default function App() {
 
   // Atualiza o título da aba do navegador dinamicamente quando uma vitrine de profissional está aberta
   useEffect(() => {
-    if (activeTab === 'client' && selectedPro && selectedPro.name && selectedPro.name.trim()) {
+    if (isVitrinePreviewOpen) {
+      document.title = `Prévia da Vitrine — ${proDisplayName.trim() || 'BellaDoor'}`;
+    } else if (activeTab === 'client' && selectedPro && selectedPro.name && selectedPro.name.trim()) {
       document.title = `${selectedPro.name.trim()} — Agendamento Online | BellaDoor`;
     } else {
       document.title = 'BellaDoor — A beleza que bate à sua porta';
     }
-  }, [activeTab, selectedPro]);
+  }, [activeTab, selectedPro, isVitrinePreviewOpen, proDisplayName]);
 
   // Guarda de consistência de sessão: garante que a tela sempre corresponda ao tipo de conta logada
   useEffect(() => {
@@ -3717,6 +3732,35 @@ export default function App() {
   // Confirmação do Agendamento
   const handleConfirmBooking = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Trava de Segurança: bloqueia qualquer tentativa de autoagendamento da profissional para si mesma
+    if (
+      currentUser?.role === 'PROFESSIONAL' &&
+      (isViewingOwnProVitrine ||
+        isVitrinePreviewOpen ||
+        pro.id === myCustomProProfile.id ||
+        pro.id === myProId ||
+        (currentUser.id &&
+          (pro.id === currentUser.id ||
+            pro.id === `pro-${currentUser.id}` ||
+            (pro as any).userId === currentUser.id)) ||
+        (pro.slug && dynamicSlug && pro.slug.toLowerCase() === dynamicSlug.toLowerCase()) ||
+        (currentUser.email &&
+          (pro as any).email &&
+          (pro as any).email.toLowerCase() === currentUser.email.toLowerCase()))
+    ) {
+      setUiDialog({
+        emoji: '🚫',
+        badge: 'Autoagendamento Não Permitido',
+        title: 'Você não pode agendar para você mesma',
+        message:
+          'Profissionais não podem realizar agendamentos em sua própria vitrine. Para cadastrar um agendamento na sua agenda, acesse seu Painel Pro e clique em "Novo Agendamento".',
+        buttonText: 'Entendido',
+        variant: 'rose',
+      });
+      return;
+    }
+
     if (selectedLocationType === 'STUDIO') {
       if (!clientName.trim() || !clientPhone.trim()) {
         setUiDialog({
@@ -4060,6 +4104,30 @@ export default function App() {
     }
   };
 
+  const handleOpenVitrinePreview = () => {
+    if (isProTrialExpired) {
+      showExpiredTrialLockDialog();
+      return;
+    }
+    setIsVitrinePreviewOpen(true);
+    setSelectedPro(myCustomProProfile);
+  };
+
+  const handleExitVitrinePreview = () => {
+    setIsVitrinePreviewOpen(false);
+    setSelectedPro(null);
+    resetBooking();
+    setActiveTab('pro');
+  };
+
+  const handleEnterClientMode = () => {
+    setIsVitrinePreviewOpen(false);
+    setSelectedPro(null);
+    resetBooking();
+    setClientSubView('EXPLORE');
+    setActiveTab('client');
+  };
+
   return (
     <div className="min-h-screen bg-stone-100 flex flex-col items-center">
       {/* BARRA SUPERIOR DO BELLADOOR (COMPONENTE MODULAR) */}
@@ -4069,30 +4137,16 @@ export default function App() {
         clientSubView={clientSubView}
         showAdminPanel={showAdminPanel}
         isProTrialExpired={isProTrialExpired}
+        isProVitrinePreview={isVitrinePreviewOpen}
         activeAppointmentsCount={clientOwnAppointments.filter((a) => a.status === 'Confirmado').length}
         proDisplayName={proDisplayName}
         proAvatarUrl={proAvatarUrl}
         onToggleClientSubView={() =>
           setClientSubView(clientSubView === 'MY_BOOKINGS' ? 'EXPLORE' : 'MY_BOOKINGS')
         }
-        onEnterClientMode={() => {
-          setSelectedPro(null);
-          setClientSubView('EXPLORE');
-          setActiveTab('client');
-        }}
-        onToggleProPreview={() => {
-          if (isProTrialExpired) {
-            showExpiredTrialLockDialog();
-            return;
-          }
-          if (activeTab === 'pro') {
-            setSelectedPro(myCustomProProfile);
-            setClientSubView('EXPLORE');
-            setActiveTab('client');
-          } else {
-            setActiveTab('pro');
-          }
-        }}
+        onEnterClientMode={handleEnterClientMode}
+        onExitVitrinePreview={handleExitVitrinePreview}
+        onToggleProPreview={handleOpenVitrinePreview}
         onToggleAdminPanel={() => setShowAdminPanel((prev) => !prev)}
         onLogout={handleLogout}
       />
@@ -4101,6 +4155,8 @@ export default function App() {
       <main className={`w-full py-6 px-4 sm:px-6 lg:px-8 transition-all duration-300 ${
         !currentUser
           ? 'max-w-md sm:max-w-xl mx-auto'
+          : isVitrinePreviewOpen
+          ? 'max-w-md sm:max-w-xl lg:max-w-6xl xl:max-w-7xl mx-auto'
           : activeTab === 'client' && !selectedPro
           ? 'max-w-md sm:max-w-xl lg:max-w-7xl mx-auto'
           : activeTab === 'client' && selectedPro
@@ -4110,7 +4166,7 @@ export default function App() {
           : 'max-w-md sm:max-w-xl lg:max-w-5xl mx-auto'
       }`}>
         {/* BANNER INFORMATIVO: PROFISSIONAL NAVEGANDO EM MODO CLIENTE */}
-        {currentUser && currentUser.role === 'PROFESSIONAL' && activeTab === 'client' && (
+        {currentUser && currentUser.role === 'PROFESSIONAL' && activeTab === 'client' && !isVitrinePreviewOpen && (
           <div className="mb-4 bg-gradient-to-r from-rose-50 via-pink-50 to-rose-50 border border-rose-200 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-xs animate-in fade-in">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-700 shrink-0 font-extrabold text-sm">
@@ -4130,6 +4186,8 @@ export default function App() {
               onClick={() => {
                 setActiveTab('pro');
                 setClientSubView('EXPLORE');
+                setSelectedPro(null);
+                resetBooking();
               }}
               className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold transition cursor-pointer shadow-xs shrink-0 flex items-center gap-1.5"
             >
@@ -4271,113 +4329,102 @@ export default function App() {
             onShowUiDialog={setUiDialog}
             onCloseAdmin={() => setShowAdminPanel(false)}
           />
-        ) : activeTab === 'client' ? (
-          /* ============================================================ */
-          /* 1. VISÃO DA CLIENTE                                          */
-          /* ============================================================ */
-          clientSubView === 'MY_BOOKINGS' ? (
-            /* ========================================================== */
-            /* PASSO 4: ÁREA "MEUS AGENDAMENTOS" DA CLIENTE + AVALIAÇÕES  */
-            /* ========================================================== */
-            <ClientBookingsView
-              proAppointments={clientOwnAppointments}
-              professionals={allProfessionalsWithLivePro}
-              proDisplayName={proDisplayName}
-              proAvatarUrl={proAvatarUrl}
-              proWhatsapp={pro.whatsapp}
-              showReviewForm={showReviewForm}
-              reviewRating={reviewRating}
-              reviewClientName={reviewClientName}
-              reviewServiceName={reviewServiceName}
-              reviewComment={reviewComment}
-              onBackToExplore={() => {
-                setClientSubView('EXPLORE');
-                setShowReviewForm(false);
-              }}
-              onCloseReviewForm={() => setShowReviewForm(false)}
-              onChangeReviewRating={setReviewRating}
-              onChangeReviewClientName={setReviewClientName}
-              onChangeReviewServiceName={setReviewServiceName}
-              onChangeReviewComment={setReviewComment}
-              onSubmitReview={handleSubmitClientReview}
-              onOpenReviewForAppointment={handleOpenReviewForAppointment}
-              onCancelClientAppointment={handleCancelClientAppointment}
-            />
-          ) : !selectedPro ? (
-            /* ========================================================== */
-            /* A. VITRINE DE BUSCA / MARKETPLACE DE PROFISSIONAIS         */
-            /* ========================================================== */
-            <MarketplaceView
-              filteredPros={filteredPros}
-              searchQuery={searchQuery}
-              categoryFilter={categoryFilter}
-              onChangeSearchQuery={setSearchQuery}
-              onChangeCategoryFilter={setCategoryFilter}
-              onClearFilters={() => {
-                setCategoryFilter('TODAS');
-                setSearchQuery('');
-              }}
-              onSelectProfessional={(p) => {
-                setSelectedPro(p);
-                resetBooking();
-              }}
-            />
-          ) : (
-            /* ========================================================== */
-            /* B. PERFIL INDIVIDUAL DA PROFISSIONAL ESCOLHIDA             */
-            /* ========================================================== */
-            <div className="space-y-3">
-              {/* Barra Superior: Modo Visualização da Própria Vitrine vs Voltar para Busca */}
-              {isViewingOwnProVitrine ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
-                      <Eye className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-extrabold text-amber-950">
-                        Modo Somente Visualização da sua Vitrine
-                      </p>
-                      <p className="text-[11px] text-amber-800">
-                        É assim que seus clientes visualizam seu perfil, portfólio e tabela de serviços.
-                      </p>
-                    </div>
+        ) : isVitrinePreviewOpen || (activeTab === 'client' && selectedPro) ? (
+          /* ========================================================== */
+          /* B. PERFIL INDIVIDUAL DA PROFISSIONAL ESCOLHIDA (OU PRÉVIA)  */
+          /* ========================================================== */
+          <div className="space-y-3">
+            {/* Barra Superior: Modo Prévia da Vitrine vs Autoagendamento vs Voltar para Busca */}
+            {isVitrinePreviewOpen ? (
+              <div className="bg-stone-900 text-white border border-stone-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                    <Eye className="w-5 h-5" />
                   </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-extrabold text-white">
+                        Prévia da Sua Vitrine
+                      </h2>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-0.5 rounded-full">
+                        Somente Visualização
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-300 mt-0.5">
+                      Visualização pública de como clientes enxergam seus serviços, fotos e valores. Interações de agendamento desativadas.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExitVitrinePreview}
+                  className="inline-flex items-center justify-center gap-1.5 text-xs font-extrabold text-stone-900 bg-white hover:bg-stone-100 px-4 py-2 rounded-xl transition shadow-xs cursor-pointer shrink-0"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-rose-600" />
+                  Voltar ao Painel Pro
+                </button>
+              </div>
+            ) : isViewingOwnProVitrine ? (
+              <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 text-lg shrink-0">
+                    🚫
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-amber-900">
+                      Autoagendamento Não Permitido
+                    </p>
+                    <p className="text-xs text-amber-900 font-medium mt-0.5">
+                      Você está visualizando a sua própria vitrine. Você não pode agendar serviços para você mesma. Escolha outra profissional na vitrine para agendar.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPro(null);
+                      resetBooking();
+                    }}
+                    className="text-xs font-bold bg-white text-stone-800 hover:bg-stone-100 border border-stone-300 px-3 py-2 rounded-xl transition cursor-pointer"
+                  >
+                    🔍 Explorar Outras Profissionais
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       resetBooking();
                       setActiveTab('pro');
                     }}
-                    className="inline-flex items-center justify-center gap-1.5 text-xs font-extrabold text-white bg-stone-900 hover:bg-stone-800 px-3.5 py-2 rounded-xl transition shadow-xs cursor-pointer shrink-0"
+                    className="text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white px-3.5 py-2 rounded-xl transition shadow-xs cursor-pointer"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5 text-rose-400" />
-                    Voltar ao Meu Painel Pro
+                    ← Painel Pro
                   </button>
                 </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPro(null);
-                      resetBooking();
-                      try {
-                        sessionStorage.removeItem('belladoor_v2_direct_pro_slug');
-                        if (window.location.search) {
-                          const cleanUrl = window.location.origin + window.location.pathname;
-                          window.history.replaceState({}, document.title, cleanUrl);
-                        }
-                      } catch {}
-                    }}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-700 bg-white border border-stone-200 px-3.5 py-2 rounded-xl hover:bg-stone-50 transition shadow-sm"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5 text-rose-600" />
-                    Ver Todos os Profissionais
-                  </button>
-                  <span className="text-[11px] text-stone-400 font-medium">Perfil verificado BellaDoor</span>
-                </div>
-              )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPro(null);
+                    resetBooking();
+                    try {
+                      sessionStorage.removeItem('belladoor_v2_direct_pro_slug');
+                      if (window.location.search) {
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                      }
+                    } catch {}
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-stone-700 bg-white border border-stone-200 px-3.5 py-2 rounded-xl hover:bg-stone-50 transition shadow-sm"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-rose-600" />
+                  Ver Todos os Profissionais
+                </button>
+                <span className="text-[11px] text-stone-400 font-medium">Perfil verificado BellaDoor</span>
+              </div>
+            )}
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* 1. PERFIL DO PROFISSIONAL (TOPO ESQUERDA NO DESKTOP, TOPO NO MOBILE) */}
@@ -4661,21 +4708,54 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="bg-stone-100 border border-stone-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <p className="text-[11px] text-stone-600 leading-relaxed">
-                      🔒 <strong>Modo de pré-visualização:</strong> O agendamento fica desativado para a própria profissional para evitar autoagendamentos.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetBooking();
-                        setActiveTab('pro');
-                      }}
-                      className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer shrink-0"
-                    >
-                      Editar no Painel Pro
-                    </button>
-                  </div>
+                  {isVitrinePreviewOpen ? (
+                    <div className="bg-stone-100 border border-stone-200 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <p className="text-[11px] text-stone-600 leading-relaxed">
+                        🔒 <strong>Modo de Prévia:</strong> O agendamento fica desativado nesta visualização para a própria profissional.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleExitVitrinePreview}
+                        className="px-3.5 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition cursor-pointer shrink-0"
+                      >
+                        Voltar à Edição Pro
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center space-y-2">
+                      <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto text-base">
+                        🚫
+                      </div>
+                      <p className="text-xs font-black text-amber-950">
+                        Autoagendamento Bloqueado
+                      </p>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        Profissionais não podem agendar serviços para si mesmas. Para agendar com outros profissionais, volte à vitrine de busca. Para gerenciar sua própria agenda, acesse seu Painel Pro.
+                      </p>
+                      <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPro(null);
+                            resetBooking();
+                          }}
+                          className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-white border border-stone-300 text-stone-800 text-xs font-bold hover:bg-stone-50 transition cursor-pointer"
+                        >
+                          🔍 Explorar Outras Profissionais
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetBooking();
+                            setActiveTab('pro');
+                          }}
+                          className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition cursor-pointer"
+                        >
+                          Ir ao Painel Pro
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : isProfessionalAccountExpired(pro) ? (
                 <div className="bg-white rounded-2xl p-6 text-center border border-amber-200 shadow-xs space-y-3">
@@ -5804,8 +5884,61 @@ export default function App() {
             </div>
           </div>
         </div>
-      )
-    ) : (
+      ) : activeTab === 'client' ? (
+        /* ============================================================ */
+        /* 1. VISÃO DA CLIENTE                                          */
+        /* ============================================================ */
+        clientSubView === 'MY_BOOKINGS' ? (
+          /* ========================================================== */
+          /* PASSO 4: ÁREA "MEUS AGENDAMENTOS" DA CLIENTE + AVALIAÇÕES  */
+          /* ========================================================== */
+          <ClientBookingsView
+            proAppointments={clientOwnAppointments}
+            professionals={allProfessionalsWithLivePro}
+            proDisplayName={proDisplayName}
+            proAvatarUrl={proAvatarUrl}
+            proWhatsapp={pro.whatsapp}
+            showReviewForm={showReviewForm}
+            reviewRating={reviewRating}
+            reviewClientName={reviewClientName}
+            reviewServiceName={reviewServiceName}
+            reviewComment={reviewComment}
+            onBackToExplore={() => {
+              setClientSubView('EXPLORE');
+              setShowReviewForm(false);
+            }}
+            onCloseReviewForm={() => setShowReviewForm(false)}
+            onChangeReviewRating={setReviewRating}
+            onChangeReviewClientName={setReviewClientName}
+            onChangeReviewServiceName={setReviewServiceName}
+            onChangeReviewComment={setReviewComment}
+            onSubmitReview={handleSubmitClientReview}
+            onOpenReviewForAppointment={handleOpenReviewForAppointment}
+            onCancelClientAppointment={handleCancelClientAppointment}
+          />
+        ) : (
+          /* ========================================================== */
+          /* A. VITRINE DE BUSCA / MARKETPLACE DE PROFISSIONAIS         */
+          /* ========================================================== */
+          <MarketplaceView
+            filteredPros={filteredPros}
+            searchQuery={searchQuery}
+            categoryFilter={categoryFilter}
+            onChangeSearchQuery={setSearchQuery}
+            onChangeCategoryFilter={setCategoryFilter}
+            onClearFilters={() => {
+              setCategoryFilter('TODAS');
+              setSearchQuery('');
+            }}
+            onSelectProfessional={(p) => {
+              setSelectedPro(p);
+              resetBooking();
+            }}
+            currentProSlug={dynamicSlug}
+            currentProId={myProId}
+          />
+        )
+      ) : (
           /* ============================================================ */
           /* 2. VISÃO DA PROFISSIONAL: APP MOBILE COMPLETO (Android/iOS)  */
           /* ============================================================ */
@@ -6228,11 +6361,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedPro(null);
-                  setClientSubView('EXPLORE');
-                  setActiveTab('client');
-                }}
+                onClick={handleEnterClientMode}
                 className="flex-1 py-3 px-2 text-center border-b-2 border-transparent bg-rose-50 text-rose-700 hover:bg-rose-100 font-extrabold transition cursor-pointer whitespace-nowrap"
                 title="Acessar o BellaDoor como cliente para agendar com outras profissionais"
               >
@@ -8684,10 +8813,7 @@ export default function App() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedPro(myCustomProProfile);
-                            setActiveTab('client');
-                          }}
+                          onClick={handleOpenVitrinePreview}
                           className="text-[11px] bg-stone-900 hover:bg-stone-800 text-white font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
                         >
                           <Eye className="w-3.5 h-3.5 text-rose-400" />
@@ -8763,10 +8889,7 @@ export default function App() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setSelectedPro(myCustomProProfile);
-                                    setActiveTab('client');
-                                  }}
+                                  onClick={handleOpenVitrinePreview}
                                   className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline shrink-0 cursor-pointer"
                                 >
                                   Ver na Vitrine

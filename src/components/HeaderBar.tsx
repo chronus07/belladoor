@@ -8,11 +8,13 @@ interface HeaderBarProps {
   clientSubView: 'EXPLORE' | 'MY_BOOKINGS';
   showAdminPanel?: boolean;
   isProTrialExpired?: boolean;
+  isProVitrinePreview?: boolean;
   activeAppointmentsCount: number;
   proDisplayName: string;
   proAvatarUrl: string;
   onToggleClientSubView: () => void;
   onToggleProPreview: () => void;
+  onExitVitrinePreview?: () => void;
   onEnterClientMode?: () => void;
   onToggleAdminPanel?: () => void;
   onLogout: () => void;
@@ -24,11 +26,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   clientSubView,
   showAdminPanel = false,
   isProTrialExpired = false,
+  isProVitrinePreview = false,
   activeAppointmentsCount,
   proDisplayName,
   proAvatarUrl,
   onToggleClientSubView,
   onToggleProPreview,
+  onExitVitrinePreview,
   onEnterClientMode,
   onToggleAdminPanel,
   onLogout,
@@ -139,7 +143,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
 
             {/* Botão Meus Agendamentos: visível quando em modo cliente (para cliente ou pro navegando como cliente) */}
-            {activeTab === 'client' && !showAdminPanel && (
+            {activeTab === 'client' && !isProVitrinePreview && !showAdminPanel && (
               <button
                 type="button"
                 onClick={onToggleClientSubView}
@@ -161,7 +165,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             {/* Se for profissional: botões de Navegação */}
             {currentUser.role === 'PROFESSIONAL' && !showAdminPanel && (
               <div className="flex items-center gap-1.5">
-                {activeTab === 'pro' ? (
+                {isProVitrinePreview ? (
+                  <button
+                    type="button"
+                    onClick={onExitVitrinePreview}
+                    className="text-xs font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-stone-900 hover:bg-stone-800 text-white shadow-xs flex items-center gap-1.5"
+                    title="Fechar modo de prévia da vitrine e voltar ao Painel Pro"
+                  >
+                    ← Voltar ao Painel Pro
+                  </button>
+                ) : activeTab === 'pro' ? (
                   <>
                     <button
                       type="button"
@@ -179,6 +192,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                           ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
                           : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
                       }`}
+                      title="Pré-visualizar como sua vitrine pública está sendo exibida (somente leitura)"
                     >
                       {isProTrialExpired ? '🔒 Vitrine Bloqueada' : '👁️ Minha Vitrine'}
                     </button>
@@ -186,8 +200,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 ) : (
                   <button
                     type="button"
-                    onClick={onToggleProPreview}
+                    onClick={() => {
+                      if (onExitVitrinePreview) onExitVitrinePreview();
+                      else if (onToggleProPreview) onToggleProPreview();
+                    }}
                     className="text-xs font-bold px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1"
+                    title="Retornar ao seu Painel Profissional"
                   >
                     ← Voltar ao Painel Pro
                   </button>
