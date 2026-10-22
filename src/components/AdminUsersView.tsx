@@ -927,20 +927,26 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                             <h3 className="font-extrabold text-sm text-stone-900 truncate">
                               {u.fullName}
                             </h3>
-                            {isSelfAdmin && (
-                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-stone-900 text-amber-300">
-                                👑 Admin
+                            {isSelfAdmin ? (
+                              <>
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-stone-900 text-amber-300">
+                                  👑 Gestor Master
+                                </span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                                  🛡️ Acesso de Gestão
+                                </span>
+                              </>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                                  u.role === 'PROFESSIONAL'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-rose-100 text-rose-800'
+                                }`}
+                              >
+                                {u.role === 'PROFESSIONAL' ? '💄 Profissional' : '💅 Cliente'}
                               </span>
                             )}
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                                u.role === 'PROFESSIONAL'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {u.role === 'PROFESSIONAL' ? '💄 Profissional' : '💅 Cliente'}
-                            </span>
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 u.emailVerified

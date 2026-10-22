@@ -265,7 +265,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     : currentUser.fullName}
                 </p>
                 <p className="text-[9px] text-stone-500 truncate max-w-[140px]" title={currentUser.email}>
-                  {currentUser.role === 'PROFESSIONAL' ? (
+                  {isMasterAdmin ? (
+                    <span className="text-amber-600 font-extrabold">
+                      Gestão Master • {currentUser.email}
+                    </span>
+                  ) : currentUser.role === 'PROFESSIONAL' ? (
                     <span className="text-emerald-600 font-semibold">
                       Pro • {currentUser.email || 'Salvo Auto'}
                     </span>

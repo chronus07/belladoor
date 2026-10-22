@@ -251,9 +251,22 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Diretório de todas as profissionais cadastradas na plataforma para exibição no Marketplace
-  const [directoryPros, setDirectoryPros] = useState<Record<string, MockProfessional>>(() =>
-    loadFromStorage<Record<string, MockProfessional>>('belladoor_v2_pros_directory', {})
-  );
+  const [directoryPros, setDirectoryPros] = useState<Record<string, MockProfessional>>(() => {
+    const raw = loadFromStorage<Record<string, MockProfessional>>('belladoor_v2_pros_directory', {});
+    const cleaned: Record<string, MockProfessional> = {};
+    const savedUser = loadFromStorage<AuthUser | null>('belladoor_v2_user', null);
+    const isEverton = savedUser?.email?.trim().toLowerCase() === 'evertonrcsilva@gmail.com';
+    Object.entries(raw).forEach(([k, p]) => {
+      const isEv =
+        (k || '').toLowerCase().includes('everton') ||
+        (p?.name || '').toLowerCase().includes('everton') ||
+        ((p as any)?.email || '').toLowerCase() === 'evertonrcsilva@gmail.com';
+      if (!isEv || isEverton) {
+        cleaned[k] = p;
+      }
+    });
+    return cleaned;
+  });
 
   // Estados de Personalização da Vitrine da Profissional Logada (100% isolados por conta)
   const [proDisplayName, setProDisplayName] = useState<string>(savedVitrine.name);
@@ -1350,6 +1363,27 @@ export default function App() {
         proDisplayName?.toLowerCase().includes('everton'))
   );
 
+  const isEvertonAccount = Boolean(
+    currentUser?.email && currentUser.email.trim().toLowerCase() === 'evertonrcsilva@gmail.com'
+  );
+
+  // Helper que identifica entidades/vitrines de teste do Everton para garantir privacidade absoluta
+  const isEvertonProEntity = (item?: Partial<MockProfessional> | null, key?: string): boolean => {
+    if (!item && !key) return false;
+    const k = (key || '').toLowerCase();
+    const id = (item?.id || '').toLowerCase();
+    const email = ((item as any)?.email || '').toLowerCase();
+    const slug = (item?.slug || '').toLowerCase();
+    const name = (item?.name || '').toLowerCase();
+    return (
+      k.includes('everton') ||
+      id.includes('everton') ||
+      email === 'evertonrcsilva@gmail.com' ||
+      slug.includes('everton') ||
+      name.includes('everton')
+    );
+  };
+
   // [ADMIN EXCLUSIVO: evertonrcsilva@gmail.com] Salvar ou criar cadastro de cliente/profissional
   const handleAdminSaveUser = async (
     originalEmail: string,
@@ -1452,8 +1486,8 @@ export default function App() {
       }
     }
 
-    // Se for profissional e estiver no diretório da vitrine, sincroniza também os dados na vitrine pública
-    if (updatedUser.role === 'PROFESSIONAL' && directoryPros[proKey]) {
+    // Se for profissional e estiver no diretório da vitrine, sincroniza também os dados na vitrine pública (exceto conta de gestão do Everton)
+    if (updatedUser.role === 'PROFESSIONAL' && directoryPros[proKey] && !isEvertonProEntity(null, proKey)) {
       const updatedDirPro: MockProfessional = {
         ...directoryPros[proKey],
         name: updatedUser.fullName.trim(),
@@ -1603,6 +1637,11 @@ export default function App() {
     const map = new Map<string, MockProfessional>();
     Object.entries(directoryPros).forEach(([proKey, item]) => {
       if (item && item.name && item.name.trim()) {
+        // [PRIVACIDADE ADMIN]: O perfil do gestor Everton NUNCA é exibido como barbeiro para os outros profissionais e clientes!
+        if (isEvertonProEntity(item, proKey) && !isEvertonAccount) {
+          return;
+        }
+
         // Oculta da busca geral caso a profissional esteja com o teste/cupom/plano expirado
         if (isProfessionalAccountExpired(item, proKey)) {
           return;
@@ -1625,7 +1664,10 @@ export default function App() {
       proDisplayName.trim() &&
       (currentUser?.subscriptionStatus === 'ACTIVE' || trialDaysLeft > 0)
     ) {
-      map.set(myCustomProProfile.id, myCustomProProfile);
+      // Se for a conta do gestor Everton, injeta na lista somente se ele mesmo estiver logado
+      if (!isEvertonProEntity(myCustomProProfile) || isEvertonAccount) {
+        map.set(myCustomProProfile.id, myCustomProProfile);
+      }
     }
     return Array.from(map.values());
   })();
@@ -2771,10 +2813,23 @@ export default function App() {
       'professionals_directory',
       (data) => {
         if (data?.profiles && typeof data.profiles === 'object') {
-          setDirectoryPros(data.profiles);
+          // Remove automaticamente qualquer rascunho de teste do Everton do diretório público compartilhado
+          const cleaned: Record<string, MockProfessional> = {};
+          let purged = false;
+          Object.entries(data.profiles).forEach(([k, p]) => {
+            if (isEvertonProEntity(p, k)) {
+              purged = true;
+            } else {
+              cleaned[k] = p;
+            }
+          });
+          setDirectoryPros(cleaned);
           try {
-            localStorage.setItem('belladoor_v2_pros_directory', JSON.stringify(data.profiles));
+            localStorage.setItem('belladoor_v2_pros_directory', JSON.stringify(cleaned));
           } catch {}
+          if (purged && isEvertonAccount) {
+            syncDocumentToFirestore('professionals_directory', { profiles: cleaned });
+          }
         }
       }
     );
@@ -3163,6 +3218,12 @@ export default function App() {
     if (!activeProKey || !proDisplayName.trim()) return;
     const vitrineDoc = `pro_vitrine_${activeProKey}`;
     if (!cloudHydratedRef.current[vitrineDoc]) return;
+
+    // Se for a conta do gestor Everton, NUNCA adiciona no diretório público das profissionais!
+    if (isEvertonAccount || isEvertonProEntity(myCustomProProfile, activeProKey)) {
+      return;
+    }
+
     const updatedDirectory = {
       ...directoryPros,
       [activeProKey]: {
@@ -3321,6 +3382,13 @@ export default function App() {
       (myCustomProProfile.slug?.toLowerCase() === targetSlug ? myCustomProProfile : null);
 
     if (targetPro) {
+      // Se for a conta de gestão do Everton e o visitante não for o próprio Everton, bloqueia a exibição pública
+      if (isEvertonProEntity(targetPro) && !isEvertonAccount) {
+        setSelectedPro(null);
+        setActiveTab('client');
+        setClientSubView('EXPLORE');
+        return;
+      }
       setSelectedPro(targetPro);
     }
     setActiveTab('client');
