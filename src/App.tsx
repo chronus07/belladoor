@@ -27,6 +27,8 @@ import {
   Lock,
   Unlock,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   CalendarX,
   CalendarRange,
   Ban,
@@ -233,6 +235,10 @@ export default function App() {
   const [clientSubView, setClientSubView] = useState<'EXPLORE' | 'MY_BOOKINGS'>('EXPLORE');
   const [isVitrinePreviewOpen, setIsVitrinePreviewOpen] = useState<boolean>(false);
   const [selectedPro, setSelectedPro] = useState<MockProfessional | null>(null);
+  const [isFinanceSummaryCollapsed, setIsFinanceSummaryCollapsed] = useState<boolean>(false);
+  const [isAtendimentosCollapsed, setIsAtendimentosCollapsed] = useState<boolean>(false);
+  const [appointmentsFilter, setAppointmentsFilter] = useState<'ALL' | 'SCHEDULED' | 'COMPLETED'>('ALL');
+  const [isScheduleCollapsed, setIsScheduleCollapsed] = useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -6413,67 +6419,88 @@ export default function App() {
 
                     return (
                       <>
-                        <div className={`${panelTheme.modalHeaderBg} p-4 rounded-2xl shadow-xs space-y-3`}>
-                          <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className={`${panelTheme.modalHeaderBg} rounded-2xl shadow-xs overflow-hidden transition-all duration-200`}>
+                          <div
+                            onClick={() => setIsFinanceSummaryCollapsed(!isFinanceSummaryCollapsed)}
+                            className="p-4 flex items-center justify-between flex-wrap gap-2 cursor-pointer hover:bg-white/5 transition select-none"
+                          >
                             <div className="flex items-center gap-2">
                               <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
                                 <TrendingUp className="w-4 h-4" />
                               </div>
                               <div>
-                                <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-200">
-                                  Resumo Financeiro da Agenda
-                                </h3>
-                                <p className="text-[10px] text-stone-400">
-                                  Métricas contabilizadas sobre atendimentos concluídos ({completedApps.length})
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-200">
+                                    Resumo Financeiro da Agenda
+                                  </h3>
+                                  <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                    100% Seu (0% Comissão)
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-stone-400 mt-0.5">
+                                  Métricas sobre atendimentos concluídos ({completedApps.length}) • Faturado: <strong className="text-emerald-400">R$ {completedRevenue.toFixed(2).replace('.', ',')}</strong>
                                 </p>
                               </div>
                             </div>
-                            <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
-                              100% Seu (0% Comissão)
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                            <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
-                              <p className="text-[10px] text-stone-300">Receita Concluída</p>
-                              <p className="text-sm font-extrabold text-emerald-400 mt-0.5">
-                                R$ {completedRevenue.toFixed(2).replace('.', ',')}
-                              </p>
-                            </div>
-                            <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
-                              <p className="text-[10px] text-stone-300">Em Serviços (Concl.)</p>
-                              <p className="text-sm font-extrabold text-white mt-0.5">
-                                R$ {completedServicesRevenue.toFixed(2).replace('.', ',')}
-                              </p>
-                            </div>
-                            <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
-                              <p className="text-[10px] text-stone-300">Deslocamento (Concl.)</p>
-                              <p className="text-sm font-extrabold text-amber-300 mt-0.5">
-                                R$ {completedTravelRevenue.toFixed(2).replace('.', ',')}
-                              </p>
-                            </div>
-                            <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
-                              <p className="text-[10px] text-stone-300">Ticket Médio (Concl.)</p>
-                              <p className={`text-sm font-extrabold ${panelTheme.isDark ? 'text-amber-300' : 'text-rose-300'} mt-0.5`}>
-                                R$ {avgTicket.toFixed(0)}
-                              </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-stone-400 hidden sm:inline">
+                                {isFinanceSummaryCollapsed ? 'Expandir' : 'Recolher'}
+                              </span>
+                              <div className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-stone-300 text-xs transition">
+                                {isFinanceSummaryCollapsed ? (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          {/* Métrica de Valor Total de Atendimentos Agendados */}
-                          <div className="bg-sky-500/15 border border-sky-400/30 rounded-xl p-3 flex items-center justify-between gap-2">
-                            <div>
-                              <p className="text-[10px] font-extrabold uppercase tracking-wider text-sky-300">
-                                Valor Total de Atendimentos Agendados
-                              </p>
-                              <p className="text-[10px] text-stone-300 mt-0.5">
-                                Previsão a receber dos {scheduledApps.length} atendimento(s) agendado(s)
-                              </p>
+                          {!isFinanceSummaryCollapsed && (
+                            <div className="p-4 pt-0 space-y-3 animate-in fade-in duration-200 border-t border-white/10">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
+                                <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
+                                  <p className="text-[10px] text-stone-300">Receita Concluída</p>
+                                  <p className="text-sm font-extrabold text-emerald-400 mt-0.5">
+                                    R$ {completedRevenue.toFixed(2).replace('.', ',')}
+                                  </p>
+                                </div>
+                                <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
+                                  <p className="text-[10px] text-stone-300">Em Serviços (Concl.)</p>
+                                  <p className="text-sm font-extrabold text-white mt-0.5">
+                                    R$ {completedServicesRevenue.toFixed(2).replace('.', ',')}
+                                  </p>
+                                </div>
+                                <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
+                                  <p className="text-[10px] text-stone-300">Deslocamento (Concl.)</p>
+                                  <p className="text-sm font-extrabold text-amber-300 mt-0.5">
+                                    R$ {completedTravelRevenue.toFixed(2).replace('.', ',')}
+                                  </p>
+                                </div>
+                                <div className="bg-white/10 rounded-xl p-2.5 border border-white/10">
+                                  <p className="text-[10px] text-stone-300">Ticket Médio (Concl.)</p>
+                                  <p className={`text-sm font-extrabold ${panelTheme.isDark ? 'text-amber-300' : 'text-rose-300'} mt-0.5`}>
+                                    R$ {avgTicket.toFixed(0)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Métrica de Valor Total de Atendimentos Agendados */}
+                              <div className="bg-sky-500/15 border border-sky-400/30 rounded-xl p-3 flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-sky-300">
+                                    Valor Total de Atendimentos Agendados
+                                  </p>
+                                  <p className="text-[10px] text-stone-300 mt-0.5">
+                                    Previsão a receber dos {scheduledApps.length} atendimento(s) agendado(s)
+                                  </p>
+                                </div>
+                                <p className="text-base sm:text-lg font-extrabold text-sky-300 shrink-0">
+                                  R$ {scheduledTotalRevenue.toFixed(2).replace('.', ',')}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-base sm:text-lg font-extrabold text-sky-300 shrink-0">
-                              R$ {scheduledTotalRevenue.toFixed(2).replace('.', ',')}
-                            </p>
-                          </div>
+                          )}
                         </div>
 
                         {/* CARD DE CONFIGURAÇÃO DE REGRAS & SINAL DE 50% (ANTI-FURO) */}
@@ -6514,51 +6541,43 @@ export default function App() {
                           </button>
                         </div>
 
-                        {/* CABEÇALHO ENFÁTICO: ATENDIMENTOS */}
-                        <div className={`${panelTheme.primaryBgLight} border-2 ${panelTheme.primaryBorderLight} rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs`}>
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2.5 ${panelTheme.accentBadgeDark} rounded-xl shadow-xs shrink-0`}>
-                              <Calendar className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-extrabold text-base sm:text-lg uppercase tracking-tight text-stone-900">
-                                  Atendimentos
-                                </h3>
-                                <span className={`${panelTheme.accentBadgeDark} text-[11px] font-extrabold px-2.5 py-0.5 rounded-full`}>
-                                  {scheduledApps.length} agendado(s)
-                                </span>
-                                <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
-                                  {completedApps.length} concluído(s)
-                                </span>
+                        {/* 2. SESSÃO MASTER UNIFICADA: ATENDIMENTOS (AGENDADOS + CONCLUÍDOS) */}
+                        <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden transition-all duration-200">
+                          {/* CABEÇALHO DO MASTER CARD ATENDIMENTOS */}
+                          <div className={`p-4 sm:p-5 border-b border-stone-200 flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                            panelTheme.isDark ? 'bg-stone-900/40' : 'bg-gradient-to-r from-rose-50/80 via-white to-stone-50'
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-11 h-11 rounded-2xl ${panelTheme.accentBadgeDark} flex items-center justify-center text-xl shadow-xs shrink-0`}>
+                                <Calendar className="w-5 h-5 text-white" />
                               </div>
-                              <p className="text-xs text-stone-600 font-medium mt-0.5">
-                                Gestão de atendimentos agendados e histórico de atendimentos concluídos
-                              </p>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-stone-900">
+                                    Atendimentos
+                                  </h3>
+                                  <span className={`${panelTheme.accentBadgeDark} text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full`}>
+                                    {scheduledApps.length} agendado(s)
+                                  </span>
+                                  <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
+                                    {completedApps.length} concluído(s)
+                                  </span>
+                                </div>
+                                <p className="text-xs text-stone-500 font-medium mt-0.5">
+                                  Gestão completa de agendamentos pendentes e histórico de atendimentos realizados
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <span className={`text-xs font-bold ${panelTheme.primaryText} bg-white px-2.5 py-1.5 rounded-xl border ${panelTheme.primaryBorderLight} shrink-0 shadow-2xs`}>
-                            {proBufferTime} min margem
-                          </span>
-                        </div>
 
-                        {/* SUBSEÇÃO 1: AGENDADOS */}
-                        <div className="space-y-2.5">
-                          <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2.5 h-2.5 rounded-full ${panelTheme.isDark ? 'bg-amber-500' : 'bg-rose-600'}`}></span>
-                              <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-stone-800">
-                                Agendados
-                              </h4>
-                              <span className={`${panelTheme.primaryBgLight} ${panelTheme.primaryText} border ${panelTheme.primaryBorderLight} text-[11px] font-extrabold px-2 py-0.5 rounded-full`}>
-                                {scheduledApps.length}
+                            {/* Ações do Topo: Margem, Novo Agendamento e Botão Expandir/Recolher */}
+                            <div className="flex items-center gap-2 self-end md:self-center flex-wrap">
+                              <span className={`text-xs font-bold ${panelTheme.primaryText} ${panelTheme.primaryBgLight} border ${panelTheme.primaryBorderLight} px-3 py-1.5 rounded-xl shadow-2xs`}>
+                                ⏱️ {proBufferTime} min margem
                               </span>
-                            </div>
-                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => setShowManualAppointmentModal(true)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs transition cursor-pointer ${
+                                className={`px-3.5 py-2 text-xs font-extrabold rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer ${
                                   panelTheme.isDark
                                     ? 'bg-amber-500 hover:bg-amber-600 text-stone-900'
                                     : 'bg-stone-900 hover:bg-stone-800 text-white'
@@ -6567,11 +6586,87 @@ export default function App() {
                                 <Plus className="w-3.5 h-3.5" />
                                 + Novo Agendamento
                               </button>
-                              <span className="text-[11px] font-bold text-stone-500 hidden sm:inline">
-                                Total: R$ {scheduledTotalRevenue.toFixed(2).replace('.', ',')}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setIsAtendimentosCollapsed(!isAtendimentosCollapsed)}
+                                className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold border border-stone-200 select-none"
+                                title={isAtendimentosCollapsed ? 'Expandir sessão' : 'Recolher sessão'}
+                              >
+                                <span className="hidden sm:inline">
+                                  {isAtendimentosCollapsed ? 'Expandir' : 'Recolher'}
+                                </span>
+                                {isAtendimentosCollapsed ? (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                )}
+                              </button>
                             </div>
                           </div>
+
+                          {/* CORPO UNIFICADO DE ATENDIMENTOS */}
+                          {!isAtendimentosCollapsed && (
+                            <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-200">
+                              {/* SELETOR DE VISUALIZAÇÃO INTERNA (SUB-TABS) */}
+                              <div className="flex items-center justify-between border-b border-stone-200 pb-3 flex-wrap gap-2">
+                                <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-2xl border border-stone-200 text-xs font-bold">
+                                  <button
+                                    type="button"
+                                    onClick={() => setAppointmentsFilter('ALL')}
+                                    className={`px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
+                                      appointmentsFilter === 'ALL'
+                                        ? 'bg-white text-stone-900 shadow-xs'
+                                        : 'text-stone-600 hover:text-stone-900'
+                                    }`}
+                                  >
+                                    Todos ({scheduledApps.length + completedApps.length})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAppointmentsFilter('SCHEDULED')}
+                                    className={`px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
+                                      appointmentsFilter === 'SCHEDULED'
+                                        ? 'bg-white text-stone-900 shadow-xs'
+                                        : 'text-stone-600 hover:text-stone-900'
+                                    }`}
+                                  >
+                                    🔴 Agendados ({scheduledApps.length})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAppointmentsFilter('COMPLETED')}
+                                    className={`px-3.5 py-1.5 rounded-xl transition cursor-pointer ${
+                                      appointmentsFilter === 'COMPLETED'
+                                        ? 'bg-white text-stone-900 shadow-xs'
+                                        : 'text-stone-600 hover:text-stone-900'
+                                    }`}
+                                  >
+                                    🟢 Concluídos ({completedApps.length})
+                                  </button>
+                                </div>
+
+                                <div className="text-xs text-stone-500 font-medium">
+                                  Faturamento acumulado:{' '}
+                                  <strong className="text-emerald-700 font-extrabold">
+                                    R$ {completedRevenue.toFixed(2).replace('.', ',')}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              {/* SUB-BLOCO A: AGENDADOS */}
+                              {(appointmentsFilter === 'ALL' || appointmentsFilter === 'SCHEDULED') && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`w-2.5 h-2.5 rounded-full ${panelTheme.isDark ? 'bg-amber-500' : 'bg-rose-600'}`}></span>
+                                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-stone-800">
+                                        Agendados Pendentes ({scheduledApps.length})
+                                      </h4>
+                                    </div>
+                                    <span className="text-xs text-stone-400 font-medium">
+                                      Total a receber: R$ {scheduledTotalRevenue.toFixed(2).replace('.', ',')}
+                                    </span>
+                                  </div>
 
                           {scheduledApps.length === 0 ? (
                             <div className="text-center py-7 bg-stone-50 border border-dashed border-stone-200 rounded-2xl text-stone-400 p-4 space-y-3">
@@ -6841,24 +6936,23 @@ export default function App() {
                               ))}
                             </div>
                           )}
-                        </div>
+                                </div>
+                              )}
 
-                        {/* SUBSEÇÃO 2: ATENDIMENTOS CONCLUÍDOS */}
-                        <div className="space-y-2.5 pt-2">
-                          <div className="flex items-center justify-between px-1">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                              <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-stone-800">
-                                Atendimentos Concluídos
-                              </h4>
-                              <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2 py-0.5 rounded-full">
-                                {completedApps.length}
-                              </span>
-                            </div>
-                            <span className="text-[11px] font-bold text-emerald-700">
-                              Faturado: R$ {completedRevenue.toFixed(2).replace('.', ',')}
-                            </span>
-                          </div>
+                              {/* SUB-BLOCO B: CONCLUÍDOS */}
+                              {(appointmentsFilter === 'ALL' || appointmentsFilter === 'COMPLETED') && (
+                                <div className="space-y-3 pt-2">
+                                  <div className="flex items-center justify-between border-t border-stone-100 pt-4">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-stone-800">
+                                        Atendimentos Concluídos ({completedApps.length})
+                                      </h4>
+                                    </div>
+                                    <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                      Faturado: R$ {completedRevenue.toFixed(2).replace('.', ',')}
+                                    </span>
+                                  </div>
 
                           {completedApps.length === 0 ? (
                             <div className="text-center py-6 bg-stone-50 border border-dashed border-stone-200 rounded-2xl text-stone-400">
@@ -6937,34 +7031,73 @@ export default function App() {
                               ))}
                             </div>
                           )}
-                        </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </section>
                       </>
                     );
                   })()}
 
-                  {/* CABEÇALHO ENFÁTICO: EXPEDIENTES E AGENDA */}
-                  <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs mt-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0">
-                        <Clock className="w-5 h-5" />
+                  {/* 3. SESSÃO MASTER UNIFICADA: EXPEDIENTES & AGENDA */}
+                  <section className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden transition-all duration-200 mt-6">
+                    {/* CABEÇALHO DO MASTER CARD EXPEDIENTES */}
+                    <div className="bg-gradient-to-r from-emerald-50/80 via-white to-stone-50 p-4 sm:p-5 border-b border-stone-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-xs shrink-0">
+                          <Clock className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-stone-900">
+                              Expediente & Bloqueios de Agenda
+                            </h3>
+                            <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
+                              {workingDays.length} dias • {String(workStartHour).padStart(2, '0')}h às{' '}
+                              {String(workEndHour).padStart(2, '0')}h
+                            </span>
+                          </div>
+                          <p className="text-xs text-stone-500 font-medium mt-0.5">
+                            Configure dias de atendimento, horários de trabalho, intervalo de almoço e bloqueios de folga/férias
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-extrabold text-base sm:text-lg uppercase tracking-tight text-stone-900">
-                          Expedientes e Agenda
-                        </h3>
-                        <p className="text-xs text-stone-600 font-medium mt-0.5">
-                          Configure seus dias de atendimento, horários e bloqueios de datas
-                        </p>
+
+                      {/* Ações do Topo */}
+                      <div className="flex items-center gap-2 self-end md:self-center flex-wrap">
+                        {isScheduleDirty ? (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl flex items-center gap-1 shrink-0 animate-pulse">
+                            ● Alterações pendentes
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl shrink-0">
+                            ✓ Expediente Salvo
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsScheduleCollapsed(!isScheduleCollapsed)}
+                          className="p-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold border border-stone-200 select-none"
+                          title={isScheduleCollapsed ? 'Expandir sessão' : 'Recolher sessão'}
+                        >
+                          <span className="hidden sm:inline">
+                            {isScheduleCollapsed ? 'Expandir' : 'Recolher'}
+                          </span>
+                          {isScheduleCollapsed ? (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                       </div>
                     </div>
-                    <span className="text-[11px] font-extrabold bg-white text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl shrink-0 shadow-2xs">
-                      {workingDays.length} dias • {String(workStartHour).padStart(2, '0')}h às{' '}
-                      {String(workEndHour).padStart(2, '0')}h
-                    </span>
-                  </div>
 
-                  {/* 1. CONFIGURAÇÃO DE EXPEDIENTE PADRÃO (DIAS DA SEMANA + HORÁRIOS + ALMOÇO) */}
-                  <div className="bg-stone-50 border border-stone-200 p-4 rounded-2xl space-y-4">
+                    {/* CORPO UNIFICADO DE EXPEDIENTE */}
+                    {!isScheduleCollapsed && (
+                      <div className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-200">
+                        {/* 1. CONFIGURAÇÃO DE EXPEDIENTE PADRÃO (DIAS DA SEMANA + HORÁRIOS + ALMOÇO) */}
+                        <div className="bg-stone-50 border border-stone-200 p-4 rounded-2xl space-y-4">
                     <div className="flex items-center justify-between border-b border-stone-200 pb-2.5">
                       <div className="flex items-center gap-2">
                         <div className="p-1.5 bg-emerald-600 text-white rounded-lg">
@@ -7523,6 +7656,9 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                      </div>
+                    )}
+                  </section>
                 </div>
               )}
 
