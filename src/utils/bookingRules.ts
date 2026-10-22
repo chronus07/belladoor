@@ -280,6 +280,38 @@ export function formatConfirmationMessage(params: {
     .map((l) => (l.startsWith('•') || l.startsWith('-') ? l : `• ${l}`))
     .join('\n');
 
+  // SE O SINAL FOI PAGO: A mensagem da profissional para a cliente é de CONFIRMAÇÃO OFICIAL
+  if (settings.requireDeposit && booking.depositPaid) {
+    if (isBarbershop) {
+      return (
+        `Fala, ${clientName}! 💈\n` +
+        `Aqui é o *${proName}*. Passando pra confirmar que seu sinal de *R$ ${depositAmount.toFixed(2).replace('.', ',')}* foi recebido com sucesso!\n\n` +
+        `✂️ *Serviço:* ${serviceName}\n` +
+        `📅 *Data:* ${formattedDate} às *${formattedTime}*\n` +
+        `🏢 *Local:* ${locationStr}\n` +
+        `💰 *Valor Total:* R$ ${totalPrice.toFixed(2).replace('.', ',')} (Sinal PAGO: R$ ${depositAmount.toFixed(2).replace('.', ',')} | Restante a acertar no dia: *R$ ${remainingAmount.toFixed(2).replace('.', ',')}*)\n\n` +
+        `📌 *REGRAS DO ATENDIMENTO:*\n` +
+        `• Tolerância de atraso: ${settings.delayToleranceMinutes} minutos.\n` +
+        `• Remarcações com no mínimo ${settings.cancellationNoticeHours}h de antecedência.\n` +
+        `${rulesLines ? `${rulesLines}\n\n` : '\n'}` +
+        `Sua cadeira está 100% garantida na minha agenda. Tamo junto! 👊🔥`
+      );
+    }
+    return (
+      `Olá, ${clientName}! ✨\n` +
+      `Aqui é a *${proName}* do *BellaDoor*! Passando para confirmar que seu sinal de *R$ ${depositAmount.toFixed(2).replace('.', ',')}* foi recebido com sucesso!\n\n` +
+      `💅 *Serviço:* ${serviceName}\n` +
+      `📅 *Data:* ${formattedDate} às *${formattedTime}*\n` +
+      `📍 *Local:* ${locationStr}\n` +
+      `💰 *Valor Total:* R$ ${totalPrice.toFixed(2).replace('.', ',')} (Sinal PAGO: R$ ${depositAmount.toFixed(2).replace('.', ',')} | Restante a acertar no dia: *R$ ${remainingAmount.toFixed(2).replace('.', ',')}*)\n\n` +
+      `📌 *REGRAS DO ATENDIMENTO:*\n` +
+      `• Tolerância máxima de atraso: ${settings.delayToleranceMinutes} minutos.\n` +
+      `• Remarcações com no mínimo ${settings.cancellationNoticeHours}h de antecedência.\n` +
+      `${rulesLines ? `${rulesLines}\n\n` : '\n'}` +
+      `Seu horário está 100% confirmado na minha agenda com todo carinho. Aguardo você! 💕`
+    );
+  }
+
   let message = rawTemplate
     .replace(/{cliente}/g, clientName)
     .replace(/{servico}/g, serviceName)

@@ -6505,8 +6505,23 @@ export default function App() {
                                   {/* Botões de Lembrete Anti-Furo (WhatsApp) e Ações Rápidas */}
                                   <div className="pt-2 space-y-2">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                      {item.locationType === 'STUDIO' ? (
-                                        <>
+                                      {(() => {
+                                        const isDepositPending = Boolean(bookingRules.requireDeposit && !item.depositPaid);
+                                        const actionTitle = isDepositPending
+                                          ? 'Cobrar Sinal no WhatsApp'
+                                          : bookingRules.requireDeposit
+                                          ? '✅ Horário Confirmado'
+                                          : (proBusinessNiche === 'BARBERSHOP' ? 'Lembrar / Confirmar Horário' : 'Confirmar & Regras WhatsApp');
+
+                                        const actionBtnClasses = isDepositPending
+                                          ? 'py-2 px-3 bg-amber-500 hover:bg-amber-600 text-stone-950 font-black rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition shadow-sm'
+                                          : 'py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition shadow-sm';
+
+                                        const actionTooltip = isDepositPending
+                                          ? 'Enviar dados do PIX e prazo de pagamento do sinal para a cliente'
+                                          : 'Enviar confirmação oficial de agendamento (sinal já recebido)';
+
+                                        const commonActionBtn = (
                                           <a
                                             href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
                                               formatConfirmationMessage({
@@ -6519,65 +6534,56 @@ export default function App() {
                                             )}`}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition shadow-sm"
-                                            title="Enviar confirmação e endereço para o cliente"
+                                            className={actionBtnClasses}
+                                            title={actionTooltip}
                                           >
-                                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                                            {proBusinessNiche === 'BARBERSHOP' ? 'Lembrar / Confirmar Horário' : 'Confirmar & Regras WhatsApp'}
+                                            {isDepositPending ? (
+                                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            ) : (
+                                              <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                                            )}
+                                            {actionTitle}
                                           </a>
+                                        );
 
-                                          <a
-                                            href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                              proBusinessNiche === 'BARBERSHOP'
-                                                ? `Fala, ${item.clientName}! 💈 Aqui é o *${proDisplayName || currentUser?.fullName || 'seu barbeiro'}*. Passando pra avisar que já tô na barbearia pronto pra te atender no seu horário das *${item.time}* (${item.address})! Só encostar, irmão! ✂️👊`
-                                                : `Olá, ${item.clientName}! ✨ Aqui é *${proDisplayName || currentUser?.fullName || 'sua profissional'}* do *BellaDoor*. Seu atendimento das ${item.time} está confirmado e já estou pronta te aguardando no Studio (${item.address})! Até já!`
-                                            )}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="py-2 px-3 bg-white hover:bg-purple-50 text-purple-800 border border-purple-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs"
-                                            title="Avisar que já está aguardando o cliente"
-                                          >
-                                            <span>{proBusinessNiche === 'BARBERSHOP' ? '💈' : '🏢'}</span>
-                                            {proBusinessNiche === 'BARBERSHOP' ? 'Avisar: Tô na Barbearia' : 'Avisar: Aguardo no Studio'}
-                                          </a>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <a
-                                            href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                              formatConfirmationMessage({
-                                                settings: bookingRules,
-                                                booking: item,
-                                                proName: proDisplayName || currentUser?.fullName || (proBusinessNiche === 'BARBERSHOP' ? 'seu barbeiro' : 'sua profissional'),
-                                                proWhatsapp,
-                                                isBarbershop: proBusinessNiche === 'BARBERSHOP',
-                                              })
-                                            )}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition shadow-sm"
-                                            title="Enviar resumo e pedir confirmação no WhatsApp para evitar faltas"
-                                          >
-                                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                                            {proBusinessNiche === 'BARBERSHOP' ? 'Lembrar VIP & Regras' : 'Confirmar & Regras WhatsApp'}
-                                          </a>
-
-                                          <a
-                                            href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                              proBusinessNiche === 'BARBERSHOP'
-                                                ? `Fala, ${item.clientName}! 🚗💈 Aqui é o *${proDisplayName || currentUser?.fullName || 'seu barbeiro'}*. Já peguei a rota e tô a caminho do seu endereço (${item.address}) com as ferramentas pro nosso horário das *${item.time}*! Chego em instantes, irmão! 👊`
-                                                : `Olá, ${item.clientName}! 🚗✨ Aqui é *${proDisplayName || currentUser?.fullName || 'sua profissional'}* do *BellaDoor*. Já estou a caminho do seu endereço (${item.address}) para o nosso atendimento das ${item.time}! Até já!`
-                                            )}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="py-2 px-3 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs"
-                                            title="Avisar no WhatsApp que você já está a caminho"
-                                          >
-                                            <Car className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                            {proBusinessNiche === 'BARBERSHOP' ? 'Avisar: Tô a Caminho' : 'Avisar: Estou a Caminho'}
-                                          </a>
-                                        </>
-                                      )}
+                                        return item.locationType === 'STUDIO' ? (
+                                          <>
+                                            {commonActionBtn}
+                                            <a
+                                              href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                                proBusinessNiche === 'BARBERSHOP'
+                                                  ? `Fala, ${item.clientName}! 💈 Aqui é o *${proDisplayName || currentUser?.fullName || 'seu barbeiro'}*. Passando pra avisar que já tô na barbearia pronto pra te atender no seu horário das *${item.time}* (${item.address})! Só encostar, irmão! ✂️👊`
+                                                  : `Olá, ${item.clientName}! ✨ Aqui é *${proDisplayName || currentUser?.fullName || 'sua profissional'}* do *BellaDoor*. Seu atendimento das ${item.time} está confirmado e já estou pronta te aguardando no Studio (${item.address})! Até já!`
+                                              )}`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="py-2 px-3 bg-white hover:bg-purple-50 text-purple-800 border border-purple-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs"
+                                              title="Avisar que já está aguardando o cliente"
+                                            >
+                                              <span>{proBusinessNiche === 'BARBERSHOP' ? '💈' : '🏢'}</span>
+                                              {proBusinessNiche === 'BARBERSHOP' ? 'Avisar: Tô na Barbearia' : 'Avisar: Aguardo no Studio'}
+                                            </a>
+                                          </>
+                                        ) : (
+                                          <>
+                                            {commonActionBtn}
+                                            <a
+                                              href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                                proBusinessNiche === 'BARBERSHOP'
+                                                  ? `Fala, ${item.clientName}! 🚗💈 Aqui é o *${proDisplayName || currentUser?.fullName || 'seu barbeiro'}*. Já peguei a rota e tô a caminho do seu endereço (${item.address}) com as ferramentas pro nosso horário das *${item.time}*! Chego em instantes, irmão! 👊`
+                                                  : `Olá, ${item.clientName}! 🚗✨ Aqui é *${proDisplayName || currentUser?.fullName || 'sua profissional'}* do *BellaDoor*. Já estou a caminho do seu endereço (${item.address}) para o nosso atendimento das ${item.time}! Até já!`
+                                              )}`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="py-2 px-3 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition shadow-2xs"
+                                              title="Avisar no WhatsApp que você já está a caminho"
+                                            >
+                                              <Car className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                              {proBusinessNiche === 'BARBERSHOP' ? 'Avisar: Tô a Caminho' : 'Avisar: Estou a Caminho'}
+                                            </a>
+                                          </>
+                                        );
+                                      })()}
                                     </div>
 
                                     <div className="flex flex-wrap gap-2">
