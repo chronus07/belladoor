@@ -1044,20 +1044,24 @@ export async function appendAppointmentToFirestore(
 
   try {
     const docRef = doc(db, 'belladoor_prod', 'appointments');
-    const snap = await getDoc(docRef);
-    const existingItems = snap.exists() && Array.isArray(snap.data()?.items) ? snap.data()?.items : [];
+    const snap = await withTimeout(getDoc(docRef), 2000, null as any);
+    const existingItems = snap && snap.exists() && Array.isArray(snap.data()?.items) ? snap.data()?.items : [];
     
     // Evita duplicatas pelo ID
     const filtered = existingItems.filter((item: any) => item.id !== appointment.id);
     const newItems = [appointment, ...filtered];
 
-    await setDoc(
-      docRef,
-      sanitizeForFirestore({
-        items: newItems,
-        updatedAt: new Date().toISOString(),
-      }),
-      { merge: true }
+    await withTimeout(
+      setDoc(
+        docRef,
+        sanitizeForFirestore({
+          items: newItems,
+          updatedAt: new Date().toISOString(),
+        }),
+        { merge: true }
+      ),
+      2500,
+      undefined
     );
   } catch (err) {
     console.warn('[Firebase Cloud] Erro ao gravar agendamento no Firestore:', err);
@@ -1157,8 +1161,8 @@ export async function updateUserAccountInFirestore(
 
   try {
     const usersRef = doc(db, 'belladoor_prod', 'users');
-    const snap = await getDoc(usersRef);
-    const existingUsers = snap.exists() ? snap.data()?.accounts || {} : {};
+    const snap = await withTimeout(getDoc(usersRef), 2000, null as any);
+    const existingUsers = snap && snap.exists() ? snap.data()?.accounts || {} : {};
     const stored = existingUsers[normalizedEmail] || {};
 
     existingUsers[normalizedEmail] = sanitizeForFirestore({
@@ -1167,10 +1171,14 @@ export async function updateUserAccountInFirestore(
       updatedAt: new Date().toISOString(),
     });
 
-    await setDoc(
-      usersRef,
-      sanitizeForFirestore({ accounts: existingUsers, updatedAt: new Date().toISOString() }),
-      { merge: true }
+    await withTimeout(
+      setDoc(
+        usersRef,
+        sanitizeForFirestore({ accounts: existingUsers, updatedAt: new Date().toISOString() }),
+        { merge: true }
+      ),
+      2500,
+      undefined
     );
   } catch (err) {
     console.warn('[Firebase Cloud] Falha ao atualizar assinatura do usuário:', err);
@@ -1193,8 +1201,8 @@ export async function adminSaveUserInFirestore(
 
   try {
     const usersRef = doc(db, 'belladoor_prod', 'users');
-    const snap = await getDoc(usersRef);
-    const docData = snap.exists() ? snap.data() || {} : {};
+    const snap = await withTimeout(getDoc(usersRef), 2000, null as any);
+    const docData = snap && snap.exists() ? snap.data() || {} : {};
     const existingUsers: Record<string, any> = { ...(docData.accounts || {}) };
     const deletedEmails: Record<string, any> = { ...(docData.deletedEmails || {}) };
 
@@ -1221,14 +1229,18 @@ export async function adminSaveUserInFirestore(
       updatedAt: nowIso,
     });
 
-    await setDoc(
-      usersRef,
-      sanitizeForFirestore({
-        ...docData,
-        accounts: existingUsers,
-        deletedEmails,
-        updatedAt: nowIso,
-      })
+    await withTimeout(
+      setDoc(
+        usersRef,
+        sanitizeForFirestore({
+          ...docData,
+          accounts: existingUsers,
+          deletedEmails,
+          updatedAt: nowIso,
+        })
+      ),
+      2500,
+      undefined
     );
 
     return { ok: true };
