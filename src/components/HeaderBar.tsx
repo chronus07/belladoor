@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, LogOut, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Calendar, LogOut, ShieldCheck } from 'lucide-react';
 import { AuthUser } from '../../lib/supabaseClient';
 
 interface HeaderBarProps {
@@ -54,12 +54,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   return (
     <header className="w-full bg-white border-b border-stone-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-4">
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
           {/* Ícone Oficial BellaDoor (Arco Dourado/Rose com Folha e Brilho) */}
           <svg
             viewBox="0 0 64 64"
-            className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 drop-shadow-2xs"
+            className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 drop-shadow-2xs"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
             aria-label="Logo BellaDoor"
@@ -113,7 +113,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             />
           </svg>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="font-extrabold text-lg sm:text-xl tracking-tight text-stone-900">
+            <span className="font-extrabold text-base sm:text-xl tracking-tight text-stone-900">
               Bella<span className="text-rose-600">Door</span>
             </span>
             <span className="hidden md:inline-block text-[11px] sm:text-xs px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-full font-medium border border-rose-200">
@@ -130,7 +130,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 type="button"
                 onClick={onToggleAdminPanel}
-                className={`text-[11px] sm:text-xs font-extrabold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border shadow-xs shrink-0 ${
+                className={`text-[11px] sm:text-xs font-extrabold p-1.5 sm:px-3 sm:py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border shadow-xs shrink-0 ${
                   showAdminPanel
                     ? 'bg-rose-600 text-white border-rose-600'
                     : 'bg-stone-900 hover:bg-black text-amber-300 border-stone-800'
@@ -139,7 +139,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
                 <span className="hidden sm:inline">{showAdminPanel ? 'Fechar Admin' : '🛡️ Painel Admin'}</span>
-                <span className="sm:hidden">{showAdminPanel ? 'Fechar' : '🛡️ Admin'}</span>
               </button>
             )}
 
@@ -148,11 +147,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 type="button"
                 onClick={onToggleClientSubView}
-                className={`text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border shrink-0 ${
+                className={`text-[11px] sm:text-xs font-bold p-1.5 sm:px-3 sm:py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 border shrink-0 ${
                   clientSubView === 'MY_BOOKINGS'
                     ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
                     : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
                 }`}
+                title={clientSubView === 'MY_BOOKINGS' ? 'Voltar à Vitrine' : `Meus Agendamentos (${activeAppointmentsCount})`}
               >
                 <Calendar className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">
@@ -160,9 +160,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     ? '🔍 Voltar à Vitrine'
                     : `Meus Agendamentos (${activeAppointmentsCount})`}
                 </span>
-                <span className="sm:hidden">
-                  {clientSubView === 'MY_BOOKINGS' ? 'Vitrine' : `Agenda (${activeAppointmentsCount})`}
-                </span>
+                {activeAppointmentsCount > 0 && (
+                  <span className="sm:hidden text-[10px] font-extrabold bg-rose-600 text-white px-1.5 py-0.2 rounded-full leading-tight">
+                    {activeAppointmentsCount}
+                  </span>
+                )}
               </button>
             )}
 
@@ -173,35 +175,35 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   <button
                     type="button"
                     onClick={onExitVitrinePreview}
-                    className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-stone-900 hover:bg-stone-800 text-white shadow-xs flex items-center gap-1"
+                    className="text-[11px] sm:text-xs font-bold p-1.5 sm:px-3.5 sm:py-1.5 rounded-xl transition cursor-pointer bg-stone-900 hover:bg-stone-800 text-white shadow-xs flex items-center gap-1 shrink-0"
                     title="Fechar modo de prévia da vitrine e voltar ao Painel Pro"
                   >
-                    <span className="hidden sm:inline">← Voltar ao Painel Pro</span>
-                    <span className="sm:hidden">← Painel Pro</span>
+                    <ArrowLeft className="w-3.5 h-3.5 text-rose-400" />
+                    <span className="hidden sm:inline">Voltar ao Painel Pro</span>
                   </button>
                 ) : activeTab === 'pro' ? (
                   <>
                     <button
                       type="button"
                       onClick={onEnterClientMode}
-                      className="text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shadow-2xs shrink-0"
+                      className="text-[11px] sm:text-xs font-bold p-1.5 sm:px-3 sm:py-1.5 rounded-xl transition cursor-pointer bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shadow-2xs shrink-0"
                       title="Navegar no BellaDoor como cliente (explorar outras profissionais e agendar serviços)"
                     >
-                      <span>🛍️</span>
-                      <span className="hidden sm:inline">Modo </span>Cliente
+                      <span className="text-sm leading-none">🛍️</span>
+                      <span className="hidden sm:inline">Modo Cliente</span>
                     </button>
                     <button
                       type="button"
                       onClick={onToggleProPreview}
-                      className={`text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl transition cursor-pointer shrink-0 ${
+                      className={`text-[11px] sm:text-xs font-bold p-1.5 sm:px-3 sm:py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 shrink-0 ${
                         isProTrialExpired
                           ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
-                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
                       }`}
                       title="Pré-visualizar como sua vitrine pública está sendo exibida (somente leitura)"
                     >
-                      <span>👁️</span>
-                      <span className="hidden sm:inline">Minha </span>Vitrine
+                      <span className="text-sm leading-none">👁️</span>
+                      <span className="hidden sm:inline">Minha Vitrine</span>
                     </button>
                   </>
                 ) : (
@@ -211,18 +213,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       if (onExitVitrinePreview) onExitVitrinePreview();
                       else if (onToggleProPreview) onToggleProPreview();
                     }}
-                    className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1.5 rounded-xl transition cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1"
+                    className="text-[11px] sm:text-xs font-bold p-1.5 sm:px-3.5 sm:py-1.5 rounded-xl transition cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-xs flex items-center gap-1 shrink-0"
                     title="Retornar ao seu Painel Profissional"
                   >
-                    <span className="hidden sm:inline">← Voltar ao Painel Pro</span>
-                    <span className="sm:hidden">← Painel Pro</span>
+                    <ArrowLeft className="w-3.5 h-3.5 text-white" />
+                    <span className="hidden sm:inline">Voltar ao Painel Pro</span>
                   </button>
                 )}
               </div>
             )}
 
             {/* Card do Usuário Logado */}
-            <div className="flex items-center gap-1 sm:gap-2 bg-stone-50 border border-stone-200 pl-1.5 sm:pl-2 pr-1 sm:pr-1.5 py-1 rounded-xl text-xs shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 bg-stone-50 border border-stone-200 p-1 sm:pl-2 sm:pr-1.5 sm:py-1 rounded-xl text-xs shrink-0">
               <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-bold flex items-center justify-center text-[10px] overflow-hidden shrink-0">
                 {(() => {
                   const defaultStockAvatar =
@@ -265,8 +267,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 type="button"
                 onClick={onLogout}
-                className="p-1 text-stone-400 hover:text-rose-600 rounded-md transition ml-1 cursor-pointer"
+                className="p-1 sm:p-1.5 text-stone-500 hover:text-rose-600 hover:bg-stone-200/60 rounded-lg transition cursor-pointer shrink-0"
                 title="Sair da conta"
+                aria-label="Sair da conta"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>

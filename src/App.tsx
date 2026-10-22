@@ -242,6 +242,11 @@ export default function App() {
   const [isVitrinePortfolioCollapsed, setIsVitrinePortfolioCollapsed] = useState<boolean>(false);
   const [isVitrineReviewsCollapsed, setIsVitrineReviewsCollapsed] = useState<boolean>(false);
   const [isVitrineServicesCollapsed, setIsVitrineServicesCollapsed] = useState<boolean>(false);
+  const [isProVerificationCollapsed, setIsProVerificationCollapsed] = useState<boolean>(false);
+  const [isProPresentationCollapsed, setIsProPresentationCollapsed] = useState<boolean>(false);
+  const [isProServiceModeCollapsed, setIsProServiceModeCollapsed] = useState<boolean>(false);
+  const [isProVisualIdentityCollapsed, setIsProVisualIdentityCollapsed] = useState<boolean>(false);
+  const [isProPortfolioPhotosCollapsed, setIsProPortfolioPhotosCollapsed] = useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('TODAS');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -4138,7 +4143,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-100 flex flex-col items-center">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-stone-100 flex flex-col items-center">
       {/* BARRA SUPERIOR DO BELLADOOR (COMPONENTE MODULAR) */}
       <HeaderBar
         currentUser={currentUser}
@@ -9060,162 +9065,175 @@ export default function App() {
                                   </p>
                                 </div>
                               </div>
+                              <button
+                                type="button"
+                                onClick={() => setIsProVerificationCollapsed(!isProVerificationCollapsed)}
+                                className="p-1 sm:px-2.5 sm:py-1 bg-white/80 hover:bg-white text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none ml-auto"
+                                title={isProVerificationCollapsed ? 'Expandir' : 'Recolher'}
+                              >
+                                <span className="hidden sm:inline">{isProVerificationCollapsed ? 'Expandir' : 'Recolher'}</span>
+                                {isProVerificationCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                              </button>
                             </div>
 
                             {/* Conteúdo dinâmico de acordo com o status */}
-                            {proIsVerified ? (
-                              <div className="bg-white/80 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                                  <span className="text-emerald-950 font-bold">
-                                    Todas as clientes que acessam sua vitrine visualizam seu selo de segurança.
-                                  </span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={handleOpenVitrinePreview}
-                                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline shrink-0 cursor-pointer"
-                                >
-                                  Ver na Vitrine
-                                </button>
-                              </div>
-                            ) : proVerificationStatus === 'PENDING' ? (
-                              <div className="space-y-3">
-                                <div className="bg-white/90 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-xs">
-                                  <p className="font-extrabold text-amber-950 flex items-center gap-1.5">
-                                    <Clock className="w-4 h-4 text-amber-600" />
-                                    Documento ({proVerificationDocType || 'RG/CNH'}) em análise
-                                  </p>
-                                  <p className="text-[11px] text-amber-900">
-                                    Nossa equipe analisa os envios em até 24 horas. Se quiser acelerar a liberação do seu selo, você pode falar diretamente com o suporte no WhatsApp:
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <a
-                                    href={`https://wa.me/5562996222851?text=${encodeURIComponent(
-                                      `Olá equipe BellaDoor! Sou ${proDisplayName || 'uma profissional'}, enviei meu documento para o Selo de Identidade Verificada e gostaria de confirmar.`
-                                    )}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
-                                  >
-                                    <MessageCircle className="w-3.5 h-3.5" />
-                                    Avisar Suporte no WhatsApp
-                                  </a>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                                      Tipo de Documento:
-                                    </label>
-                                    <select
-                                      value={proVerificationDocType}
-                                      onChange={(e) =>
-                                        setProVerificationDocType(e.target.value as 'RG' | 'CNH' | 'OUTRO')
-                                      }
-                                      className="w-full text-xs font-bold p-2.5 bg-white border border-stone-300 rounded-xl focus:ring-2 focus:ring-rose-500"
-                                    >
-                                      <option value="RG">RG (Documento de Identidade)</option>
-                                      <option value="CNH">CNH (Carteira de Motorista)</option>
-                                      <option value="OUTRO">Outro Documento Oficial com Foto</option>
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                                      Foto do Documento (Frente ou Aberto):
-                                    </label>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-                                        if (file.size > 5 * 1024 * 1024) {
-                                          alert('Por favor, selecione uma imagem de até 5MB.');
-                                          return;
-                                        }
-                                        const reader = new FileReader();
-                                        reader.onload = (event) => {
-                                          const base64 = event.target?.result as string;
-                                          if (base64) {
-                                            setProVerificationDocUrl(base64);
-                                          }
-                                        };
-                                        reader.readAsDataURL(file);
-                                      }}
-                                      className="w-full text-xs p-1.5 bg-white border border-stone-300 rounded-xl file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer"
-                                    />
-                                  </div>
-                                </div>
-
-                                {proVerificationDocUrl && (
-                                  <div className="flex items-center gap-3 p-2.5 bg-white border border-emerald-200 rounded-xl">
-                                    <img
-                                      src={proVerificationDocUrl}
-                                      alt="Prévia do Documento"
-                                      className="w-14 h-10 object-cover rounded-lg border border-stone-200"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-[11px] font-bold text-emerald-900 truncate">
-                                        Foto anexada com sucesso!
-                                      </p>
-                                      <p className="text-[10px] text-stone-500">
-                                        Clique no botão abaixo para enviar para a equipe BellaDoor.
-                                      </p>
+                            {!isProVerificationCollapsed && (
+                              <>
+                                {proIsVerified ? (
+                                  <div className="bg-white/80 border border-emerald-200 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                                      <span className="text-emerald-950 font-bold">
+                                        Todas as clientes que acessam sua vitrine visualizam seu selo de segurança.
+                                      </span>
                                     </div>
                                     <button
                                       type="button"
-                                      onClick={() => setProVerificationDocUrl('')}
-                                      className="text-[10px] text-red-600 font-bold hover:underline"
+                                      onClick={handleOpenVitrinePreview}
+                                      className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 underline shrink-0 cursor-pointer"
                                     >
-                                      Remover
+                                      Ver na Vitrine
                                     </button>
                                   </div>
+                                ) : proVerificationStatus === 'PENDING' ? (
+                                  <div className="space-y-3">
+                                    <div className="bg-white/90 border border-amber-200 rounded-2xl p-3.5 space-y-1 text-xs">
+                                      <p className="font-extrabold text-amber-950 flex items-center gap-1.5">
+                                        <Clock className="w-4 h-4 text-amber-600" />
+                                        Documento ({proVerificationDocType || 'RG/CNH'}) em análise
+                                      </p>
+                                      <p className="text-[11px] text-amber-900">
+                                        Nossa equipe analisa os envios em até 24 horas. Se quiser acelerar a liberação do seu selo, você pode falar diretamente com o suporte no WhatsApp:
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <a
+                                        href={`https://wa.me/5562996222851?text=${encodeURIComponent(
+                                          `Olá equipe BellaDoor! Sou ${proDisplayName || 'uma profissional'}, enviei meu documento para o Selo de Identidade Verificada e gostaria de confirmar.`
+                                        )}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition"
+                                      >
+                                        <MessageCircle className="w-3.5 h-3.5" />
+                                        Avisar Suporte no WhatsApp
+                                      </a>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                                          Tipo de Documento:
+                                        </label>
+                                        <select
+                                          value={proVerificationDocType}
+                                          onChange={(e) =>
+                                            setProVerificationDocType(e.target.value as 'RG' | 'CNH' | 'OUTRO')
+                                          }
+                                          className="w-full text-xs font-bold p-2.5 bg-white border border-stone-300 rounded-xl focus:ring-2 focus:ring-rose-500"
+                                        >
+                                          <option value="RG">RG (Documento de Identidade)</option>
+                                          <option value="CNH">CNH (Carteira de Motorista)</option>
+                                          <option value="OUTRO">Outro Documento Oficial com Foto</option>
+                                        </select>
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                                          Foto do Documento (Frente ou Aberto):
+                                        </label>
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            if (file.size > 5 * 1024 * 1024) {
+                                              alert('Por favor, selecione uma imagem de até 5MB.');
+                                              return;
+                                            }
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => {
+                                              const base64 = event.target?.result as string;
+                                              if (base64) {
+                                                setProVerificationDocUrl(base64);
+                                              }
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }}
+                                          className="w-full text-xs p-1.5 bg-white border border-stone-300 rounded-xl file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {proVerificationDocUrl && (
+                                      <div className="flex items-center gap-3 p-2.5 bg-white border border-emerald-200 rounded-xl">
+                                        <img
+                                          src={proVerificationDocUrl}
+                                          alt="Prévia do Documento"
+                                          className="w-14 h-10 object-cover rounded-lg border border-stone-200"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[11px] font-bold text-emerald-900 truncate">
+                                            Foto anexada com sucesso!
+                                          </p>
+                                          <p className="text-[10px] text-stone-500">
+                                            Clique no botão abaixo para enviar para a equipe BellaDoor.
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => setProVerificationDocUrl('')}
+                                          className="text-[10px] text-red-600 font-bold hover:underline"
+                                        >
+                                          Remover
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                                      <button
+                                        type="button"
+                                        disabled={!proVerificationDocUrl}
+                                        onClick={() => {
+                                          if (!proVerificationDocUrl) {
+                                            alert('Por favor, selecione uma foto do documento.');
+                                            return;
+                                          }
+                                          setProVerificationStatus('PENDING');
+                                          setUiDialog({
+                                            emoji: '🛡️',
+                                            badge: 'Documento Enviado',
+                                            title: 'Solicitação Enviada com Sucesso!',
+                                            message:
+                                              'Seu documento foi enviado para nossa equipe de análise. Assim que conferido, o Selo de Identidade Verificada será ativado na sua vitrine.',
+                                            buttonText: 'Maravilha!',
+                                            variant: 'success',
+                                          });
+                                        }}
+                                        className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                      >
+                                        <ShieldCheck className="w-4 h-4" />
+                                        Enviar Documento e Solicitar Selo
+                                      </button>
+
+                                      <a
+                                        href={`https://wa.me/5562996222851?text=${encodeURIComponent(
+                                          `Olá Everton! Sou a profissional ${proDisplayName || ''} e gostaria de solicitar meu Selo de Identidade Verificada no BellaDoor.`
+                                        )}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="py-2.5 px-3 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                                      >
+                                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                        Solicitar via WhatsApp
+                                      </a>
+                                    </div>
+                                  </div>
                                 )}
-
-                                <div className="flex flex-wrap items-center gap-2 pt-1">
-                                  <button
-                                    type="button"
-                                    disabled={!proVerificationDocUrl}
-                                    onClick={() => {
-                                      if (!proVerificationDocUrl) {
-                                        alert('Por favor, selecione uma foto do documento.');
-                                        return;
-                                      }
-                                      setProVerificationStatus('PENDING');
-                                      setUiDialog({
-                                        emoji: '🛡️',
-                                        badge: 'Documento Enviado',
-                                        title: 'Solicitação Enviada com Sucesso!',
-                                        message:
-                                          'Seu documento foi enviado para nossa equipe de análise. Assim que conferido, o Selo de Identidade Verificada será ativado na sua vitrine.',
-                                        buttonText: 'Maravilha!',
-                                        variant: 'success',
-                                      });
-                                    }}
-                                    className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                  >
-                                    <ShieldCheck className="w-4 h-4" />
-                                    Enviar Documento e Solicitar Selo
-                                  </button>
-
-                                  <a
-                                    href={`https://wa.me/5562996222851?text=${encodeURIComponent(
-                                      `Olá Everton! Sou a profissional ${proDisplayName || ''} e gostaria de solicitar meu Selo de Identidade Verificada no BellaDoor.`
-                                    )}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="py-2.5 px-3 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                                  >
-                                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                                    Solicitar via WhatsApp
-                                  </a>
-                                </div>
-                              </div>
+                              </>
                             )}
                           </div>
 
@@ -9228,17 +9246,30 @@ export default function App() {
                             <Pencil className="w-3.5 h-3.5 text-rose-600" />
                             1. Informações de Apresentação & Nicho do Negócio
                           </h4>
-                          {isPresentationDirty ? (
-                            <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
-                              ● Alterações pendentes
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              ✓ Informações salvas
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {isPresentationDirty ? (
+                              <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                ● Alterações pendentes
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                ✓ Informações salvas
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setIsProPresentationCollapsed(!isProPresentationCollapsed)}
+                              className="p-1 sm:px-2.5 sm:py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none"
+                              title={isProPresentationCollapsed ? 'Expandir' : 'Recolher'}
+                            >
+                              <span className="hidden sm:inline">{isProPresentationCollapsed ? 'Expandir' : 'Recolher'}</span>
+                              {isProPresentationCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                         </div>
 
+                        {!isProPresentationCollapsed && (
+                          <>
                         {/* SELETOR DE NICHO & TOM DE COMUNICAÇÃO NO WHATSAPP */}
                         <div className="bg-stone-50 border border-stone-200 p-3.5 rounded-2xl space-y-2.5">
                           <div className="flex items-center justify-between">
@@ -9564,6 +9595,8 @@ export default function App() {
                             Confirmar Dados de Apresentação
                           </button>
                         </div>
+                          </>
+                        )}
                       </div>
 
                       {/* ============================================================ */}
@@ -9575,17 +9608,30 @@ export default function App() {
                             <span className="text-base">🏢</span>
                             2. Modalidade de Atendimento & Espaço Físico
                           </h4>
-                          {isServiceModeDirty ? (
-                            <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
-                              ● Alterações pendentes
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                              ✓ Informações salvas
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {isServiceModeDirty ? (
+                              <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                ● Alterações pendentes
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                ✓ Informações salvas
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setIsProServiceModeCollapsed(!isProServiceModeCollapsed)}
+                              className="p-1 sm:px-2.5 sm:py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none"
+                              title={isProServiceModeCollapsed ? 'Expandir' : 'Recolher'}
+                            >
+                              <span className="hidden sm:inline">{isProServiceModeCollapsed ? 'Expandir' : 'Recolher'}</span>
+                              {isProServiceModeCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                         </div>
 
+                        {!isProServiceModeCollapsed && (
+                          <>
                         <p className="text-xs text-stone-500">
                           Escolha como você atende seus clientes: no seu próprio espaço físico (Studio / Barbearia / Sala), a domicílio, ou em ambas modalidades.
                         </p>
@@ -9822,6 +9868,8 @@ export default function App() {
                             Confirmar Modalidade de Atendimento
                           </button>
                         </div>
+                          </>
+                        )}
                       </div>
 
                       {/* ============================================================ */}
@@ -9833,11 +9881,24 @@ export default function App() {
                             <Image className="w-4 h-4 text-rose-600" />
                             3. Foto de Perfil & Imagem do Banner (Capa)
                           </span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                            Sincronizado com a Vitrine
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="hidden sm:inline text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                              Sincronizado com a Vitrine
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setIsProVisualIdentityCollapsed(!isProVisualIdentityCollapsed)}
+                              className="p-1 sm:px-2.5 sm:py-1 bg-white hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none"
+                              title={isProVisualIdentityCollapsed ? 'Expandir' : 'Recolher'}
+                            >
+                              <span className="hidden sm:inline">{isProVisualIdentityCollapsed ? 'Expandir' : 'Recolher'}</span>
+                              {isProVisualIdentityCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                         </div>
 
+                        {!isProVisualIdentityCollapsed && (
+                          <>
                         {/* Simulação Interativa do Topo da Vitrine com Botões de Upload */}
                         <div className="relative h-36 bg-rose-950 group">
                           <img
@@ -9955,38 +10016,54 @@ export default function App() {
                             </div>
                           </div>
                         </div>
+                          </>
+                        )}
                       </div>
                         </>
                       )}
 
                       {onboardingWizardStep !== 1 && (
                         /* ============================================================ */
-                        /* BLOCO 3: GERENCIAR FOTOS DOS TRABALHOS REALIZADOS (PORTFÓLIO)*/
+                        /* BLOCO 4: GERENCIAR FOTOS DOS TRABALHOS REALIZADOS (PORTFÓLIO)*/
                         /* ============================================================ */
                         <div className="bg-white rounded-3xl border border-stone-200 p-4 space-y-4 shadow-xs">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-stone-100 pb-2.5">
                             <div>
                               <h4 className="font-extrabold text-xs text-stone-900 flex items-center gap-1.5">
                                 <Sparkles className="w-4 h-4 text-rose-600" />
                                 {onboardingWizardStep === 2
                                   ? `Passo 2: Fotos dos Trabalhos Realizados (${proPortfolioList.length})`
-                                  : `3. Fotos dos Trabalhos Realizados (${proPortfolioList.length})`}
+                                  : `4. Fotos dos Trabalhos Realizados (${proPortfolioList.length})`}
                               </h4>
                               <p className="text-[11px] text-stone-500">
                                 Adicione fotos reais dos seus atendimentos para encantar novas clientes
                               </p>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={openCreatePortfolioPage}
-                              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition cursor-pointer shrink-0"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Adicionar Foto
-                            </button>
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              <button
+                                type="button"
+                                onClick={openCreatePortfolioPage}
+                                className="bg-rose-600 hover:bg-rose-700 text-white text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition cursor-pointer shrink-0"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Adicionar Foto</span>
+                                <span className="sm:hidden">Foto</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsProPortfolioPhotosCollapsed(!isProPortfolioPhotosCollapsed)}
+                                className="p-1 sm:px-2.5 sm:py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition cursor-pointer flex items-center gap-1 text-[11px] font-bold border border-stone-200 select-none"
+                                title={isProPortfolioPhotosCollapsed ? 'Expandir' : 'Recolher'}
+                              >
+                                <span className="hidden sm:inline">{isProPortfolioPhotosCollapsed ? 'Expandir' : 'Recolher'}</span>
+                                {isProPortfolioPhotosCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
                           </div>
 
+                          {!isProPortfolioPhotosCollapsed && (
+                            <>
                           {proPortfolioList.length === 0 ? (
                             <div className="text-center py-8 bg-stone-50 rounded-2xl border border-dashed border-stone-300 space-y-2">
                               <Camera className="w-8 h-8 text-stone-400 mx-auto" />
@@ -10068,6 +10145,8 @@ export default function App() {
                                 </span>
                               </button>
                             </div>
+                          )}
+                            </>
                           )}
                         </div>
                       )}
