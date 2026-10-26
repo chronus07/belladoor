@@ -6243,8 +6243,8 @@ export default function App() {
                           }`}>
                             {trialDaysLeft}{' '}
                             {trialDaysLeft === 1
-                              ? 'dia grátis disponível'
-                              : 'dias grátis disponíveis'}
+                              ? 'dia disponível'
+                              : 'dias disponíveis'}
                           </p>
                         </>
                       )
@@ -6276,63 +6276,28 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* BARRA DE CONTAGEM DE DIAS GRÁTIS / AVISO DE BLOQUEIO APÓS 7 DIAS */}
-                {subscriptionStatus === 'TRIAL' && (
-                  isProTrialExpired ? (
-                    <div className="mt-3 bg-red-600/25 border-2 border-red-400/60 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <span className="text-lg shrink-0">🔒</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-extrabold text-red-200 leading-tight">
-                            Período de 7 Dias Grátis Encerrado (0 de {trialTotalDays} dias disponíveis)
-                          </p>
-                          <p className="text-[11px] text-stone-200 mt-0.5 leading-snug">
-                            Sua plataforma está bloqueada desde {trialEndDateFormatted}. Pague seu plano ou ative um cupom de desconto abaixo para liberar todas as funções.
-                          </p>
-                        </div>
+                {/* AVISO DE BLOQUEIO QUANDO O PERÍODO DE TESTE/CUPOM EXPIRA */}
+                {subscriptionStatus === 'TRIAL' && isProTrialExpired && (
+                  <div className="mt-3 bg-red-600/25 border-2 border-red-400/60 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span className="text-lg shrink-0">🔒</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-extrabold text-red-200 leading-tight">
+                          Período de {currentUser?.appliedCoupon ? 'Cupom' : '7 Dias Grátis'} Encerrado (0 de {trialTotalDays} dias disponíveis)
+                        </p>
+                        <p className="text-[11px] text-stone-200 mt-0.5 leading-snug">
+                          Sua plataforma está bloqueada desde {trialEndDateFormatted}. Pague seu plano ou ative um cupom de desconto abaixo para liberar todas as funções.
+                        </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setProSubTab('billing')}
-                        className="px-3 py-2 bg-red-500 hover:bg-red-400 text-white rounded-xl text-[11px] font-extrabold shrink-0 transition cursor-pointer shadow-xs"
-                      >
-                        Liberar Acesso Agora 💳
-                      </button>
                     </div>
-                  ) : (
-                    <div className={`mt-3 rounded-2xl p-2.5 flex items-center justify-between gap-2 ${
-                      panelTheme.isDark
-                        ? 'bg-amber-500/15 border border-amber-400/30'
-                        : 'bg-amber-50/90 border border-amber-200/90 shadow-2xs'
-                    }`}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-base shrink-0">
-                          {currentUser?.appliedCoupon ? '🎟️' : '🎁'}
-                        </span>
-                        <div className="min-w-0">
-                          <p className={`text-[11px] font-extrabold leading-tight ${
-                            panelTheme.isDark ? 'text-amber-300' : 'text-amber-900'
-                          }`}>
-                            {currentUser?.appliedCoupon
-                              ? `Cupom ${currentUser.appliedCoupon} Ativo: ${trialDaysLeft} de ${trialTotalDays} dias livres disponíveis`
-                              : `Teste Grátis Ativo: ${trialDaysLeft} de 7 dias grátis disponíveis`}
-                          </p>
-                          <p className={`text-[10px] truncate ${
-                            panelTheme.isDark ? 'text-stone-300' : 'text-stone-600'
-                          }`}>
-                            Acesso completo liberado até {trialEndDateFormatted} • Após os 7 dias, ative seu plano ou cupom
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setProSubTab('billing')}
-                        className="px-2.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-xl text-[10px] font-extrabold shrink-0 transition cursor-pointer shadow-xs"
-                      >
-                        Assinar Plano
-                      </button>
-                    </div>
-                  )
+                    <button
+                      type="button"
+                      onClick={() => setProSubTab('billing')}
+                      className="px-3 py-2 bg-red-500 hover:bg-red-400 text-white rounded-xl text-[11px] font-extrabold shrink-0 transition cursor-pointer shadow-xs"
+                    >
+                      Liberar Acesso Agora 💳
+                    </button>
+                  </div>
                 )}
 
                 {/* PASSO 2: BARRA DE COMPARTILHAMENTO DO LINK EXCLUSIVO DA VITRINE */}
