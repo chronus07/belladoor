@@ -903,8 +903,7 @@ export default function App() {
     }
 
     if (isNewRegistration || !hasCompletedInitialOnboarding) {
-      setShowTrialModal(false);
-      startProOnboardingWizard('🎉 7 Dias Grátis Liberados');
+      setShowTrialModal(true);
     } else {
       setShowTrialModal(false);
       showProSuccess(
@@ -2185,7 +2184,7 @@ export default function App() {
       } catch {}
       showProSuccess('💳 CPF salvo com sucesso no seu cadastro profissional!');
       if (!hasCompletedInitialOnboarding) {
-        startProOnboardingWizard('🎉 7 Dias Grátis Liberados');
+        setShowTrialModal(true);
       }
       return true;
     } catch (e) {

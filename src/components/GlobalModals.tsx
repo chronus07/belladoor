@@ -47,74 +47,49 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
             </button>
 
             {/* Cabeçalho de Boas-Vindas */}
-            <div className="text-center pt-2">
-              <span className="text-4xl block">🎉</span>
-              <h3 className="font-extrabold text-lg text-stone-900 mt-1">
+            <div className="text-center pt-1">
+              <span className="text-3xl block">✨</span>
+              <h3 className="font-extrabold text-base sm:text-lg text-stone-900 mt-1">
                 Bem-vinda ao BellaDoor Pro, {userFullName || 'Profissional'}!
               </h3>
               <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                Escolha como deseja ativar sua conta profissional para iniciar o <strong>Assistente Passo a Passo da sua Vitrine</strong>:
+                Escolha abaixo como deseja iniciar o acesso à sua Vitrine e Agenda:
               </p>
             </div>
 
-            {/* Comparativo dos 2 Planos */}
-            <div className="space-y-2.5 pt-1">
-              {/* Plano Anual */}
-              <div
-                onClick={() => onSelectTrialPlan('ANNUAL')}
-                className={`p-3.5 rounded-2xl border-2 cursor-pointer transition relative ${
-                  selectedTrialPlan === 'ANNUAL'
-                    ? 'border-rose-500 bg-rose-50/60 shadow-sm'
-                    : 'border-stone-200 bg-white hover:border-stone-300'
-                }`}
-              >
-                <span className="absolute -top-2.5 right-3 bg-rose-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-xs">
-                  PIX ou Cartão (Mais Econômico)
+            {/* OPÇÃO 1: 7 DIAS GRÁTIS */}
+            <div className="bg-emerald-50/80 border-2 border-emerald-300/80 p-3.5 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Opção 1: Período de Teste Grátis
                 </span>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-extrabold text-sm text-stone-900">Plano Anual</h4>
-                    <p className="text-xs text-stone-500 mt-0.5">
-                      Equivale a apenas <strong>R$ 24,91/mês</strong>
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-base font-extrabold text-stone-900">R$ 299,00</span>
-                    <span className="text-[10px] text-stone-500 block">/ano no PIX ou Cartão</span>
-                  </div>
-                </div>
+                <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-2 py-0.5 rounded-full">
+                  Sem Cartão Hoje
+                </span>
               </div>
-
-              {/* Plano Mensal */}
-              <div
-                onClick={() => onSelectTrialPlan('MONTHLY')}
-                className={`p-3.5 rounded-2xl border-2 cursor-pointer transition ${
-                  selectedTrialPlan === 'MONTHLY'
-                    ? 'border-rose-500 bg-rose-50/60 shadow-sm'
-                    : 'border-stone-200 bg-white hover:border-stone-300'
-                }`}
+              <p className="text-xs text-emerald-950 font-medium leading-snug">
+                Experimente a plataforma livremente por <strong>7 dias gratuitos</strong> com acesso completo a todas as ferramentas.
+              </p>
+              <button
+                type="button"
+                onClick={onActivateFreeTrial}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
               >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-extrabold text-sm text-stone-900">Plano Mensal</h4>
-                    <p className="text-xs text-stone-500 mt-0.5">
-                      R$ 39,90 Cartão Recorrente • R$ 44,90 PIX
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-base font-extrabold text-stone-900">R$ 39,90</span>
-                    <span className="text-[10px] text-stone-500 block">/mês no cartão</span>
-                  </div>
-                </div>
-              </div>
+                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                Utilizar 7 Dias Grátis e Abrir Assistente 🚀
+              </button>
             </div>
 
-            {/* Campo Rápido de Cupom de Parceria no Onboarding */}
+            {/* OPÇÃO 2: CUPOM DE DESCONTO / PARCERIA */}
             {onApplyCouponFromModal && (
-              <div className="bg-rose-50/70 border border-rose-200 p-3 rounded-2xl space-y-2">
-                <p className="text-[11px] font-extrabold text-stone-800 flex items-center gap-1.5">
-                  <Ticket className="w-3.5 h-3.5 text-rose-600" />
-                  Opção 1: Ativar com Cupom de Desconto / Parceria
+              <div className="bg-amber-50/80 border border-amber-300/80 p-3.5 rounded-2xl space-y-2">
+                <span className="text-[11px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Ticket className="w-4 h-4 text-amber-600" />
+                  Opção 2: Ativar com Cupom de Desconto
+                </span>
+                <p className="text-xs text-stone-700">
+                  Tem um cupom de parceria ou convite especial? Digite seu código:
                 </p>
                 <div className="flex gap-1.5">
                   <input
@@ -122,7 +97,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                     value={modalCoupon}
                     onChange={(e) => setModalCoupon(e.target.value.toUpperCase())}
                     placeholder="Digite seu cupom"
-                    className="flex-1 bg-white border border-rose-200 rounded-xl px-3 py-2 text-xs font-extrabold uppercase text-stone-900 placeholder:font-normal placeholder:normal-case focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    className="flex-1 bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-black uppercase text-stone-900 placeholder:font-normal placeholder:normal-case focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
                   <button
                     type="button"
@@ -132,7 +107,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                         setModalCoupon('');
                       }
                     }}
-                    className="px-3 py-2 bg-stone-900 hover:bg-black text-white rounded-xl text-[11px] font-extrabold transition cursor-pointer shrink-0"
+                    className="px-3.5 py-2 bg-stone-900 hover:bg-black text-white rounded-xl text-[11px] font-extrabold transition cursor-pointer shrink-0 shadow-xs"
                   >
                     Ativar Cupom
                   </button>
@@ -140,42 +115,52 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
               </div>
             )}
 
-            {/* Garantia do Teste Grátis */}
-            <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl space-y-1.5 text-xs text-emerald-950">
-              <div className="flex items-center gap-1.5 font-bold">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>Garantia de 7 Dias de Teste Gratuito:</span>
-              </div>
-              <ul className="text-[11px] space-y-1 text-emerald-800 pl-5 list-disc">
-                <li>
-                  Em seguida, nosso <strong>Assistente Passo a Passo</strong> te guiará para configurar sua Vitrine, Portfólio, Serviços e Taxas.
-                </li>
-                <li>Nenhum valor será cobrado no seu teste grátis hoje.</li>
-              </ul>
-            </div>
+            {/* OPÇÃO 3: FAZER O PAGAMENTO AGORA */}
+            <div className="bg-stone-50 border border-stone-200 p-3.5 rounded-2xl space-y-2.5">
+              <span className="text-[11px] font-black text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span>💳</span>
+                Opção 3: Fazer o Pagamento Agora
+              </span>
 
-            {/* Botões de Ativação: Teste Grátis 7 Dias ou Pagar Agora */}
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={onActivateFreeTrial}
-                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
-              >
-                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-                Usar Plano Gratuito de 7 Dias e Configurar Conta 🚀
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Plano Anual */}
+                <div
+                  onClick={() => onSelectTrialPlan('ANNUAL')}
+                  className={`p-2.5 rounded-xl border-2 cursor-pointer transition relative ${
+                    selectedTrialPlan === 'ANNUAL'
+                      ? 'border-rose-500 bg-rose-50/60 shadow-xs'
+                      : 'border-stone-200 bg-white hover:border-stone-300'
+                  }`}
+                >
+                  <span className="text-[9px] font-extrabold text-rose-600 block">PIX ou Cartão</span>
+                  <p className="font-extrabold text-xs text-stone-900">Plano Anual</p>
+                  <p className="text-xs font-black text-rose-600">R$ 299/ano</p>
+                  <p className="text-[10px] text-stone-500">R$ 24,91/mês</p>
+                </div>
+
+                {/* Plano Mensal */}
+                <div
+                  onClick={() => onSelectTrialPlan('MONTHLY')}
+                  className={`p-2.5 rounded-xl border-2 cursor-pointer transition ${
+                    selectedTrialPlan === 'MONTHLY'
+                      ? 'border-rose-500 bg-rose-50/60 shadow-xs'
+                      : 'border-stone-200 bg-white hover:border-stone-300'
+                  }`}
+                >
+                  <span className="text-[9px] font-extrabold text-stone-500 block">Recorrente</span>
+                  <p className="font-extrabold text-xs text-stone-900">Plano Mensal</p>
+                  <p className="text-xs font-black text-stone-900">R$ 39,90/mês</p>
+                  <p className="text-[10px] text-stone-500">Cartão de Crédito</p>
+                </div>
+              </div>
 
               {onPayNowFromModal && (
                 <button
                   type="button"
                   onClick={onPayNowFromModal}
-                  className="w-full py-3 bg-stone-900 hover:bg-black text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
+                  className="w-full py-2.5 bg-stone-900 hover:bg-black text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
                 >
-                  <span>💳</span>
-                  <span>
-                    Fazer o Pagamento Agora (
-                    {selectedTrialPlan === 'ANNUAL' ? 'R$ 299,00/ano' : 'a partir de R$ 39,90/mês'})
-                  </span>
+                  <span>Pagar Plano {selectedTrialPlan === 'ANNUAL' ? 'Anual (R$ 299)' : 'Mensal (R$ 39,90)'} Agora 💳</span>
                 </button>
               )}
             </div>
