@@ -126,6 +126,7 @@ import { ManualAppointmentModal } from './components/ManualAppointmentModal';
 import { LgpdTermsModal } from './components/LgpdTermsModal';
 import { BookingRulesModal } from './components/BookingRulesModal';
 import { BetaFeedbackModal } from './components/BetaFeedbackModal';
+import { ProCpfPromptModal } from './components/ProCpfPromptModal';
 import { getThemeClasses, VisualTheme } from './utils/theme';
 
 export default function App() {
@@ -2168,6 +2169,25 @@ export default function App() {
           : 'Híbrido (No Studio & A Domicílio)'
       }.`
     );
+  };
+
+  // Salva CPF pendente de profissionais cadastradas via Google ou legado
+  const handleSaveMissingProCpf = async (cpfFormatted: string): Promise<boolean> => {
+    if (!currentUser || !currentUser.email) return false;
+    try {
+      await updateUserAccountInFirestore(currentUser.email, { cpf: cpfFormatted });
+      const updatedUser: AuthUser = { ...currentUser, cpf: cpfFormatted };
+      setCurrentUser(updatedUser);
+      setAuthCpf(cpfFormatted);
+      try {
+        localStorage.setItem('belladoor_v2_user', JSON.stringify(updatedUser));
+      } catch {}
+      showProSuccess('💳 CPF salvo com sucesso no seu cadastro profissional!');
+      return true;
+    } catch (e) {
+      console.error('Erro ao salvar CPF do profissional:', e);
+      return false;
+    }
   };
 
   // Confirmação de Base Residencial (Onde Você Mora)
@@ -10851,6 +10871,20 @@ export default function App() {
             localStorage.setItem('belladoor_v2_feedback_submitted', 'true');
           } catch {}
         }}
+      />
+
+      {/* MODAL OBRIGATÓRIO DE CPF PARA PROFISSIONAIS LOGADAS VIA GOOGLE OU SEM CPF */}
+      <ProCpfPromptModal
+        isOpen={Boolean(
+          currentUser &&
+          currentUser.role === 'PROFESSIONAL' &&
+          !currentUser.cpf &&
+          !currentUser.id.includes('visitor') &&
+          !currentUser.id.includes('guest')
+        )}
+        userFullName={currentUser?.fullName}
+        userEmail={currentUser?.email}
+        onSaveCpf={handleSaveMissingProCpf}
       />
 
       {/* MODAIS GLOBAIS: ONBOARDING 7 DIAS GRÁTIS & JANELINHA PADRÃO BELLADOOR */}
