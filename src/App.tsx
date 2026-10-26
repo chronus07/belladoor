@@ -6109,16 +6109,24 @@ export default function App() {
           /* 2. VISÃO DA PROFISSIONAL: APP MOBILE COMPLETO (Android/iOS)  */
           /* ============================================================ */
           <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
-            {/* Header Superior do App com Capa/Banner Personalizável */}
-            <div className="relative bg-stone-900 text-white overflow-hidden">
+            {/* Header Superior do App com Capa/Banner Personalizável (Opção Clara & Leve para Beleza) */}
+            <div className={`relative overflow-hidden transition-colors ${
+              panelTheme.isDark
+                ? 'bg-stone-900 text-white'
+                : 'bg-gradient-to-b from-stone-50 via-rose-50/20 to-white text-stone-900 border-b border-stone-200'
+            }`}>
               {/* Imagem de Fundo do Banner */}
-              <div className="absolute inset-0 h-28 opacity-35">
+              <div className={`absolute inset-0 h-28 ${panelTheme.isDark ? 'opacity-35' : 'opacity-25'}`}>
                 <img
                   src={pro.coverUrl}
                   alt="Banner da Vitrine"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-stone-900/70 to-stone-900" />
+                <div className={`absolute inset-0 ${
+                  panelTheme.isDark
+                    ? 'bg-gradient-to-b from-black/20 via-stone-900/70 to-stone-900'
+                    : 'bg-gradient-to-b from-white/30 via-white/75 to-stone-50/95'
+                }`} />
               </div>
 
               <div className="relative p-5">
@@ -6142,12 +6150,16 @@ export default function App() {
                         alt={pro.name}
                         className="w-12 h-12 rounded-xl object-cover border-2 border-rose-500 shadow-md group-hover:opacity-90 transition"
                       />
-                      <span className="absolute -bottom-1 -right-1 bg-rose-600 text-white p-1 rounded-full border border-stone-900 shadow-xs">
+                      <span className={`absolute -bottom-1 -right-1 bg-rose-600 text-white p-1 rounded-full border ${
+                        panelTheme.isDark ? 'border-stone-900' : 'border-white'
+                      } shadow-xs`}>
                         <Camera className="w-2.5 h-2.5" />
                       </span>
                     </button>
                     <div>
-                      <h2 className="text-base font-bold flex items-center gap-1.5">
+                      <h2 className={`text-base font-bold flex items-center gap-1.5 ${
+                        panelTheme.isDark ? 'text-white' : 'text-stone-900'
+                      }`}>
                         {pro.name}
                         <span
                           className={`w-2 h-2 rounded-full ${
@@ -6156,8 +6168,12 @@ export default function App() {
                           title={isProTrialExpired ? 'Acesso Bloqueado' : 'Online'}
                         />
                       </h2>
-                      <p className="text-[11px] text-rose-300 font-medium">{pro.title}</p>
-                      <p className="text-[10px] text-stone-400">?pro={pro.slug}</p>
+                      <p className={`text-[11px] font-medium ${
+                        panelTheme.isDark ? 'text-rose-300' : 'text-rose-600'
+                      }`}>{pro.title}</p>
+                      <p className={`text-[10px] ${
+                        panelTheme.isDark ? 'text-stone-400' : 'text-stone-500'
+                      }`}>?pro={pro.slug}</p>
                     </div>
                   </div>
 
@@ -6168,18 +6184,26 @@ export default function App() {
                           <span className="text-[10px] font-extrabold uppercase tracking-wider bg-red-600 text-white border border-red-400 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
                             <Lock className="w-2.5 h-2.5" /> 7 Dias Expirados
                           </span>
-                          <p className="text-[10px] text-red-300 font-extrabold mt-1">
+                          <p className={`text-[10px] font-extrabold mt-1 ${
+                            panelTheme.isDark ? 'text-red-300' : 'text-red-600'
+                          }`}>
                             0 dias • Conta Bloqueada
                           </p>
                         </>
                       ) : (
                         <>
-                          <span className="text-[10px] font-bold uppercase tracking-wider bg-rose-900/60 text-rose-300 border border-rose-700/50 px-2 py-0.5 rounded-full">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                            panelTheme.isDark
+                              ? 'bg-rose-900/60 text-rose-300 border-rose-700/50'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
                             {currentUser?.appliedCoupon
                               ? `🎟️ Cupom ${currentUser.appliedCoupon}`
                               : '🎁 7 Dias Grátis (Trial)'}
                           </span>
-                          <p className="text-[10px] text-amber-300 font-bold mt-1">
+                          <p className={`text-[10px] font-bold mt-1 ${
+                            panelTheme.isDark ? 'text-amber-300' : 'text-amber-700'
+                          }`}>
                             {trialDaysLeft}{' '}
                             {trialDaysLeft === 1
                               ? 'dia grátis disponível'
@@ -6189,13 +6213,19 @@ export default function App() {
                       )
                     ) : (
                       <>
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-900/80 text-emerald-300 border border-emerald-600 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3 text-emerald-400" />{' '}
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full inline-flex items-center gap-1 border ${
+                          panelTheme.isDark
+                            ? 'bg-emerald-900/80 text-emerald-300 border-emerald-600'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}>
+                          <CheckCircle className={`w-3 h-3 ${panelTheme.isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />{' '}
                           {currentUser?.appliedCoupon && currentUser?.paymentMethod === 'COUPON'
                             ? `Acesso VIP • ${currentUser.appliedCoupon}`
                             : 'Assinante Ativa'}
                         </span>
-                        <p className="text-[10px] text-emerald-400 mt-1 font-semibold">
+                        <p className={`text-[10px] mt-1 font-semibold ${
+                          panelTheme.isDark ? 'text-emerald-400' : 'text-emerald-700'
+                        }`}>
                           {currentUser?.appliedCoupon && currentUser?.paymentMethod === 'COUPON'
                             ? `${trialDaysLeft} dias livres disponíveis`
                             : planInterval === 'ANNUAL'
@@ -6233,18 +6263,26 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <div className="mt-3 bg-amber-500/15 border border-amber-400/30 rounded-2xl p-2.5 flex items-center justify-between gap-2">
+                    <div className={`mt-3 rounded-2xl p-2.5 flex items-center justify-between gap-2 ${
+                      panelTheme.isDark
+                        ? 'bg-amber-500/15 border border-amber-400/30'
+                        : 'bg-amber-50/90 border border-amber-200/90 shadow-2xs'
+                    }`}>
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-base shrink-0">
                           {currentUser?.appliedCoupon ? '🎟️' : '🎁'}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-[11px] font-extrabold text-amber-300 leading-tight">
+                          <p className={`text-[11px] font-extrabold leading-tight ${
+                            panelTheme.isDark ? 'text-amber-300' : 'text-amber-900'
+                          }`}>
                             {currentUser?.appliedCoupon
                               ? `Cupom ${currentUser.appliedCoupon} Ativo: ${trialDaysLeft} de ${trialTotalDays} dias livres disponíveis`
                               : `Teste Grátis Ativo: ${trialDaysLeft} de 7 dias grátis disponíveis`}
                           </p>
-                          <p className="text-[10px] text-stone-300 truncate">
+                          <p className={`text-[10px] truncate ${
+                            panelTheme.isDark ? 'text-stone-300' : 'text-stone-600'
+                          }`}>
                             Acesso completo liberado até {trialEndDateFormatted} • Após os 7 dias, ative seu plano ou cupom
                           </p>
                         </div>
@@ -6261,16 +6299,22 @@ export default function App() {
                 )}
 
                 {/* PASSO 2: BARRA DE COMPARTILHAMENTO DO LINK EXCLUSIVO DA VITRINE */}
-                <div className="mt-3.5 bg-stone-800/80 border border-stone-700/80 rounded-2xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className={`mt-3.5 rounded-2xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                  panelTheme.isDark
+                    ? 'bg-stone-800/80 border border-stone-700/80'
+                    : 'bg-white border border-stone-200/80 shadow-2xs'
+                }`}>
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={`p-1.5 ${panelTheme.primaryBgLight} ${panelTheme.primaryText} rounded-lg shrink-0`}>
                       <Share2 className="w-3.5 h-3.5" />
                     </div>
                     <div className="truncate">
-                      <p className="text-[10px] font-bold text-stone-300 uppercase tracking-wider">
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${
+                        panelTheme.isDark ? 'text-stone-300' : 'text-stone-600'
+                      }`}>
                         Link Exclusivo da sua Vitrine (Instagram / WhatsApp):
                       </p>
-                      <p className={`text-[11px] font-extrabold ${panelTheme.isDark ? 'text-amber-400' : 'text-rose-300'} truncate`}>
+                      <p className={`text-[11px] font-extrabold ${panelTheme.isDark ? 'text-amber-400' : 'text-rose-600'} truncate`}>
                         {isProTrialExpired
                           ? '🔒 Link pausado até ativação do plano ou cupom'
                           : getDirectVitrineUrl()}
@@ -6287,7 +6331,11 @@ export default function App() {
                         }
                         handleCopyVitrineLink();
                       }}
-                      className="flex-1 sm:flex-initial px-2.5 py-1.5 bg-white hover:bg-stone-100 text-stone-900 rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1 transition cursor-pointer shadow-xs"
+                      className={`flex-1 sm:flex-initial px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1 transition cursor-pointer shadow-xs ${
+                        panelTheme.isDark
+                          ? 'bg-white hover:bg-stone-100 text-stone-900'
+                          : 'bg-stone-100 hover:bg-stone-200 text-stone-800 border border-stone-200'
+                      }`}
                     >
                       <Copy className={`w-3 h-3 ${panelTheme.primaryText}`} />
                       Copiar Link
@@ -6324,17 +6372,25 @@ export default function App() {
                 </div>
 
                 {/* BANNER DO PROGRAMA BETA TESTER (10 PRIMEIRAS PROFISSIONAIS) */}
-                <div className="mt-3 bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-amber-500/30 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className={`mt-3 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                  panelTheme.isDark
+                    ? 'bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-amber-500/30'
+                    : 'bg-gradient-to-r from-amber-50/90 via-rose-50/60 to-purple-50/60 border border-amber-200/80 shadow-2xs'
+                }`}>
                   <div className="flex items-center gap-2.5">
                     <span className="text-xl">🚀</span>
                     <div>
-                      <p className="text-xs font-black text-white flex items-center gap-1.5">
+                      <p className={`text-xs font-black flex items-center gap-1.5 ${
+                        panelTheme.isDark ? 'text-white' : 'text-stone-900'
+                      }`}>
                         Você está no Programa Beta do Belladoor!
                         <span className="text-[9px] bg-amber-400 text-stone-950 px-1.5 py-0.2 rounded-full font-extrabold uppercase">
                           Piloto Gratuito
                         </span>
                       </p>
-                      <p className="text-[11px] text-stone-300">
+                      <p className={`text-[11px] ${
+                        panelTheme.isDark ? 'text-stone-300' : 'text-stone-600'
+                      }`}>
                         Como uma das 10 primeiras profissionais, seu feedback sincero é fundamental para aperfeiçoar a ferramenta.
                       </p>
                     </div>
@@ -6350,10 +6406,18 @@ export default function App() {
                 </div>
 
                 {/* Métricas Rápidas no Topo */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-stone-800 text-center">
-                  <div className="bg-stone-800/60 p-2 rounded-xl flex flex-col justify-between">
-                    <p className="text-[10px] text-stone-400 leading-tight">Receita (Concluídos)</p>
-                    <p className="text-sm font-extrabold text-emerald-400 mt-1">
+                <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t text-center ${
+                  panelTheme.isDark ? 'border-stone-800' : 'border-stone-200/80'
+                }`}>
+                  <div className={`p-2 rounded-xl flex flex-col justify-between ${
+                    panelTheme.isDark ? 'bg-stone-800/60' : 'bg-white border border-stone-200/80 shadow-2xs'
+                  }`}>
+                    <p className={`text-[10px] leading-tight ${
+                      panelTheme.isDark ? 'text-stone-400' : 'text-stone-500 font-medium'
+                    }`}>Receita (Concluídos)</p>
+                    <p className={`text-sm font-extrabold mt-1 ${
+                      panelTheme.isDark ? 'text-emerald-400' : 'text-emerald-600'
+                    }`}>
                       R${' '}
                       {myProAppointments
                         .filter((a) => a.status === 'Concluído')
@@ -6361,44 +6425,72 @@ export default function App() {
                         .toFixed(0)}
                     </p>
                   </div>
-                  <div className="bg-stone-800/60 p-2 rounded-xl flex flex-col justify-between">
-                    <p className="text-[10px] text-stone-400 leading-tight">Atendimentos Agendados</p>
-                    <p className="text-sm font-extrabold text-sky-400 mt-1">
+                  <div className={`p-2 rounded-xl flex flex-col justify-between ${
+                    panelTheme.isDark ? 'bg-stone-800/60' : 'bg-white border border-stone-200/80 shadow-2xs'
+                  }`}>
+                    <p className={`text-[10px] leading-tight ${
+                      panelTheme.isDark ? 'text-stone-400' : 'text-stone-500 font-medium'
+                    }`}>Atendimentos Agendados</p>
+                    <p className={`text-sm font-extrabold mt-1 ${
+                      panelTheme.isDark ? 'text-sky-400' : 'text-sky-600'
+                    }`}>
                       {myProAppointments.filter((a) => a.status === 'Confirmado').length}
                     </p>
                   </div>
-                  <div className="bg-stone-800/60 p-2 rounded-xl flex flex-col justify-between">
-                    <p className="text-[10px] text-stone-400 leading-tight">Atendimentos Concluídos</p>
-                    <p className="text-sm font-extrabold text-rose-400 mt-1">
+                  <div className={`p-2 rounded-xl flex flex-col justify-between ${
+                    panelTheme.isDark ? 'bg-stone-800/60' : 'bg-white border border-stone-200/80 shadow-2xs'
+                  }`}>
+                    <p className={`text-[10px] leading-tight ${
+                      panelTheme.isDark ? 'text-stone-400' : 'text-stone-500 font-medium'
+                    }`}>Atendimentos Concluídos</p>
+                    <p className={`text-sm font-extrabold mt-1 ${
+                      panelTheme.isDark ? 'text-rose-400' : 'text-rose-600'
+                    }`}>
                       {myProAppointments.filter((a) => a.status === 'Concluído').length}
                     </p>
                   </div>
-                  <div className="bg-stone-800/60 p-2 rounded-xl flex flex-col justify-between">
-                    <p className="text-[10px] text-stone-400 leading-tight">Nota Vitrine</p>
-                    <p className="text-sm font-extrabold text-amber-400 mt-1">⭐ {pro.rating}</p>
+                  <div className={`p-2 rounded-xl flex flex-col justify-between ${
+                    panelTheme.isDark ? 'bg-stone-800/60' : 'bg-white border border-stone-200/80 shadow-2xs'
+                  }`}>
+                    <p className={`text-[10px] leading-tight ${
+                      panelTheme.isDark ? 'text-stone-400' : 'text-stone-500 font-medium'
+                    }`}>Nota Vitrine</p>
+                    <p className={`text-sm font-extrabold mt-1 ${
+                      panelTheme.isDark ? 'text-amber-400' : 'text-amber-600'
+                    }`}>⭐ {pro.rating}</p>
                   </div>
                 </div>
 
                 {/* Atalho para abrir a Janela do Assistente Passo a Passo e Regras & Sinal */}
-                <div className="mt-3 pt-2.5 border-t border-stone-800 flex items-center justify-between flex-wrap gap-2">
-                  <p className="text-[10px] text-stone-400">
+                <div className={`mt-3 pt-2.5 border-t flex items-center justify-between flex-wrap gap-2 ${
+                  panelTheme.isDark ? 'border-stone-800' : 'border-stone-200/80'
+                }`}>
+                  <p className={`text-[10px] ${panelTheme.isDark ? 'text-stone-400' : 'text-stone-500'}`}>
                     Ajuste suas regras anti-furo ou revise sua conta passo a passo:
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setShowBookingRulesModal(true)}
-                      className="text-[10px] font-extrabold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0"
+                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0 ${
+                        panelTheme.isDark
+                          ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      }`}
                     >
-                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      <ShieldCheck className={`w-3 h-3 ${panelTheme.isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
                       Regras & Sinal 50%
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowBetaFeedbackModal(true)}
-                      className="text-[10px] font-extrabold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0"
+                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0 ${
+                        panelTheme.isDark
+                          ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}
                     >
-                      <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                      <Star className={`w-3 h-3 ${panelTheme.isDark ? 'text-amber-400 fill-amber-400' : 'text-amber-500 fill-amber-500'}`} />
                       Feedback do Beta ⭐
                     </button>
                     <button
