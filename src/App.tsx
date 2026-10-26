@@ -112,6 +112,7 @@ import {
   buildWhatsAppLink,
   PIX_KEY_LABELS,
 } from './utils/bookingRules';
+import { validateCPF, formatCPF } from './utils/cpf';
 import { HeaderBar } from './components/HeaderBar';
 import { AuthView } from './components/AuthView';
 import { ClientBookingsView } from './components/ClientBookingsView';
@@ -174,6 +175,7 @@ export default function App() {
   const [roleExplicitlyChosen, setRoleExplicitlyChosen] = useState<boolean>(false);
   const [authName, setAuthName] = useState<string>('');
   const [authBirthDate, setAuthBirthDate] = useState<string>('');
+  const [authCpf, setAuthCpf] = useState<string>('');
   const [authEmail, setAuthEmail] = useState<string>('');
   const [authPassword, setAuthPassword] = useState<string>('');
   const [authConfirmPassword, setAuthConfirmPassword] = useState<string>('');
@@ -803,6 +805,9 @@ export default function App() {
       : null;
 
     setProDisplayName(userSavedVitrine?.name || user.fullName || '');
+    if (user.cpf) {
+      setAuthCpf(user.cpf);
+    }
     setProDisplayTitle(userSavedVitrine?.title || '');
     setProDisplayBio(userSavedVitrine?.bio || '');
     setProInstagram(userSavedVitrine?.instagram || '');
@@ -1142,6 +1147,15 @@ export default function App() {
         return;
       }
 
+      // Validação obrigatória do CPF para profissionais da beleza
+      if (authRole === 'PROFESSIONAL') {
+        const cpfError = validateCPF(authCpf);
+        if (cpfError) {
+          setAuthError(cpfError);
+          return;
+        }
+      }
+
       if (authPassword.length < 6) {
         setAuthError('A senha deve ter pelo menos 6 caracteres.');
         return;
@@ -1178,7 +1192,8 @@ export default function App() {
           authPassword,
           authName.trim(),
           authRole,
-          authBirthDate.trim()
+          authBirthDate.trim(),
+          authRole === 'PROFESSIONAL' ? authCpf.trim() : undefined
         );
         if (res.error) {
           setAuthError(res.error);
@@ -1325,6 +1340,7 @@ export default function App() {
     setAuthConfirmPassword('');
     setAuthName('');
     setAuthBirthDate('');
+    setAuthCpf('');
     setAuthError(null);
     setVerificationFeedback(null);
     setPendingVerificationEmail(null);
@@ -1411,6 +1427,7 @@ export default function App() {
       email: cleanNewEmail,
       fullName: updatedUser.fullName.trim(),
       birthDate: updatedUser.birthDate?.trim() || '',
+      cpf: updatedUser.cpf?.trim() || '',
       role: updatedUser.role,
       emailVerified: Boolean(updatedUser.emailVerified),
       requiresEmailVerification: !updatedUser.emailVerified,
@@ -4365,6 +4382,7 @@ export default function App() {
               authRole={authRole}
               authName={authName}
               authBirthDate={authBirthDate}
+              authCpf={authCpf}
               authEmail={authEmail}
               authPassword={authPassword}
               authConfirmPassword={authConfirmPassword}
@@ -4389,6 +4407,7 @@ export default function App() {
               }}
               onChangeName={setAuthName}
               onChangeBirthDate={setAuthBirthDate}
+              onChangeCpf={setAuthCpf}
               onChangeEmail={setAuthEmail}
               onChangePassword={setAuthPassword}
               onChangeConfirmPassword={setAuthConfirmPassword}
@@ -10732,6 +10751,8 @@ export default function App() {
         proNeighborhoodsList={proNeighborhoodsList}
         setProNeighborhoodsList={setProNeighborhoodsList}
         dynamicCitySuggestions={dynamicCitySuggestions}
+        proCpf={currentUser?.cpf || authCpf}
+        currentUserEmail={currentUser?.email || authEmail}
       />
 
       {/* JANELA GERADORA DE ARTE PARA STORIES & QR CODE DA VITRINE */}
@@ -10800,6 +10821,7 @@ export default function App() {
         proName={proDisplayName || currentUser?.fullName || ''}
         proWhatsapp={proWhatsapp}
         proEmail={currentUser?.email}
+        proCpf={currentUser?.cpf || authCpf}
         isBarbershop={proBusinessNiche === 'BARBERSHOP'}
       />
 

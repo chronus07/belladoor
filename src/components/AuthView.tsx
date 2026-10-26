@@ -15,7 +15,9 @@ import {
   Lock,
   ShieldCheck,
   KeyRound,
+  CreditCard,
 } from 'lucide-react';
+import { formatCPF } from '../utils/cpf';
 import {
   resetUserPasswordInFirebase,
   sendFirebasePasswordResetLink,
@@ -26,6 +28,7 @@ interface AuthViewProps {
   authRole: 'CLIENT' | 'PROFESSIONAL';
   authName: string;
   authBirthDate: string;
+  authCpf?: string;
   authEmail: string;
   authPassword: string;
   authConfirmPassword: string;
@@ -38,6 +41,7 @@ interface AuthViewProps {
   onChangeMode: (mode: 'LOGIN' | 'REGISTER') => void;
   onChangeName: (val: string) => void;
   onChangeBirthDate: (val: string) => void;
+  onChangeCpf?: (val: string) => void;
   onChangeEmail: (val: string) => void;
   onChangePassword: (val: string) => void;
   onChangeConfirmPassword: (val: string) => void;
@@ -60,6 +64,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   authRole,
   authName,
   authBirthDate,
+  authCpf = '',
   authEmail,
   authPassword,
   authConfirmPassword,
@@ -72,6 +77,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onChangeMode,
   onChangeName,
   onChangeBirthDate,
+  onChangeCpf,
   onChangeEmail,
   onChangePassword,
   onChangeConfirmPassword,
@@ -523,6 +529,36 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* CPF da Profissional (Obrigatório para Profissionais) */}
+                {authRole === 'PROFESSIONAL' && (
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center justify-between">
+                      <span>
+                        CPF da Profissional <span className="text-rose-600">*</span>
+                      </span>
+                      <span className="text-[10px] text-rose-600 font-extrabold uppercase bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md">
+                        Obrigatório
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <CreditCard className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        maxLength={14}
+                        placeholder="000.000.000-00"
+                        value={authCpf}
+                        onChange={(e) => onChangeCpf?.(formatCPF(e.target.value))}
+                        className="w-full bg-stone-50 border border-stone-300 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+                      />
+                    </div>
+                    <p className="text-[10px] text-stone-500 mt-1">
+                      🔒 Necessário para emissão dos comprovantes da vitrine e cadastro do PIX de recebimento do sinal.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 

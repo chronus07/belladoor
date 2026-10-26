@@ -20,6 +20,7 @@ export interface AuthUser {
   email: string;
   fullName: string;
   birthDate?: string;
+  cpf?: string;
   emailVerified?: boolean;
   role: 'CLIENT' | 'PROFESSIONAL';
   avatarUrl?: string;
@@ -105,10 +106,11 @@ export async function signUpWithEmail(
   pass: string,
   fullName: string,
   role: 'CLIENT' | 'PROFESSIONAL',
-  birthDate?: string
+  birthDate?: string,
+  cpf?: string
 ): Promise<{ user?: AuthUser; requiresEmailVerification?: boolean; error?: string }> {
   if (isFirebaseConfigured()) {
-    return signUpWithFirebaseEmail(email, pass, fullName, role, birthDate);
+    return signUpWithFirebaseEmail(email, pass, fullName, role, birthDate, cpf);
   }
 
   const supabase = getSupabaseClient();
@@ -123,6 +125,7 @@ export async function signUpWithEmail(
       email,
       fullName: fullName || email.split('@')[0],
       birthDate,
+      cpf: cpf?.trim() || undefined,
       emailVerified: false,
       role,
       isTrialActive: role === 'PROFESSIONAL',

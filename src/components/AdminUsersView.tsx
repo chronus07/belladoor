@@ -40,6 +40,7 @@ import {
 } from '../utils/mercadoPago';
 import { AdminDashboardTab } from './AdminDashboardTab';
 import { BetaFeedbackEntry } from '../../lib/firebaseClient';
+import { formatCPF } from '../utils/cpf';
 
 export interface UnifiedAdminUser {
   key: string;
@@ -47,6 +48,7 @@ export interface UnifiedAdminUser {
   email: string;
   fullName: string;
   birthDate?: string;
+  cpf?: string;
   role: 'CLIENT' | 'PROFESSIONAL';
   emailVerified: boolean;
   avatarUrl?: string;
@@ -208,6 +210,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         email,
         fullName: acc.fullName || dirPro?.name || email.split('@')[0],
         birthDate: acc.birthDate || '',
+        cpf: acc.cpf || '',
         role: acc.role === 'PROFESSIONAL' ? 'PROFESSIONAL' : 'CLIENT',
         emailVerified: acc.emailVerified !== false,
         avatarUrl: dirPro?.avatarUrl || acc.avatarUrl,
@@ -261,6 +264,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         email: inferredEmail,
         fullName: dirPro.name,
         birthDate: '',
+        cpf: (dirPro as any).cpf || '',
         role: 'PROFESSIONAL',
         emailVerified: true,
         avatarUrl: dirPro.avatarUrl,
@@ -969,6 +973,11 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3 text-stone-400" />
                                 Nasc: {u.birthDate}
+                              </span>
+                            )}
+                            {u.cpf && (
+                              <span className="flex items-center gap-1 font-mono font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded-md border border-stone-200">
+                                💳 CPF: {u.cpf}
                               </span>
                             )}
                             {u.whatsapp && (
@@ -1905,6 +1914,26 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                       })
                     }
                     className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">
+                    CPF
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={14}
+                    placeholder="000.000.000-00"
+                    value={editingUser.cpf || ''}
+                    onChange={(e) =>
+                      setEditingUser({
+                        ...editingUser,
+                        cpf: formatCPF(e.target.value),
+                      })
+                    }
+                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
                   />
                 </div>
               </div>

@@ -94,12 +94,13 @@ export function getDefaultBookingRules(pro?: {
   name?: string;
   whatsapp?: string;
   email?: string;
+  cpf?: string;
   businessNiche?: string;
 }): BookingConfirmationSettings {
   const isBarbershop = pro?.businessNiche === 'BARBERSHOP';
   const rawPhone = pro?.whatsapp ? pro.whatsapp.replace(/\D/g, '') : '';
-  const initialPixKey = rawPhone || pro?.email || '';
-  const initialPixType: PixKeyType = rawPhone ? 'PHONE' : pro?.email ? 'EMAIL' : 'PHONE';
+  const initialPixKey = rawPhone || pro?.cpf || pro?.email || '';
+  const initialPixType: PixKeyType = rawPhone ? 'PHONE' : pro?.cpf ? 'CPF' : pro?.email ? 'EMAIL' : 'PHONE';
   const initialReceiver = pro?.name?.trim() || 'Profissional BellaDoor';
   const templateWithDeposit = getDefaultMessageTemplate(isBarbershop, true);
   const templateWithoutDeposit = getDefaultMessageTemplate(isBarbershop, false);
@@ -130,7 +131,7 @@ export function getDefaultBookingRules(pro?: {
  */
 export function getEffectiveBookingRules(
   stored?: Partial<BookingConfirmationSettings> | null,
-  pro?: { name?: string; whatsapp?: string; email?: string; businessNiche?: string }
+  pro?: { name?: string; whatsapp?: string; email?: string; cpf?: string; businessNiche?: string }
 ): BookingConfirmationSettings {
   const defaults = getDefaultBookingRules(pro);
   if (!stored) return defaults;
@@ -168,11 +169,11 @@ export function getEffectiveBookingRules(
       typeof stored.depositPercentage === 'number' && stored.depositPercentage > 0
         ? stored.depositPercentage
         : defaults.depositPercentage,
-    pixKey: typeof stored.pixKey === 'string' && stored.pixKey.trim() ? stored.pixKey.trim() : defaults.pixKey,
+    pixKey: typeof stored.pixKey === 'string' ? stored.pixKey : defaults.pixKey,
     pixKeyType: stored.pixKeyType || defaults.pixKeyType,
     pixReceiverName:
-      typeof stored.pixReceiverName === 'string' && stored.pixReceiverName.trim()
-        ? stored.pixReceiverName.trim()
+      typeof stored.pixReceiverName === 'string'
+        ? stored.pixReceiverName
         : defaults.pixReceiverName,
     depositTimeLimitHours:
       typeof stored.depositTimeLimitHours === 'number' && stored.depositTimeLimitHours > 0

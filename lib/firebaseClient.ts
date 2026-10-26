@@ -336,7 +336,8 @@ export async function signUpWithFirebaseEmail(
   pass: string,
   fullName: string,
   role: 'CLIENT' | 'PROFESSIONAL',
-  birthDate?: string
+  birthDate?: string,
+  cpf?: string
 ): Promise<{ user?: AuthUser; requiresEmailVerification?: boolean; error?: string }> {
   const trialEnd = new Date();
   trialEnd.setDate(trialEnd.getDate() + 7);
@@ -448,6 +449,7 @@ export async function signUpWithFirebaseEmail(
     email: normalizedEmail,
     fullName: fullName.trim() || normalizedEmail.split('@')[0],
     birthDate: birthDate?.trim() || undefined,
+    cpf: cpf?.trim() || undefined,
     emailVerified: false,
     role,
     isTrialActive: role === 'PROFESSIONAL',

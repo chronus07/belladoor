@@ -91,6 +91,8 @@ interface ProOnboardingWizardModalProps {
   // Passo 5: Regras de Agendamento & Sinal (Anti-Furo)
   bookingRules: BookingConfirmationSettings;
   setBookingRules: React.Dispatch<React.SetStateAction<BookingConfirmationSettings>>;
+  proCpf?: string;
+  currentUserEmail?: string;
 }
 
 export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> = ({
@@ -103,6 +105,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
   isBarbershop,
   bookingRules,
   setBookingRules,
+  proCpf,
+  currentUserEmail,
   proDisplayName,
   setProDisplayName,
   proDisplayTitle,
@@ -372,6 +376,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
   const effectiveRules = getEffectiveBookingRules(bookingRules, {
     name: proDisplayName || 'Profissional',
     whatsapp: proWhatsapp,
+    email: currentUserEmail,
+    cpf: proCpf,
     businessNiche: isBarbershop ? 'BARBERSHOP' : undefined,
   });
 
@@ -724,6 +730,17 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                     className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white"
                   />
                 </div>
+
+                {proCpf && (
+                  <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-2.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="text-stone-600 font-bold flex items-center gap-1.5 text-[11px]">
+                      🔒 CPF da Profissional (Validado):
+                    </span>
+                    <span className="font-mono font-black text-stone-800 bg-white px-2.5 py-1 rounded-xl border border-stone-200 shadow-2xs text-[11px]">
+                      {proCpf}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1545,13 +1562,29 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                         Tipo de Chave PIX:
                       </label>
                       <select
-                        value={effectiveRules.pixKeyType}
-                        onChange={(e) =>
-                          setBookingRules((prev) => ({
-                            ...prev,
-                            pixKeyType: e.target.value as PixKeyType,
-                          }))
-                        }
+                        value={bookingRules.pixKeyType || effectiveRules.pixKeyType}
+                        onChange={(e) => {
+                          const newType = e.target.value as PixKeyType;
+                          setBookingRules((prev) => {
+                            let nextKey = prev.pixKey ?? '';
+                            if (newType === 'CPF') {
+                              if (proCpf) {
+                                nextKey = proCpf;
+                              } else if (nextKey.includes('@')) {
+                                nextKey = '';
+                              }
+                            } else if (newType === 'PHONE' && proWhatsapp) {
+                              nextKey = proWhatsapp.replace(/\D/g, '');
+                            } else if (newType === 'EMAIL' && (!nextKey || prev.pixKeyType !== 'EMAIL')) {
+                              nextKey = currentUserEmail || '';
+                            }
+                            return {
+                              ...prev,
+                              pixKeyType: newType,
+                              pixKey: nextKey,
+                            };
+                          });
+                        }}
                         className="w-full text-xs font-medium p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
                       >
                         <option value="PHONE">Celular / WhatsApp</option>
@@ -1563,35 +1596,61 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                     </div>
 
                     <div className="sm:col-span-2">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
                         <label className="block text-[11px] font-bold text-stone-600">
                           Chave PIX:
                         </label>
-                        {proWhatsapp && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const cleanPhone = proWhatsapp.replace(/\D/g, '');
-                              setBookingRules((prev) => ({
-                                ...prev,
-                                pixKey: cleanPhone,
-                                pixKeyType: 'PHONE',
-                              }));
-                              showNotice('📱 Chave PIX preenchida com seu WhatsApp!');
-                            }}
-                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
-                          >
-                            Usar meu WhatsApp ({proWhatsapp})
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {proCpf && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBookingRules((prev) => ({
+                                  ...prev,
+                                  pixKey: proCpf,
+                                  pixKeyType: 'CPF',
+                                }));
+                                showNotice('💳 Chave PIX preenchida com seu CPF!');
+                              }}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                            >
+                              Usar meu CPF ({proCpf})
+                            </button>
+                          )}
+                          {proWhatsapp && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cleanPhone = proWhatsapp.replace(/\D/g, '');
+                                setBookingRules((prev) => ({
+                                  ...prev,
+                                  pixKey: cleanPhone,
+                                  pixKeyType: 'PHONE',
+                                }));
+                                showNotice('📱 Chave PIX preenchida com seu WhatsApp!');
+                              }}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                            >
+                              Usar meu WhatsApp ({proWhatsapp})
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <input
                         type="text"
-                        value={effectiveRules.pixKey}
+                        value={bookingRules.pixKey !== undefined ? bookingRules.pixKey : effectiveRules.pixKey}
                         onChange={(e) =>
                           setBookingRules((prev) => ({ ...prev, pixKey: e.target.value }))
                         }
-                        placeholder="Ex: 11987654321 ou seu e-mail / chave aleatória"
+                        placeholder={
+                          (bookingRules.pixKeyType || effectiveRules.pixKeyType) === 'CPF'
+                            ? '000.000.000-00'
+                            : (bookingRules.pixKeyType || effectiveRules.pixKeyType) === 'PHONE'
+                            ? '(11) 99999-9999'
+                            : (bookingRules.pixKeyType || effectiveRules.pixKeyType) === 'EMAIL'
+                            ? 'seuemail@exemplo.com'
+                            : 'Ex: 11987654321 ou seu CPF / e-mail / chave aleatória'
+                        }
                         className="w-full text-xs font-mono font-bold p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
@@ -1621,7 +1680,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                       </div>
                       <input
                         type="text"
-                        value={effectiveRules.pixReceiverName}
+                        value={bookingRules.pixReceiverName !== undefined ? bookingRules.pixReceiverName : effectiveRules.pixReceiverName}
                         onChange={(e) =>
                           setBookingRules((prev) => ({
                             ...prev,

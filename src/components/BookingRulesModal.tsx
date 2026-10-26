@@ -36,6 +36,7 @@ interface BookingRulesModalProps {
   proName: string;
   proWhatsapp: string;
   proEmail?: string;
+  proCpf?: string;
   isBarbershop?: boolean;
 }
 
@@ -47,6 +48,7 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
   proName,
   proWhatsapp,
   proEmail,
+  proCpf,
   isBarbershop = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'rules' | 'message' | 'preview'>('rules');
@@ -343,12 +345,28 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                       </label>
                       <select
                         value={settings.pixKeyType}
-                        onChange={(e) =>
-                          setSettings((prev) => ({
-                            ...prev,
-                            pixKeyType: e.target.value as PixKeyType,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const newType = e.target.value as PixKeyType;
+                          setSettings((prev) => {
+                            let nextKey = prev.pixKey ?? '';
+                            if (newType === 'CPF') {
+                              if (proCpf) {
+                                nextKey = proCpf;
+                              } else if (nextKey.includes('@')) {
+                                nextKey = '';
+                              }
+                            } else if (newType === 'PHONE' && proWhatsapp) {
+                              nextKey = proWhatsapp.replace(/\D/g, '');
+                            } else if (newType === 'EMAIL' && (!nextKey || prev.pixKeyType !== 'EMAIL')) {
+                              nextKey = proEmail || '';
+                            }
+                            return {
+                              ...prev,
+                              pixKeyType: newType,
+                              pixKey: nextKey,
+                            };
+                          });
+                        }}
                         className="w-full text-xs font-medium p-2.5 bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       >
                         <option value="PHONE">Celular / WhatsApp</option>
@@ -360,9 +378,44 @@ export const BookingRulesModal: React.FC<BookingRulesModalProps> = ({
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                        Sua Chave PIX:
-                      </label>
+                      <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+                        <label className="block text-[11px] font-bold text-stone-600">
+                          Sua Chave PIX:
+                        </label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {proCpf && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  pixKey: proCpf,
+                                  pixKeyType: 'CPF',
+                                }));
+                              }}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                            >
+                              Usar meu CPF ({proCpf})
+                            </button>
+                          )}
+                          {proWhatsapp && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const clean = proWhatsapp.replace(/\D/g, '');
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  pixKey: clean,
+                                  pixKeyType: 'PHONE',
+                                }));
+                              }}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                            >
+                              Usar WhatsApp
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <input
                         type="text"
                         value={settings.pixKey}
