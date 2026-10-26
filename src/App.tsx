@@ -902,8 +902,9 @@ export default function App() {
       return;
     }
 
-    if (isNewRegistration) {
-      setShowTrialModal(true);
+    if (isNewRegistration || !hasCompletedInitialOnboarding) {
+      setShowTrialModal(false);
+      startProOnboardingWizard('🎉 7 Dias Grátis Liberados');
     } else {
       setShowTrialModal(false);
       showProSuccess(
@@ -989,7 +990,7 @@ export default function App() {
         }
         setCurrentUser(res.user);
         if (res.user.role === 'PROFESSIONAL') {
-          applyProfessionalLoginFlow(res.user, !res.isExistingUser && authMode === 'REGISTER');
+          applyProfessionalLoginFlow(res.user, !res.isExistingUser);
         } else {
           setActiveTab('client');
           setClientSubView('EXPLORE');
@@ -2183,6 +2184,9 @@ export default function App() {
         localStorage.setItem('belladoor_v2_user', JSON.stringify(updatedUser));
       } catch {}
       showProSuccess('💳 CPF salvo com sucesso no seu cadastro profissional!');
+      if (!hasCompletedInitialOnboarding) {
+        startProOnboardingWizard('🎉 7 Dias Grátis Liberados');
+      }
       return true;
     } catch (e) {
       console.error('Erro ao salvar CPF do profissional:', e);
@@ -2278,11 +2282,7 @@ export default function App() {
       (currentUser?.email &&
         cloudAccounts[currentUser.email.trim().toLowerCase()]?.onboardingCompleted) ||
       (activeProKey &&
-        loadFromStorage<boolean>(`belladoor_v2_onboarding_done_${activeProKey}`, false)) ||
-      proServicesList.length > 0 ||
-      proNeighborhoodsList.length > 0 ||
-      Boolean(proDisplayTitle.trim()) ||
-      Boolean(proBaseCity.trim())
+        loadFromStorage<boolean>(`belladoor_v2_onboarding_done_${activeProKey}`, false))
   );
   const [showPromoCardModal, setShowPromoCardModal] = useState<boolean>(false);
   const [showManualAppointmentModal, setShowManualAppointmentModal] = useState<boolean>(false);
@@ -2326,7 +2326,6 @@ export default function App() {
   };
 
   const startProOnboardingWizard = (badge?: string) => {
-    markOnboardingAsDone();
     setActiveTab('pro');
     setWizardActivationBadge(badge || null);
     setOnboardingWizardStep(1);
