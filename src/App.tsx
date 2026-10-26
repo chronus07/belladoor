@@ -54,6 +54,7 @@ import {
   RotateCcw,
   Palette,
   Sliders,
+  UserCheck,
 } from 'lucide-react';
 import { mockProfessional, MockService, MockNeighborhood, mockProfessionalsList, MockProfessional } from './data/mockData';
 import { BELLADOOR_PLANS } from '../lib/subscriptionService';
@@ -127,6 +128,7 @@ import { LgpdTermsModal } from './components/LgpdTermsModal';
 import { BookingRulesModal } from './components/BookingRulesModal';
 import { BetaFeedbackModal } from './components/BetaFeedbackModal';
 import { ProCpfPromptModal } from './components/ProCpfPromptModal';
+import { UserProfileModal } from './components/UserProfileModal';
 import { getThemeClasses, VisualTheme } from './utils/theme';
 
 export default function App() {
@@ -187,6 +189,7 @@ export default function App() {
   const [verificationFeedback, setVerificationFeedback] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [showTrialModal, setShowTrialModal] = useState<boolean>(false);
+  const [showUserProfileModal, setShowUserProfileModal] = useState<boolean>(false);
   const [selectedTrialPlan, setSelectedTrialPlan] = useState<'MONTHLY' | 'ANNUAL'>('ANNUAL');
   const [showAdminPanel, setShowAdminPanel] = useState<boolean>(false);
   const [cloudAccounts, setCloudAccounts] = useState<Record<string, any>>(() =>
@@ -2191,6 +2194,70 @@ export default function App() {
       console.error('Erro ao salvar CPF do profissional:', e);
       return false;
     }
+  };
+
+  // Atualização dos dados cadastrais (Profissional e Cliente)
+  const handleSaveUserProfile = async (updatedData: {
+    fullName: string;
+    cpf?: string;
+    phone?: string;
+    birthDate?: string;
+  }) => {
+    if (!currentUser || !currentUser.email) return;
+
+    const updatedUser: AuthUser = {
+      ...currentUser,
+      fullName: updatedData.fullName,
+      cpf: updatedData.cpf !== undefined ? updatedData.cpf : currentUser.cpf,
+      phone: updatedData.phone !== undefined ? updatedData.phone : currentUser.phone,
+      birthDate: updatedData.birthDate !== undefined ? updatedData.birthDate : currentUser.birthDate,
+    };
+
+    setCurrentUser(updatedUser);
+    setAuthName(updatedData.fullName);
+    if (updatedData.cpf) setAuthCpf(updatedData.cpf);
+    if (updatedData.birthDate) setAuthBirthDate(updatedData.birthDate);
+
+    try {
+      localStorage.setItem('belladoor_v2_user', JSON.stringify(updatedUser));
+    } catch {}
+
+    // Se for profissional, sincroniza nome e whatsapp com a vitrine
+    if (currentUser.role === 'PROFESSIONAL') {
+      if (updatedData.fullName) {
+        setProDisplayName(updatedData.fullName);
+      }
+      if (updatedData.phone) {
+        setProWhatsapp(updatedData.phone);
+      }
+      if (activeProKey) {
+        const vitrineKey = `belladoor_v2_pro_vitrine_${activeProKey}`;
+        const currentVitrine = loadFromStorage<any>(vitrineKey, {});
+        const updatedVitrine = {
+          ...currentVitrine,
+          name: updatedData.fullName || currentVitrine.name,
+          whatsapp: updatedData.phone || currentVitrine.whatsapp,
+        };
+        try {
+          localStorage.setItem(vitrineKey, JSON.stringify(updatedVitrine));
+        } catch {}
+        if (isFirebaseConfigured()) {
+          syncDocumentToFirestore(`pro_vitrine_${activeProKey}`, updatedVitrine);
+        }
+      }
+    }
+
+    // Salva no banco de dados Firestore
+    if (isFirebaseConfigured() && currentUser.email) {
+      await updateUserAccountInFirestore(currentUser.email, {
+        fullName: updatedUser.fullName,
+        cpf: updatedUser.cpf,
+        phone: updatedUser.phone,
+        birthDate: updatedUser.birthDate,
+      });
+    }
+
+    showProSuccess('✅ Seus dados cadastrais foram atualizados com sucesso!');
   };
 
   // Confirmação de Base Residencial (Onde Você Mora)
@@ -4294,6 +4361,7 @@ export default function App() {
         onExitVitrinePreview={handleExitVitrinePreview}
         onToggleProPreview={handleOpenVitrinePreview}
         onToggleAdminPanel={() => setShowAdminPanel((prev) => !prev)}
+        onOpenProfileModal={() => setShowUserProfileModal(true)}
         onLogout={handleLogout}
       />
 
@@ -6118,6 +6186,7 @@ export default function App() {
             onSubmitReview={handleSubmitClientReview}
             onOpenReviewForAppointment={handleOpenReviewForAppointment}
             onCancelClientAppointment={handleCancelClientAppointment}
+            onOpenProfileModal={() => setShowUserProfileModal(true)}
           />
         ) : (
           /* ========================================================== */
@@ -6211,6 +6280,19 @@ export default function App() {
                       <p className={`text-[10px] ${
                         panelTheme.isDark ? 'text-stone-400' : 'text-stone-500'
                       }`}>?pro={pro.slug}</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowUserProfileModal(true)}
+                        className={`mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold border transition cursor-pointer shadow-2xs ${
+                          panelTheme.isDark
+                            ? 'bg-stone-800 hover:bg-stone-700 text-stone-200 border-stone-700'
+                            : 'bg-white hover:bg-stone-50 text-stone-700 border-stone-200'
+                        }`}
+                        title="Editar seus dados cadastrais (CPF, Nome, Telefone)"
+                      >
+                        <UserCheck className="w-3 h-3 text-rose-500" />
+                        <span>Meus Dados (CPF & Cadastro)</span>
+                      </button>
                     </div>
                   </div>
 
@@ -10848,6 +10930,16 @@ export default function App() {
         userFullName={currentUser?.fullName}
         userEmail={currentUser?.email}
         onSaveCpf={handleSaveMissingProCpf}
+      />
+
+      {/* MODAL DE EDIÇÃO DE DADOS CADASTRAIS (PROFISSIONAL & CLIENTE) */}
+      <UserProfileModal
+        isOpen={showUserProfileModal}
+        onClose={() => setShowUserProfileModal(false)}
+        currentUser={currentUser}
+        onSave={handleSaveUserProfile}
+        isPro={currentUser?.role === 'PROFESSIONAL'}
+        currentWhatsapp={proWhatsapp}
       />
 
       {/* MODAIS GLOBAIS: ONBOARDING 7 DIAS GRÁTIS & JANELINHA PADRÃO BELLADOOR */}

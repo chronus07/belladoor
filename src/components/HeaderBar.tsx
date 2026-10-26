@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Calendar, LogOut, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Calendar, LogOut, ShieldCheck, UserCheck } from 'lucide-react';
 import { AuthUser } from '../../lib/supabaseClient';
 
 interface HeaderBarProps {
@@ -17,6 +17,7 @@ interface HeaderBarProps {
   onExitVitrinePreview?: () => void;
   onEnterClientMode?: () => void;
   onToggleAdminPanel?: () => void;
+  onOpenProfileModal?: () => void;
   onLogout: () => void;
 }
 
@@ -35,6 +36,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onExitVitrinePreview,
   onEnterClientMode,
   onToggleAdminPanel,
+  onOpenProfileModal,
   onLogout,
 }) => {
   const isMasterAdmin =
@@ -234,50 +236,72 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
 
             {/* Card do Usuário Logado */}
-            <div className="flex items-center gap-1 sm:gap-2 bg-stone-50 border border-stone-200 p-1 sm:pl-2 sm:pr-1.5 sm:py-1 rounded-xl text-xs shrink-0">
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-rose-600 text-white font-bold flex items-center justify-center text-[10px] overflow-hidden shrink-0">
-                {(() => {
-                  const defaultStockAvatar =
-                    'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=400&q=80';
-                  const customProAvatar =
-                    currentUser.role === 'PROFESSIONAL' &&
-                    proAvatarUrl &&
-                    proAvatarUrl !== defaultStockAvatar
-                      ? proAvatarUrl
-                      : '';
-                  const resolvedAvatar = customProAvatar || currentUser.avatarUrl || '';
-                  return resolvedAvatar ? (
-                    <img
-                      src={resolvedAvatar}
-                      alt={currentUser.fullName}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    (currentUser.fullName || currentUser.email || 'U').charAt(0).toUpperCase()
-                  );
-                })()}
-              </div>
-              <div className="hidden md:block leading-tight text-left">
-                <p className="font-bold text-stone-900 text-[11px] truncate max-w-[140px]">
-                  {currentUser.role === 'PROFESSIONAL'
-                    ? proDisplayName.trim() || currentUser.fullName
-                    : currentUser.fullName}
-                </p>
-                <p className="text-[9px] text-stone-500 truncate max-w-[140px]" title={currentUser.email}>
-                  {isMasterAdmin ? (
-                    <span className="text-amber-600 font-extrabold">
-                      Gestão Master • {currentUser.email}
-                    </span>
-                  ) : currentUser.role === 'PROFESSIONAL' ? (
-                    <span className="text-emerald-600 font-semibold">
-                      Pro • {currentUser.email || 'Salvo Auto'}
-                    </span>
-                  ) : (
-                    <span>Cliente • {currentUser.email || 'Salvo Auto'}</span>
-                  )}
-                </p>
-              </div>
+            <div className="flex items-center gap-1 sm:gap-1.5 bg-stone-50 border border-stone-200 p-1 sm:pl-2 sm:pr-1.5 sm:py-1 rounded-xl text-xs shrink-0">
+              <button
+                type="button"
+                onClick={onOpenProfileModal}
+                className="flex items-center gap-1.5 text-left group hover:opacity-85 transition cursor-pointer"
+                title="Clique para editar seus dados cadastrais (CPF, Nome, Telefone)"
+              >
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-rose-600 text-white font-bold flex items-center justify-center text-[10px] overflow-hidden shrink-0 ring-1 ring-rose-200">
+                  {(() => {
+                    const defaultStockAvatar =
+                      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=400&q=80';
+                    const customProAvatar =
+                      currentUser.role === 'PROFESSIONAL' &&
+                      proAvatarUrl &&
+                      proAvatarUrl !== defaultStockAvatar
+                        ? proAvatarUrl
+                        : '';
+                    const resolvedAvatar = customProAvatar || currentUser.avatarUrl || '';
+                    return resolvedAvatar ? (
+                      <img
+                        src={resolvedAvatar}
+                        alt={currentUser.fullName}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (currentUser.fullName || currentUser.email || 'U').charAt(0).toUpperCase()
+                    );
+                  })()}
+                </div>
+                <div className="hidden md:block leading-tight text-left">
+                  <p className="font-bold text-stone-900 text-[11px] truncate max-w-[130px] group-hover:text-rose-600 transition">
+                    {currentUser.role === 'PROFESSIONAL'
+                      ? proDisplayName.trim() || currentUser.fullName
+                      : currentUser.fullName}
+                  </p>
+                  <p className="text-[9px] text-stone-500 truncate max-w-[130px]" title={currentUser.email}>
+                    {isMasterAdmin ? (
+                      <span className="text-amber-600 font-extrabold">
+                        Gestão Master • {currentUser.email}
+                      </span>
+                    ) : currentUser.role === 'PROFESSIONAL' ? (
+                      <span className="text-emerald-600 font-semibold">
+                        Pro • {currentUser.email || 'Salvo Auto'}
+                      </span>
+                    ) : (
+                      <span>Cliente • {currentUser.email || 'Salvo Auto'}</span>
+                    )}
+                  </p>
+                </div>
+              </button>
+
+              {/* Botão de Atalho para Editar Dados Cadastrais */}
+              {onOpenProfileModal && (
+                <button
+                  type="button"
+                  onClick={onOpenProfileModal}
+                  className="flex items-center gap-1 px-1.5 py-1 text-stone-600 hover:text-stone-950 hover:bg-stone-200/70 rounded-lg transition cursor-pointer shrink-0 text-[10px] font-bold"
+                  title="Editar dados cadastrais (CPF, Nome, Telefone)"
+                  aria-label="Editar dados cadastrais"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-rose-600" />
+                  <span className="hidden lg:inline">Meus Dados</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={onLogout}

@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Sparkles,
   Star,
+  UserCheck,
   X,
 } from 'lucide-react';
 import { ClientAppointment } from '../types/belladoor';
@@ -32,6 +33,7 @@ interface ClientBookingsViewProps {
   onSubmitReview: (e: React.FormEvent) => void;
   onOpenReviewForAppointment: (app: ClientAppointment) => void;
   onCancelClientAppointment: (appointmentId: string, serviceName: string) => void;
+  onOpenProfileModal?: () => void;
 }
 
 export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
@@ -54,12 +56,13 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
   onSubmitReview,
   onOpenReviewForAppointment,
   onCancelClientAppointment,
+  onOpenProfileModal,
 }) => {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* Topo da Página Meus Agendamentos */}
       <div className="bg-gradient-to-r from-stone-900 via-stone-800 to-rose-950 text-white p-5 rounded-3xl shadow-sm">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <button
             type="button"
             onClick={onBackToExplore}
@@ -68,9 +71,22 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
             <ArrowLeft className="w-3.5 h-3.5 text-rose-400" />
             Voltar para a Vitrine
           </button>
-          <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30 px-2.5 py-0.5 rounded-full">
-            Área do Cliente
-          </span>
+          <div className="flex items-center gap-2">
+            {onOpenProfileModal && (
+              <button
+                type="button"
+                onClick={onOpenProfileModal}
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-stone-200 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl transition cursor-pointer"
+                title="Editar meus dados cadastrais"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-rose-400" />
+                <span>Meus Dados Cadastrais</span>
+              </button>
+            )}
+            <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30 px-2.5 py-0.5 rounded-full">
+              Área do Cliente
+            </span>
+          </div>
         </div>
         <h1 className="text-lg font-extrabold tracking-tight">Meus Agendamentos</h1>
         <p className="text-xs text-stone-300 mt-0.5">

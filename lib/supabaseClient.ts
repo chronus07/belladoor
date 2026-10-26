@@ -21,6 +21,7 @@ export interface AuthUser {
   fullName: string;
   birthDate?: string;
   cpf?: string;
+  phone?: string;
   emailVerified?: boolean;
   role: 'CLIENT' | 'PROFESSIONAL';
   avatarUrl?: string;
