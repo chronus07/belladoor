@@ -80,16 +80,12 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
     return unifiedUsers.filter((u) => u.role === 'PROFESSIONAL');
   }, [unifiedUsers]);
 
-  // Cálculos da base de assinantes atuais
-  // Everton informou: "único usuário ativo é o meu mesmo e o da Thaynara Leticia, que ativou por cupom de desconto. Não foi feito nenhum pagamento ou algo do tipo até agora, só foram testadas as opções."
+  // Cálculos dinâmicos da base de assinantes atuais
   const couponPros = useMemo(() => {
     return proUsers.filter(
       (u) =>
         u.subscriptionStatus === 'ACTIVE' &&
-        (u.paymentMethod === 'COUPON' ||
-          Boolean(u.appliedCoupon) ||
-          u.fullName.toLowerCase().includes('thaynara') ||
-          u.email.toLowerCase().includes('thaynara'))
+        (u.paymentMethod === 'COUPON' || Boolean(u.appliedCoupon))
     );
   }, [proUsers]);
 
@@ -99,8 +95,6 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
         u.subscriptionStatus === 'ACTIVE' &&
         u.paymentMethod !== 'COUPON' &&
         !u.appliedCoupon &&
-        !u.fullName.toLowerCase().includes('thaynara') &&
-        !u.email.toLowerCase().includes('thaynara') &&
         (u.paymentMethod === 'PIX' ||
           u.paymentMethod === 'CARD_RECURRING' ||
           u.paymentMethod === 'ANNUAL')
@@ -111,8 +105,7 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
     return proUsers.filter(
       (u) =>
         u.subscriptionStatus !== 'ACTIVE' &&
-        (u.trialDaysLeft ?? 0) > 0 &&
-        !u.fullName.toLowerCase().includes('thaynara')
+        (u.trialDaysLeft ?? 0) > 0
     );
   }, [proUsers]);
 
@@ -120,8 +113,7 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
     return proUsers.filter(
       (u) =>
         u.subscriptionStatus !== 'ACTIVE' &&
-        (u.trialDaysLeft ?? 0) <= 0 &&
-        !u.fullName.toLowerCase().includes('thaynara')
+        (u.trialDaysLeft ?? 0) <= 0
     );
   }, [proUsers]);
 
@@ -130,8 +122,8 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
     const pixCount = paidPros.filter((u) => u.paymentMethod === 'PIX').length;
     const cardCount = paidPros.filter((u) => u.paymentMethod === 'CARD_RECURRING').length;
     const annualCount = paidPros.filter((u) => u.paymentMethod === 'ANNUAL').length;
-    const totalPaid = paidPros.length; // 0 pagantes financeiros
-    const couponCount = couponPros.length; // 1 (Thaynara)
+    const totalPaid = paidPros.length;
+    const couponCount = couponPros.length;
 
     const pixRevenue = pixCount * 44.9;
     const cardRevenue = cardCount * 39.9;
@@ -299,10 +291,7 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
       const successRate =
         totalBookings > 0 ? Math.min(100, Math.round((completedBookings / totalBookings) * 100)) : 0;
 
-      const isThaynara =
-        pro.fullName.toLowerCase().includes('thaynara') ||
-        pro.email.toLowerCase().includes('thaynara');
-      const isCoupon = Boolean(pro.appliedCoupon || pro.paymentMethod === 'COUPON' || isThaynara);
+      const isCoupon = Boolean(pro.appliedCoupon || pro.paymentMethod === 'COUPON');
 
       // Forma de pagamento da profissional
       let paymentType: 'CUPOM' | 'PIX_MENSAL' | 'CARTAO_RECORRENTE' | 'ANUAL' | 'TRIAL' = 'TRIAL';
@@ -370,7 +359,7 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
               <span>💎</span> Demonstrativo Financeiro do Dono da Plataforma
             </span>
             <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-purple-300 bg-purple-950 px-3 py-1 rounded-full border border-purple-800/60">
-              <span>🎟️</span> 1 Ativa via Cupom (Thaynara Letícia)
+              <span>🎟️</span> {paymentBreakdown.couponCount > 0 ? `${paymentBreakdown.couponCount} Ativa(s) via Cupom` : '0 Ativas via Cupom'}
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
@@ -743,8 +732,8 @@ export const AdminDashboardTab: React.FC<AdminDashboardTabProps> = ({
                   <span className="text-stone-400">
                     {paymentBreakdown.couponCount === 1 ? 'Profissional Ativada:' : 'Profissionais Ativadas:'}
                   </span>
-                  <strong className="text-purple-300 text-xs font-black truncate max-w-[150px] text-right" title={couponPros.map((p) => p.fullName || p.email.split('@')[0]).join(', ') || 'Thaynara Letícia'}>
-                    {couponPros.map((p) => p.fullName || p.email.split('@')[0]).join(', ') || 'Thaynara Letícia'}
+                  <strong className="text-purple-300 text-xs font-black truncate max-w-[150px] text-right" title={couponPros.map((p) => p.fullName || p.email.split('@')[0]).join(', ') || 'Nenhuma no momento'}>
+                    {couponPros.map((p) => p.fullName || p.email.split('@')[0]).join(', ') || 'Nenhuma no momento'}
                   </strong>
                 </div>
                 <div className="flex justify-between text-xs">
