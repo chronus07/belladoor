@@ -456,6 +456,277 @@ ${config.senderEmail || 'contato@belladoor.app'}`;
 }
 
 /**
+ * Envia notificação por e-mail para a profissional quando um agendamento é cancelado pelo cliente,
+ * informando que o horário voltou a ficar disponível na vitrine.
+ */
+export async function sendCancellationEmailNotification(
+  proEmail: string,
+  proName: string,
+  appointment: ClientAppointment,
+  customConfig?: BellaDoorEmailConfig
+): Promise<boolean> {
+  const cleanEmail = (proEmail || '').trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    console.warn('[BellaDoor Email] E-mail da profissional inválido ou não informado para cancelamento:', proEmail);
+    return false;
+  }
+
+  const config = customConfig || await loadEmailConfig();
+  if (config.enabled === false) {
+    console.info('[BellaDoor Email] Notificações por e-mail desativadas nas configurações.');
+    return false;
+  }
+
+  const dateFormatted = appointment.date ? appointment.date.split('-').reverse().join('/') : 'Data agendada';
+  const totalPriceFormatted = `R$ ${appointment.totalPrice.toFixed(2).replace('.', ',')}`;
+  const locationText = appointment.locationType === 'STUDIO'
+    ? `No seu Studio / Endereço fixo (${appointment.address})`
+    : `A Domicílio na residência da cliente (${appointment.address})`;
+
+  const subject = `⚠️ Horário Liberado: Agendamento Cancelado - ${appointment.clientName} (${dateFormatted} às ${appointment.time})`;
+
+  const textBody = `Olá, ${proName || 'Profissional'}!
+Informamos que a cliente ${appointment.clientName} cancelou o agendamento na sua vitrine BellaDoor:
+
+- Cliente: ${appointment.clientName}
+- WhatsApp / Telefone: ${appointment.clientPhone}
+- Serviço: ${appointment.serviceName}
+- Data e Horário Liberados: ${dateFormatted} às ${appointment.time}
+- Local: ${locationText}
+- Valor: ${totalPriceFormatted}
+
+O horário das ${appointment.time} no dia ${dateFormatted} já voltou a ficar 100% DISPONÍVEL na sua vitrine para novas clientes agendarem!
+
+Acesse o seu Painel da Profissional para visualizar sua agenda atualizada:
+https://belladoor.web.app
+
+Atenciosamente,
+${config.senderName || 'Equipe BellaDoor'}
+${config.senderEmail || 'contato@belladoor.app'}`;
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7f7f8; margin: 0; padding: 24px; color: #1c1917;">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid #e7e5e4; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+    <div style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%); padding: 24px; text-align: center; color: #ffffff;">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">BellaDoor</h1>
+      <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.95;">Aviso de Agendamento Cancelado • Horário Liberado</p>
+    </div>
+
+    <div style="padding: 24px;">
+      <h2 style="font-size: 16px; margin-top: 0; color: #0c0a09; font-weight: 800;">
+        Olá, ${proName || 'Profissional'}! 🗓️
+      </h2>
+      <p style="font-size: 13px; color: #57534e; line-height: 1.5; margin-bottom: 20px;">
+        A cliente <strong>${appointment.clientName}</strong> realizou o cancelamento de um atendimento na sua vitrine.
+      </p>
+
+      <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 14px; padding: 14px 16px; margin-bottom: 20px;">
+        <span style="font-size: 13px; font-weight: 700; color: #065f46;">
+          ✨ O horário das <strong>${appointment.time}</strong> do dia <strong>${dateFormatted}</strong> já voltou a ficar liberado na sua vitrine para novas clientes agendarem!
+        </span>
+      </div>
+
+      <div style="background-color: #fafaf9; border: 1px solid #e7e5e4; border-radius: 14px; padding: 16px; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 6px 0; color: #78716c; font-weight: 600; width: 140px;">Cliente:</td>
+            <td style="padding: 6px 0; color: #0c0a09; font-weight: 800;">${appointment.clientName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #78716c; font-weight: 600;">WhatsApp / Fone:</td>
+            <td style="padding: 6px 0; color: #0c0a09; font-weight: 700;">${appointment.clientPhone}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #78716c; font-weight: 600;">Serviço:</td>
+            <td style="padding: 6px 0; color: #d97706; font-weight: 800;">${appointment.serviceName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #78716c; font-weight: 600;">Data e Horário:</td>
+            <td style="padding: 6px 0; color: #0c0a09; font-weight: 800;">${dateFormatted} às ${appointment.time}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #78716c; font-weight: 600;">Local:</td>
+            <td style="padding: 6px 0; color: #0c0a09; font-size: 12px;">${locationText}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #78716c; font-weight: 600;">Valor do Serviço:</td>
+            <td style="padding: 6px 0; color: #57534e; font-weight: 700;">${totalPriceFormatted}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #78716c; font-weight: 600;">Status do Horário:</td>
+            <td style="padding: 6px 0;">
+              <span style="display: inline-block; background-color: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 999px;">
+                Cancelado • Horário Disponível
+              </span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin: 24px 0 16px;">
+        <a href="https://belladoor.web.app" style="display: inline-block; background-color: #1c1917; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 12px; font-weight: 800; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+          Abrir Painel da Profissional
+        </a>
+      </div>
+    </div>
+
+    <div style="background-color: #fafaf9; border-top: 1px solid #e7e5e4; padding: 14px; text-align: center; font-size: 11px; color: #78716c;">
+      BellaDoor • Gestão e Vitrine para Profissionais da Beleza
+    </div>
+  </div>
+</body>
+</html>`;
+
+  let usedProvider = config.provider || 'WEBHOOK';
+
+  // 1. Google Apps Script Webhook
+  if (config.webhookUrl && config.webhookUrl.trim()) {
+    try {
+      const payload = {
+        to: cleanEmail,
+        proName,
+        subject,
+        html: htmlBody,
+        text: textBody,
+        senderName: config.senderName || 'BellaDoor Notificações',
+        type: 'CANCELLATION',
+        appointmentId: appointment.id,
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.time,
+        serviceName: appointment.serviceName,
+        clientName: appointment.clientName,
+      };
+
+      await fetch(config.webhookUrl.trim(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(payload),
+        mode: 'no-cors',
+      });
+      usedProvider = 'GOOGLE_APPS_SCRIPT';
+      console.log('[BellaDoor Email] Cancelamento disparado via Google Apps Script Webhook:', cleanEmail);
+    } catch (webhookErr) {
+      console.warn('[BellaDoor Email] Falha no webhook de cancelamento:', webhookErr);
+    }
+  }
+
+  // 2. Brevo API
+  if (config.provider === 'BREVO' && config.apiKey && config.apiKey.trim()) {
+    try {
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': config.apiKey.trim(),
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            name: config.senderName || 'BellaDoor',
+            email: config.senderEmail || 'contato@belladoor.app',
+          },
+          to: [{ email: cleanEmail, name: proName }],
+          subject,
+          htmlContent: htmlBody,
+          textContent: textBody,
+        }),
+      });
+      usedProvider = 'BREVO';
+    } catch (brevoErr) {
+      console.warn('[BellaDoor Email] Falha Brevo no cancelamento:', brevoErr);
+    }
+  }
+
+  // 3. Resend API
+  if (config.provider === 'RESEND' && config.apiKey && config.apiKey.trim()) {
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.apiKey.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: `${config.senderName || 'BellaDoor'} <${config.senderEmail || 'onboarding@resend.dev'}>`,
+          to: [cleanEmail],
+          subject,
+          html: htmlBody,
+          text: textBody,
+        }),
+      });
+      usedProvider = 'RESEND';
+    } catch (resendErr) {
+      console.warn('[BellaDoor Email] Falha Resend no cancelamento:', resendErr);
+    }
+  }
+
+  // 4. Grava fila Firestore
+  try {
+    const db = getFirebaseDb();
+    if (db) {
+      await withTimeout(
+        addDoc(collection(db, 'mail'), {
+          to: cleanEmail,
+          message: {
+            subject,
+            text: textBody,
+            html: htmlBody,
+          },
+          createdAt: new Date().toISOString(),
+          appointmentId: appointment.id,
+          source: 'belladoor_cancellation',
+        }),
+        3000,
+        null
+      );
+    }
+  } catch (err) {
+    console.warn('[BellaDoor Email] Falha fila mail cancelamento:', err);
+  }
+
+  // 5. Histórico belladoor_prod/email_notifications
+  try {
+    const db = getFirebaseDb();
+    if (db) {
+      const notifRef = doc(db, 'belladoor_prod', 'email_notifications');
+      const snap = await withTimeout(getDoc(notifRef), 2000, null as any);
+      const existing = snap && snap.exists() ? snap.data()?.items || [] : [];
+      const newEntry: EmailLogEntry = {
+        id: `email-${Date.now()}`,
+        to: cleanEmail,
+        proName,
+        subject,
+        appointmentId: appointment.id,
+        sentAt: new Date().toISOString(),
+        clientName: appointment.clientName,
+        serviceName: appointment.serviceName,
+        provider: usedProvider,
+      };
+      await withTimeout(
+        setDoc(notifRef, {
+          items: [newEntry, ...existing.slice(0, 49)],
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }),
+        2500,
+        null
+      );
+    }
+  } catch (err) {
+    console.warn('[BellaDoor Email] Falha ao gravar log cancelamento em belladoor_prod:', err);
+  }
+
+  return true;
+}
+
+/**
  * Envia um e-mail de teste para verificar se as configurações estão funcionando
  */
 export async function sendTestBookingEmail(

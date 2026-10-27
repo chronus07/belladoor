@@ -115,7 +115,10 @@ import {
   PIX_KEY_LABELS,
 } from './utils/bookingRules';
 import { validateCPF, formatCPF } from './utils/cpf';
-import { sendBookingEmailNotification } from './utils/bookingEmail';
+import {
+  sendBookingEmailNotification,
+  sendCancellationEmailNotification,
+} from './utils/bookingEmail';
 import { HeaderBar } from './components/HeaderBar';
 import { AuthView } from './components/AuthView';
 import { ClientBookingsView } from './components/ClientBookingsView';
@@ -4264,14 +4267,62 @@ export default function App() {
   );
 
   const handleCancelClientAppointment = (appointmentId: string, serviceName: string) => {
+    let cancelledApp: ClientAppointment | undefined;
+
     setProAppointments((prev) => {
-      const updated = prev.map((app) => (app.id === appointmentId ? { ...app, status: 'Cancelado' } : app));
+      const updated = prev.map((app) => {
+        if (app.id === appointmentId) {
+          cancelledApp = { ...app, status: 'Cancelado' };
+          return cancelledApp;
+        }
+        return app;
+      });
       try {
         localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updated));
       } catch {}
       syncDocumentToFirestore('appointments', { items: updated });
       return updated;
     });
+
+    if (cancelledApp) {
+      // Resolve o e-mail da profissional para avisá-la do cancelamento em tempo real
+      const resolveProEmail = (): string | undefined => {
+        if (cancelledApp?.proEmail && cancelledApp.proEmail.includes('@')) {
+          return cancelledApp.proEmail.trim().toLowerCase();
+        }
+        for (const [key, p] of Object.entries(directoryPros)) {
+          if (
+            (p.id && (p.id === cancelledApp?.proId || p.id === `pro-${cancelledApp?.proId}`)) ||
+            (p.slug && cancelledApp?.proSlug && p.slug.toLowerCase() === cancelledApp.proSlug.toLowerCase()) ||
+            (p.name && cancelledApp?.proName && p.name.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase())
+          ) {
+            if ((p as any).email) return (p as any).email.trim().toLowerCase();
+            const acc =
+              cloudAccounts[key] ||
+              Object.values(cloudAccounts).find((a: any) => a.email?.replace(/[^a-z0-9]/g, '_') === key);
+            if (acc && acc.email) return acc.email.trim().toLowerCase();
+          }
+        }
+        const accMatch = Object.values(cloudAccounts).find(
+          (acc: any) =>
+            (acc.fullName && cancelledApp?.proName && acc.fullName.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase()) ||
+            (acc.name && cancelledApp?.proName && acc.name.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase()) ||
+            (acc.slug && cancelledApp?.proSlug && acc.slug.toLowerCase() === cancelledApp.proSlug.toLowerCase())
+        );
+        if (accMatch && accMatch.email) return accMatch.email.trim().toLowerCase();
+        return undefined;
+      };
+
+      const proEmail = resolveProEmail();
+      if (proEmail) {
+        sendCancellationEmailNotification(
+          proEmail,
+          cancelledApp.proName || 'Profissional',
+          cancelledApp
+        ).catch((err) => console.warn('[BellaDoor Email] Erro ao enviar aviso de cancelamento:', err));
+      }
+    }
+
     setUiDialog({
       emoji: '🗓️',
       badge: 'Agendamento Cancelado',
