@@ -478,10 +478,11 @@ export async function sendCancellationEmailNotification(
   }
 
   const dateFormatted = appointment.date ? appointment.date.split('-').reverse().join('/') : 'Data agendada';
-  const totalPriceFormatted = `R$ ${appointment.totalPrice.toFixed(2).replace('.', ',')}`;
+  const rawPrice = Number(appointment.totalPrice) || 0;
+  const totalPriceFormatted = `R$ ${rawPrice.toFixed(2).replace('.', ',')}`;
   const locationText = appointment.locationType === 'STUDIO'
-    ? `No seu Studio / Endereço fixo (${appointment.address})`
-    : `A Domicílio na residência da cliente (${appointment.address})`;
+    ? `No seu Studio / Endereço fixo (${appointment.address || 'Studio'})`
+    : `A Domicílio na residência da cliente (${appointment.address || 'Endereço da cliente'})`;
 
   const subject = `⚠️ Horário Liberado: Agendamento Cancelado - ${appointment.clientName} (${dateFormatted} às ${appointment.time})`;
 
