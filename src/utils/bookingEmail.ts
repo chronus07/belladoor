@@ -2,10 +2,174 @@ import { ClientAppointment } from '../types/belladoor';
 import { getFirebaseDb, withTimeout } from '../../lib/firebaseClient';
 import { collection, addDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 
-export interface BookingEmailPayload {
+export type EmailProviderType = 'WEBHOOK' | 'GOOGLE_APPS_SCRIPT' | 'BREVO' | 'RESEND' | 'FIRESTORE_MAIL';
+
+export interface BellaDoorEmailConfig {
+  provider: EmailProviderType;
+  webhookUrl?: string; // URL do Google Apps Script Web App
+  apiKey?: string;     // Chave de API opcional (Brevo ou Resend)
+  senderName?: string;
+  senderEmail?: string;
+  enabled?: boolean;
+}
+
+export interface EmailLogEntry {
+  id: string;
   to: string;
   proName?: string;
-  appointment: ClientAppointment;
+  subject?: string;
+  appointmentId?: string;
+  sentAt: string;
+  clientName?: string;
+  serviceName?: string;
+  provider?: string;
+}
+
+export const DEFAULT_EMAIL_CONFIG: BellaDoorEmailConfig = {
+  provider: 'WEBHOOK',
+  webhookUrl: '',
+  senderName: 'BellaDoor Notificações',
+  senderEmail: 'contato@belladoor.app',
+  enabled: true,
+};
+
+const EMAIL_CONFIG_STORAGE_KEY = 'belladoor_v2_email_config';
+
+/**
+ * Código oficial do Google Apps Script para envio 100% gratuito de emails via Gmail
+ */
+export const GOOGLE_APPS_SCRIPT_SAMPLE = `/**
+ * BELLADOOR - Webhook Oficial de Notificação por E-mail (100% Gratuito via Gmail)
+ * 
+ * INSTRUÇÕES RÁPIDAS (Leva 1 minuto):
+ * 1. Acesse: https://script.google.com e clique em "Novo projeto"
+ * 2. Apague o código padrão e cole todo este arquivo
+ * 3. Clique no botão azul "Implantar" (Deploy) -> "Nova implantação"
+ * 4. No ícone de engrenagem "Selecionar tipo", escolha "App da Web" (Web app)
+ * 5. Configure:
+ *    - Descrição: BellaDoor Email Webhook
+ *    - Executar como: Eu (seu Gmail)
+ *    - Quem pode acessar: Qualquer pessoa (Anyone)  <-- IMPORTANTE!
+ * 6. Clique em "Implantar", autorize o acesso à sua conta Google
+ * 7. Copie o "URL do aplicativo da web" (termina com /exec)
+ * 8. Cole no Painel Admin do BellaDoor na aba "E-mails" e clique em Salvar!
+ */
+function doPost(e) {
+  try {
+    var raw = e && e.postData ? e.postData.contents : "{}";
+    var data = JSON.parse(raw);
+    
+    if (!data.to) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: false, 
+        error: "Destinatário 'to' não informado" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    MailApp.sendEmail({
+      to: data.to,
+      subject: data.subject || "✨ Novo Agendamento no BellaDoor",
+      body: data.text || "Novo agendamento realizado no BellaDoor.",
+      htmlBody: data.html || undefined,
+      name: data.senderName || "BellaDoor Notificações"
+    });
+    
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      sentTo: data.to,
+      timestamp: new Date().toISOString() 
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: false, 
+      error: error.toString() 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput(JSON.stringify({ 
+    status: "online", 
+    service: "BellaDoor Email Webhook",
+    message: "O webhook de emails do BellaDoor está funcionando perfeitamente!"
+  })).setMimeType(ContentService.MimeType.JSON);
+}`;
+
+/**
+ * Carrega a configuração de envio de e-mails (localStorage + Firestore)
+ */
+export async function loadEmailConfig(): Promise<BellaDoorEmailConfig> {
+  let localConfig: BellaDoorEmailConfig = { ...DEFAULT_EMAIL_CONFIG };
+  try {
+    const raw = localStorage.getItem(EMAIL_CONFIG_STORAGE_KEY);
+    if (raw) {
+      localConfig = { ...DEFAULT_EMAIL_CONFIG, ...JSON.parse(raw) };
+    }
+  } catch {}
+
+  try {
+    const db = getFirebaseDb();
+    if (db) {
+      const snap = await withTimeout(getDoc(doc(db, 'belladoor_prod', 'email_config')), 2000, null as any);
+      if (snap && snap.exists()) {
+        const cloudConfig = snap.data() as BellaDoorEmailConfig;
+        const merged = { ...localConfig, ...cloudConfig };
+        try {
+          localStorage.setItem(EMAIL_CONFIG_STORAGE_KEY, JSON.stringify(merged));
+        } catch {}
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.warn('[BellaDoor Email] Falha ao carregar email_config do Firestore:', err);
+  }
+
+  return localConfig;
+}
+
+/**
+ * Salva a configuração de envio de e-mails tanto no localStorage quanto no Firestore
+ */
+export async function saveEmailConfig(config: BellaDoorEmailConfig): Promise<boolean> {
+  try {
+    localStorage.setItem(EMAIL_CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch {}
+
+  try {
+    const db = getFirebaseDb();
+    if (db) {
+      await withTimeout(
+        setDoc(doc(db, 'belladoor_prod', 'email_config'), {
+          ...config,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }),
+        3000,
+        null
+      );
+      return true;
+    }
+  } catch (err) {
+    console.warn('[BellaDoor Email] Erro ao salvar email_config no Firestore:', err);
+  }
+  return true;
+}
+
+/**
+ * Busca histórico dos últimos envios registrados no Firestore
+ */
+export async function fetchEmailNotificationsLog(): Promise<EmailLogEntry[]> {
+  try {
+    const db = getFirebaseDb();
+    if (db) {
+      const snap = await withTimeout(getDoc(doc(db, 'belladoor_prod', 'email_notifications')), 2500, null as any);
+      if (snap && snap.exists()) {
+        return (snap.data()?.items || []) as EmailLogEntry[];
+      }
+    }
+  } catch (err) {
+    console.warn('[BellaDoor Email] Falha ao carregar logs de email:', err);
+  }
+  return [];
 }
 
 /**
@@ -14,11 +178,18 @@ export interface BookingEmailPayload {
 export async function sendBookingEmailNotification(
   proEmail: string,
   proName: string,
-  appointment: ClientAppointment
+  appointment: ClientAppointment,
+  customConfig?: BellaDoorEmailConfig
 ): Promise<boolean> {
   const cleanEmail = (proEmail || '').trim().toLowerCase();
   if (!cleanEmail || !cleanEmail.includes('@')) {
     console.warn('[BellaDoor Email] E-mail da profissional inválido ou não informado:', proEmail);
+    return false;
+  }
+
+  const config = customConfig || await loadEmailConfig();
+  if (config.enabled === false) {
+    console.info('[BellaDoor Email] Notificações por e-mail desativadas nas configurações.');
     return false;
   }
 
@@ -35,7 +206,7 @@ export async function sendBookingEmailNotification(
   const subject = `✨ Novo Agendamento no BellaDoor - ${appointment.clientName} (${dateFormatted} às ${appointment.time})`;
 
   const textBody = `Olá, ${proName || 'Profissional'}!
-Você recebeu um novo agendamento na sua plataforma BellaDoor:
+Você recebeu um novo agendamento na sua vitrine BellaDoor:
 
 - Cliente: ${appointment.clientName}
 - WhatsApp / Telefone: ${appointment.clientPhone}
@@ -50,8 +221,8 @@ Acesse o seu Painel da Profissional para visualizar os detalhes, conferir o comp
 https://belladoor.web.app
 
 Atenciosamente,
-Equipe BellaDoor
-contato@belladoor.app`;
+${config.senderName || 'Equipe BellaDoor'}
+${config.senderEmail || 'contato@belladoor.app'}`;
 
   const htmlBody = `
 <!DOCTYPE html>
@@ -138,7 +309,95 @@ contato@belladoor.app`;
 </body>
 </html>`;
 
-  // 1. Grava na fila do Firebase Firestore (coleção 'mail' da extensão oficial Trigger Email)
+  let usedProvider = config.provider || 'WEBHOOK';
+
+  // 1. Envio Direto via Google Apps Script Webhook (Gratuito via Gmail)
+  if (config.webhookUrl && config.webhookUrl.trim()) {
+    try {
+      const payload = {
+        to: cleanEmail,
+        proName,
+        subject,
+        html: htmlBody,
+        text: textBody,
+        senderName: config.senderName || 'BellaDoor Notificações',
+        appointmentId: appointment.id,
+        appointmentDate: appointment.date,
+        appointmentTime: appointment.time,
+        serviceName: appointment.serviceName,
+        clientName: appointment.clientName,
+        clientPhone: appointment.clientPhone,
+        totalPrice: appointment.totalPrice,
+      };
+
+      // Usando text/plain;charset=utf-8 e mode: 'no-cors' para contornar qualquer restrição CORS
+      // no redirect interno do Google Apps Script Web App
+      await fetch(config.webhookUrl.trim(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(payload),
+        mode: 'no-cors',
+      });
+      usedProvider = 'GOOGLE_APPS_SCRIPT';
+      console.log('[BellaDoor Email] Disparado com sucesso via Google Apps Script Webhook:', cleanEmail);
+    } catch (webhookErr) {
+      console.warn('[BellaDoor Email] Falha ao despachar webhook Apps Script:', webhookErr);
+    }
+  }
+
+  // 2. Fallback / Opção: Brevo API (se configurado com API Key)
+  if (config.provider === 'BREVO' && config.apiKey && config.apiKey.trim()) {
+    try {
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': config.apiKey.trim(),
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            name: config.senderName || 'BellaDoor',
+            email: config.senderEmail || 'contato@belladoor.app',
+          },
+          to: [{ email: cleanEmail, name: proName }],
+          subject,
+          htmlContent: htmlBody,
+          textContent: textBody,
+        }),
+      });
+      usedProvider = 'BREVO';
+    } catch (brevoErr) {
+      console.warn('[BellaDoor Email] Falha no disparo Brevo:', brevoErr);
+    }
+  }
+
+  // 3. Fallback / Opção: Resend API (se configurado com API Key)
+  if (config.provider === 'RESEND' && config.apiKey && config.apiKey.trim()) {
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.apiKey.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: `${config.senderName || 'BellaDoor'} <${config.senderEmail || 'onboarding@resend.dev'}>`,
+          to: [cleanEmail],
+          subject,
+          html: htmlBody,
+          text: textBody,
+        }),
+      });
+      usedProvider = 'RESEND';
+    } catch (resendErr) {
+      console.warn('[BellaDoor Email] Falha no disparo Resend:', resendErr);
+    }
+  }
+
+  // 4. Grava na fila do Firebase Firestore (coleção 'mail' da extensão oficial Trigger Email)
   try {
     const db = getFirebaseDb();
     if (db) {
@@ -162,14 +421,14 @@ contato@belladoor.app`;
     console.warn('[BellaDoor Email] Aviso ao gravar na fila mail do Firestore:', err);
   }
 
-  // 2. Grava histórico na coleção belladoor_prod/email_notifications
+  // 5. Grava histórico na coleção belladoor_prod/email_notifications
   try {
     const db = getFirebaseDb();
     if (db) {
       const notifRef = doc(db, 'belladoor_prod', 'email_notifications');
       const snap = await withTimeout(getDoc(notifRef), 2000, null as any);
       const existing = snap && snap.exists() ? snap.data()?.items || [] : [];
-      const newEntry = {
+      const newEntry: EmailLogEntry = {
         id: `email-${Date.now()}`,
         to: cleanEmail,
         proName,
@@ -178,6 +437,7 @@ contato@belladoor.app`;
         sentAt: new Date().toISOString(),
         clientName: appointment.clientName,
         serviceName: appointment.serviceName,
+        provider: usedProvider,
       };
       await withTimeout(
         setDoc(notifRef, {
@@ -193,4 +453,63 @@ contato@belladoor.app`;
   }
 
   return true;
+}
+
+/**
+ * Envia um e-mail de teste para verificar se as configurações estão funcionando
+ */
+export async function sendTestBookingEmail(
+  toEmail: string,
+  config?: BellaDoorEmailConfig
+): Promise<{ success: boolean; message: string }> {
+  const cleanEmail = (toEmail || '').trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    return { success: false, message: 'E-mail de destino inválido ou vazio.' };
+  }
+
+  const effectiveConfig = config || await loadEmailConfig();
+  if (!effectiveConfig.webhookUrl && !effectiveConfig.apiKey) {
+    return {
+      success: false,
+      message: 'Configure e salve a URL do Webhook do Google Apps Script (ou a chave da API) antes de realizar o teste.',
+    };
+  }
+
+  const testAppointment: ClientAppointment = {
+    id: `test-${Date.now()}`,
+    clientName: 'Cliente Teste (BellaDoor)',
+    clientPhone: '(11) 99999-9999',
+    serviceName: 'Extensão de Cílios Volume Brasileiro (Teste)',
+    durationMinutes: 90,
+    date: new Date().toISOString().split('T')[0],
+    time: '15:30',
+    address: 'Studio BellaDoor / Teste de Notificação',
+    neighborhood: 'Centro',
+    travelFee: 0,
+    totalPrice: 150.0,
+    status: 'Aguardando Sinal',
+    locationType: 'STUDIO',
+    locationAddress: 'Studio BellaDoor',
+    depositAmount: 75.0,
+    depositPercentage: 50,
+    depositPaid: false,
+  };
+
+  try {
+    await sendBookingEmailNotification(
+      cleanEmail,
+      'Profissional de Teste',
+      testAppointment,
+      effectiveConfig
+    );
+    return {
+      success: true,
+      message: `E-mail de teste enviado com sucesso para ${cleanEmail}! Verifique sua caixa de entrada (e a caixa de Spam/Lixo Eletrônico nos próximos instantes).`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Erro ao enviar e-mail de teste: ${err?.message || String(err)}`,
+    };
+  }
 }

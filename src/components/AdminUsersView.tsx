@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Search,
@@ -29,6 +29,9 @@ import {
   Check,
   Eye,
   Users,
+  Send,
+  RefreshCw,
+  Code,
 } from 'lucide-react';
 import { AuthUser } from '../../lib/supabaseClient';
 import { MockProfessional } from '../data/mockData';
@@ -41,6 +44,17 @@ import {
 import { AdminDashboardTab } from './AdminDashboardTab';
 import { BetaFeedbackEntry } from '../../lib/firebaseClient';
 import { formatCPF } from '../utils/cpf';
+import {
+  BellaDoorEmailConfig,
+  EmailProviderType,
+  DEFAULT_EMAIL_CONFIG,
+  GOOGLE_APPS_SCRIPT_SAMPLE,
+  loadEmailConfig,
+  saveEmailConfig,
+  sendTestBookingEmail,
+  fetchEmailNotificationsLog,
+  EmailLogEntry,
+} from '../utils/bookingEmail';
 
 export interface UnifiedAdminUser {
   key: string;
@@ -118,7 +132,9 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   onShowUiDialog,
   onCloseAdmin,
 }) => {
-  const [adminSection, setAdminSection] = useState<'DASHBOARD' | 'USERS' | 'VERIFICATIONS' | 'COUPONS' | 'MERCADO_PAGO'>('DASHBOARD');
+  const [adminSection, setAdminSection] = useState<
+    'DASHBOARD' | 'USERS' | 'VERIFICATIONS' | 'COUPONS' | 'MERCADO_PAGO' | 'EMAILS'
+  >('DASHBOARD');
   const [inspectingDocUser, setInspectingDocUser] = useState<UnifiedAdminUser | null>(null);
   const [verificationFilter, setVerificationFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'UNVERIFIED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -134,6 +150,22 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(
     null
   );
+
+  // Estados de Notificações por E-mail (Admin)
+  const [emailConfig, setEmailConfig] = useState<BellaDoorEmailConfig>(DEFAULT_EMAIL_CONFIG);
+  const [isLoadingEmailConfig, setIsLoadingEmailConfig] = useState(false);
+  const [isSavingEmailConfig, setIsSavingEmailConfig] = useState(false);
+  const [emailProviderInput, setEmailProviderInput] = useState<EmailProviderType>('WEBHOOK');
+  const [webhookUrlInput, setWebhookUrlInput] = useState('');
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [senderNameInput, setSenderNameInput] = useState('BellaDoor Notificações');
+  const [senderEmailInput, setSenderEmailInput] = useState('contato@belladoor.app');
+  const [emailsEnabledInput, setEmailsEnabledInput] = useState(true);
+  const [testEmailTarget, setTestEmailTarget] = useState('thaynaravinhal@gmail.com');
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);
+  const [copiedScript, setCopiedScript] = useState(false);
 
   // Estados do formulário de criação de novo cupom (Admin)
   const [newCouponCode, setNewCouponCode] = useState('');
@@ -183,6 +215,90 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
       type: 'success',
       text: `Cupom "${cleanCode}" criado e salvo na nuvem com sucesso!`,
     });
+  };
+
+  // Carrega e sincroniza configurações de e-mail e histórico ao inicializar
+  useEffect(() => {
+    loadEmailConfig().then((cfg) => {
+      setEmailConfig(cfg);
+      setWebhookUrlInput(cfg.webhookUrl || '');
+      setSenderNameInput(cfg.senderName || 'BellaDoor Notificações');
+      setSenderEmailInput(cfg.senderEmail || 'contato@belladoor.app');
+      setEmailProviderInput(cfg.provider || 'WEBHOOK');
+      setApiKeyInput(cfg.apiKey || '');
+      setEmailsEnabledInput(cfg.enabled !== false);
+    });
+    fetchEmailNotificationsLog().then((logs) => {
+      setEmailLogs(logs);
+    });
+  }, []);
+
+  const handleRefreshEmailLogs = async () => {
+    const logs = await fetchEmailNotificationsLog();
+    setEmailLogs(logs);
+  };
+
+  const handleSaveEmailConfigSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingEmailConfig(true);
+    const updated: BellaDoorEmailConfig = {
+      provider: emailProviderInput,
+      webhookUrl: webhookUrlInput.trim(),
+      apiKey: apiKeyInput.trim(),
+      senderName: senderNameInput.trim() || 'BellaDoor Notificações',
+      senderEmail: senderEmailInput.trim() || 'contato@belladoor.app',
+      enabled: emailsEnabledInput,
+    };
+    const ok = await saveEmailConfig(updated);
+    setEmailConfig(updated);
+    setIsSavingEmailConfig(false);
+    if (ok) {
+      setFeedbackMsg({
+        type: 'success',
+        text: 'Configurações de E-mail e Webhook salvas com sucesso na nuvem!',
+      });
+    } else {
+      setFeedbackMsg({
+        type: 'error',
+        text: 'Erro ao salvar configurações de e-mail no Firestore.',
+      });
+    }
+  };
+
+  const handleSendTestEmailClick = async () => {
+    const cleanTarget = testEmailTarget.trim();
+    if (!cleanTarget || !cleanTarget.includes('@')) {
+      setTestEmailResult({
+        success: false,
+        message: 'Por favor, informe um endereço de e-mail válido para o teste.',
+      });
+      return;
+    }
+    setIsSendingTestEmail(true);
+    setTestEmailResult(null);
+
+    const activeConfig: BellaDoorEmailConfig = {
+      provider: emailProviderInput,
+      webhookUrl: webhookUrlInput.trim(),
+      apiKey: apiKeyInput.trim(),
+      senderName: senderNameInput.trim() || 'BellaDoor Notificações',
+      senderEmail: senderEmailInput.trim() || 'contato@belladoor.app',
+      enabled: emailsEnabledInput,
+    };
+
+    const res = await sendTestBookingEmail(cleanTarget, activeConfig);
+    setIsSendingTestEmail(false);
+    setTestEmailResult(res);
+
+    fetchEmailNotificationsLog().then((logs) => setEmailLogs(logs));
+  };
+
+  const handleCopyScriptCode = () => {
+    try {
+      navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_SAMPLE);
+      setCopiedScript(true);
+      setTimeout(() => setCopiedScript(false), 3000);
+    } catch {}
   };
 
   // Unifica contas de belladoor_prod/users + perfis de professionals_directory
@@ -599,7 +715,7 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
         </div>
 
         {/* Seletor de Módulos do Painel Admin */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-4 pt-4 border-t border-white/15">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-4 pt-4 border-t border-white/15">
           <button
             type="button"
             onClick={() => {
@@ -683,6 +799,27 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
           >
             <CreditCard className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">Mercado Pago</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setAdminSection('EMAILS');
+              setFeedbackMsg(null);
+            }}
+            className={`py-2.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer relative ${
+              adminSection === 'EMAILS'
+                ? 'bg-amber-400 text-stone-950 shadow-md ring-2 ring-amber-300/40'
+                : 'bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10'
+            }`}
+          >
+            <Mail className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">E-mails</span>
+            {emailConfig.webhookUrl ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 ml-0.5"></span>
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-amber-400 ml-0.5 animate-pulse"></span>
+            )}
           </button>
         </div>
       </div>
@@ -1815,6 +1952,402 @@ export const AdminUsersView: React.FC<AdminUsersViewProps> = ({
                 Ver / Cancelar Assinaturas no Mercado Pago <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* SEÇÃO: CONFIGURAÇÃO DE E-MAILS & WEBHOOK (GOOGLE APPS SCRIPT)        */}
+      {/* ==================================================================== */}
+      {adminSection === 'EMAILS' && (
+        <div className="bg-stone-900 text-white rounded-3xl p-5 sm:p-6 space-y-6 border border-stone-700 shadow-xl animate-in fade-in duration-200">
+          {/* Header da Seção */}
+          <div className="flex items-center justify-between border-b border-stone-800 pb-4 flex-wrap gap-2">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
+                  Notificações & E-mails
+                </span>
+                {emailConfig.webhookUrl ? (
+                  <span className="text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Conectado via Webhook
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Aguardando URL do Webhook
+                  </span>
+                )}
+              </div>
+              <h3 className="text-lg font-black text-white flex items-center gap-2">
+                <Mail className="w-5 h-5 text-amber-400" />
+                Notificações Automáticas de Agendamento
+              </h3>
+              <p className="text-xs text-stone-400 mt-0.5">
+                Envie avisos por e-mail em tempo real para as profissionais (ex: Thaynara Letícia) sempre que uma cliente fizer um agendamento na vitrine.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer bg-stone-800 px-3 py-1.5 rounded-xl border border-stone-700 text-xs font-bold text-stone-300">
+                <input
+                  type="checkbox"
+                  checked={emailsEnabledInput}
+                  onChange={(e) => setEmailsEnabledInput(e.target.checked)}
+                  className="rounded text-rose-600 focus:ring-0 w-3.5 h-3.5"
+                />
+                Disparos Ativos
+              </label>
+            </div>
+          </div>
+
+          {/* Card 1: Como Configurar em 1 Minuto (Google Apps Script - 100% Gratuito) */}
+          <div className="bg-stone-800/80 rounded-2xl p-4 sm:p-5 border border-amber-500/30 space-y-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-400/20">
+                  Passo 1 • Método 100% Gratuito (Sem Cartão)
+                </span>
+                <h4 className="text-sm font-extrabold text-white mt-1 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  Como criar seu Webhook no Google Apps Script (Gmail)
+                </h4>
+                <p className="text-xs text-stone-300 mt-1 leading-relaxed">
+                  Com este script gratuito, o BellaDoor envia e-mails através da sua própria conta do Gmail diretamente para as profissionais sem nenhum custo ou limite de plano pago.
+                </p>
+              </div>
+
+              <a
+                href="https://script.google.com/home/start"
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 rounded-xl text-xs font-black transition inline-flex items-center gap-1.5 shadow-md shrink-0"
+              >
+                Abrir script.google.com <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+            {/* Passo a passo numerado */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-stone-300">
+              <div className="bg-stone-900/90 rounded-xl p-3 border border-stone-700 space-y-1.5">
+                <div className="font-extrabold text-amber-300 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center text-[10px] font-black">1</span>
+                  Criar o Projeto no Google
+                </div>
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  Acesse <strong>script.google.com</strong>, clique em <strong>+ Novo projeto</strong> no canto superior esquerdo, apague qualquer código que estiver na tela e clique no botão abaixo para copiar o código pronto.
+                </p>
+              </div>
+
+              <div className="bg-stone-900/90 rounded-xl p-3 border border-stone-700 space-y-1.5">
+                <div className="font-extrabold text-amber-300 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center text-[10px] font-black">2</span>
+                  Implantar como App da Web
+                </div>
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  Clique no botão azul <strong>Implantar</strong> &gt; <strong>Nova implantação</strong>. No ícone de engrenagem escolha <strong>App da Web</strong>. Configure:
+                  <br />• <em>Executar como:</em> <strong>Eu</strong>
+                  <br />• <em>Quem pode acessar:</em> <span className="text-amber-300 font-bold">Qualquer pessoa (Anyone)</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Snippet de código com botão de cópia */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-stone-400 flex items-center gap-1">
+                  <Code className="w-3.5 h-3.5 text-stone-400" /> Código Pronto do Google Apps Script:
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyScriptCode}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+                    copiedScript
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-stone-700 hover:bg-stone-600 text-stone-200 border border-stone-600'
+                  }`}
+                >
+                  {copiedScript ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      Código Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      Copiar Código Completo
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <pre className="bg-stone-950 border border-stone-800 rounded-xl p-3 text-[11px] font-mono text-stone-300 overflow-x-auto max-h-48 scrollbar-thin">
+                {GOOGLE_APPS_SCRIPT_SAMPLE}
+              </pre>
+            </div>
+          </div>
+
+          {/* Card 2: Configuração dos Parâmetros */}
+          <form onSubmit={handleSaveEmailConfigSubmit} className="bg-stone-800/80 rounded-2xl p-4 sm:p-5 border border-stone-700 space-y-4">
+            <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-md border border-sky-400/20">
+              Passo 2 • Salvar Configuração no BellaDoor
+            </span>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-extrabold text-stone-200 mb-1">
+                  URL do Webhook do Google Apps Script (Cole aqui após implantar):
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={webhookUrlInput}
+                    onChange={(e) => setWebhookUrlInput(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/AKfycbx.../exec"
+                    className="w-full bg-stone-900 border border-stone-600 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                  {webhookUrlInput && (
+                    <span className="absolute right-3 top-2.5 text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                      Preenchido
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-stone-400 mt-1">
+                  A URL deve terminar em <code className="text-amber-300">/exec</code>. É fornecida pelo Google ao clicar em Implantar.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    Nome de Exibição do Remetente:
+                  </label>
+                  <input
+                    type="text"
+                    value={senderNameInput}
+                    onChange={(e) => setSenderNameInput(e.target.value)}
+                    placeholder="BellaDoor Notificações"
+                    className="w-full bg-stone-900 border border-stone-600 rounded-xl px-3 py-2 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-300 mb-1">
+                    E-mail de Contato / Assinatura:
+                  </label>
+                  <input
+                    type="email"
+                    value={senderEmailInput}
+                    onChange={(e) => setSenderEmailInput(e.target.value)}
+                    placeholder="contato@belladoor.app"
+                    className="w-full bg-stone-900 border border-stone-600 rounded-xl px-3 py-2 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Opções Avançadas (Brevo / Resend se preferir) */}
+              <div className="pt-2 border-t border-stone-700/60">
+                <div className="flex items-center justify-between text-xs font-bold text-stone-400 mb-2">
+                  <span>Provedor de Envio Selecionado:</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEmailProviderInput('WEBHOOK')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold cursor-pointer ${
+                        emailProviderInput === 'WEBHOOK'
+                          ? 'bg-amber-400 text-stone-950'
+                          : 'bg-stone-900 text-stone-400 hover:text-stone-200'
+                      }`}
+                    >
+                      Google Apps Script (Recomendado)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmailProviderInput('BREVO')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold cursor-pointer ${
+                        emailProviderInput === 'BREVO'
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-stone-900 text-stone-400 hover:text-stone-200'
+                      }`}
+                    >
+                      Brevo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmailProviderInput('RESEND')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold cursor-pointer ${
+                        emailProviderInput === 'RESEND'
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-stone-900 text-stone-400 hover:text-stone-200'
+                      }`}
+                    >
+                      Resend
+                    </button>
+                  </div>
+                </div>
+
+                {(emailProviderInput === 'BREVO' || emailProviderInput === 'RESEND') && (
+                  <div className="mt-2 bg-stone-900/80 p-3 rounded-xl border border-stone-700">
+                    <label className="block text-[11px] font-bold text-stone-300 mb-1">
+                      Chave de API do {emailProviderInput}:
+                    </label>
+                    <input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder={`Cole sua chave de API do ${emailProviderInput}`}
+                      className="w-full bg-stone-950 border border-stone-600 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-400 font-mono"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isSavingEmailConfig}
+                className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-stone-950 font-black text-xs rounded-xl transition cursor-pointer shadow-md inline-flex items-center gap-2"
+              >
+                {isSavingEmailConfig ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Salvando Configurações...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Salvar Configurações de E-mail
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Card 3: Teste Imediato de Disparo */}
+          <div className="bg-stone-800/80 rounded-2xl p-4 sm:p-5 border border-emerald-500/30 space-y-4">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-400/20">
+              Passo 3 • Testar Envio Agora
+            </span>
+            <h4 className="text-sm font-extrabold text-white flex items-center gap-1.5">
+              <Send className="w-4 h-4 text-emerald-400" />
+              Enviar E-mail de Teste para Validar
+            </h4>
+            <p className="text-xs text-stone-300">
+              Dispare um agendamento de teste real para verificar se o e-mail chega na caixa postal da profissional.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <input
+                type="email"
+                value={testEmailTarget}
+                onChange={(e) => setTestEmailTarget(e.target.value)}
+                placeholder="thaynaravinhal@gmail.com"
+                className="flex-1 bg-stone-900 border border-stone-600 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-emerald-400 font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleSendTestEmailClick}
+                disabled={isSendingTestEmail}
+                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-black text-xs rounded-xl transition cursor-pointer shadow-md inline-flex items-center justify-center gap-2 shrink-0"
+              >
+                {isSendingTestEmail ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Enviando Teste...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    Disparar E-mail de Teste
+                  </>
+                )}
+              </button>
+            </div>
+
+            {testEmailResult && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs font-bold flex items-start gap-2.5 ${
+                  testEmailResult.success
+                    ? 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                    : 'bg-rose-950/60 border-rose-700 text-rose-200'
+                }`}
+              >
+                {testEmailResult.success ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <p>{testEmailResult.message}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Card 4: Histórico de Envios Recentes */}
+          <div className="bg-stone-800/80 rounded-2xl p-4 sm:p-5 border border-stone-700 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-extrabold text-white flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-stone-400" />
+                  Histórico de Notificações Registradas ({emailLogs.length})
+                </h4>
+                <p className="text-[11px] text-stone-400">
+                  Últimos envios gravados na nuvem em <code className="text-stone-300">belladoor_prod/email_notifications</code>
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRefreshEmailLogs}
+                className="p-1.5 rounded-xl bg-stone-700 hover:bg-stone-600 text-stone-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition"
+                title="Recarregar histórico"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Atualizar</span>
+              </button>
+            </div>
+
+            {emailLogs.length === 0 ? (
+              <div className="p-4 bg-stone-900/60 rounded-xl border border-stone-800 text-center text-xs text-stone-400">
+                Nenhum e-mail registrado recentemente no log.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-stone-300 border-collapse">
+                  <thead>
+                    <tr className="border-b border-stone-700 text-[10px] uppercase tracking-wider text-stone-400">
+                      <th className="py-2 px-2">Data/Hora</th>
+                      <th className="py-2 px-2">Destinatário</th>
+                      <th className="py-2 px-2">Profissional</th>
+                      <th className="py-2 px-2">Cliente</th>
+                      <th className="py-2 px-2">Serviço</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-800/60 font-mono text-[11px]">
+                    {emailLogs.slice(0, 15).map((log) => (
+                      <tr key={log.id} className="hover:bg-stone-800/40">
+                        <td className="py-2 px-2 text-stone-400">
+                          {log.sentAt ? new Date(log.sentAt).toLocaleString('pt-BR') : '—'}
+                        </td>
+                        <td className="py-2 px-2 font-bold text-amber-300">
+                          {log.to}
+                        </td>
+                        <td className="py-2 px-2 text-stone-200">
+                          {log.proName || '—'}
+                        </td>
+                        <td className="py-2 px-2 text-stone-300">
+                          {log.clientName || '—'}
+                        </td>
+                        <td className="py-2 px-2 text-stone-400">
+                          {log.serviceName || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
