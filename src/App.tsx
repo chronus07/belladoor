@@ -1043,24 +1043,44 @@ export default function App() {
       applyProfessionalLoginFlow(user, isNewRegistration);
     } else {
       setActiveTab('client');
-      setClientSubView('EXPLORE');
-      const hasDirectProIntent = Boolean(
-        (selectedPro && selectedPro.id !== myCustomProProfile.id) ||
-        (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pro')) ||
-        (() => {
-          try {
-            return Boolean(sessionStorage.getItem('belladoor_v2_direct_pro_slug'));
-          } catch {
-            return false;
-          }
-        })()
-      );
-      if (!hasDirectProIntent) {
-        setSelectedPro(null);
+      // Sincroniza retroativamente agendamentos criados com este e-mail antes do cadastro
+      const userCleanEmail = user.email?.trim().toLowerCase();
+      if (userCleanEmail) {
+        setProAppointments((prev) => {
+          const updated = prev.map((app) => {
+            if (
+              app.clientEmail &&
+              app.clientEmail.trim().toLowerCase() === userCleanEmail &&
+              !app.clientId
+            ) {
+              return { ...app, clientId: user.id };
+            }
+            return app;
+          });
+          syncDocumentToFirestore('appointments', { items: updated });
+          return updated;
+        });
       }
-      setCategoryFilter('TODAS');
-      setSearchQuery('');
+      if (!isBookingModalOpen && clientSubView !== 'MY_BOOKINGS') {
+        const hasDirectProIntent = Boolean(
+          (selectedPro && selectedPro.id !== myCustomProProfile.id) ||
+          (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pro')) ||
+          (() => {
+            try {
+              return Boolean(sessionStorage.getItem('belladoor_v2_direct_pro_slug'));
+            } catch {
+              return false;
+            }
+          })()
+        );
+        if (!hasDirectProIntent) {
+          setSelectedPro(null);
+        }
+        setCategoryFilter('TODAS');
+        setSearchQuery('');
+      }
       setClientName(user.fullName || '');
+      setClientEmail(user.email || '');
       try {
         localStorage.setItem('belladoor_v2_active_tab', JSON.stringify('client'));
         localStorage.setItem('belladoor_v2_user', JSON.stringify(user));
@@ -3821,6 +3841,11 @@ export default function App() {
   // Dados Pessoais da Cliente
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [quickPassword, setQuickPassword] = useState('');
+  const [isQuickCreatingAccount, setIsQuickCreatingAccount] = useState(false);
+  const [quickAccountCreated, setQuickAccountCreated] = useState(false);
+  const [quickAccountError, setQuickAccountError] = useState<string | null>(null);
 
   // Auto-Fill Inteligente: Pré-preenche Nome Completo da cliente logada + último WhatsApp/CEP/Endereço usados
   const clientAutoFillStorageKey = currentUser?.email
@@ -3836,12 +3861,18 @@ export default function App() {
         currentUser?.fullName && currentUser.fullName !== 'Cliente Convidada'
           ? currentUser.fullName
           : '';
+      const loggedRealEmail = currentUser?.email || '';
+
+      if (loggedRealEmail) {
+        setClientEmail(loggedRealEmail);
+      }
 
       if (savedData && typeof savedData === 'object') {
         if (savedData.clientName || loggedRealName) {
           setClientName(savedData.clientName || loggedRealName);
         }
         if (savedData.clientPhone) setClientPhone(savedData.clientPhone);
+        if (savedData.clientEmail && !loggedRealEmail) setClientEmail(savedData.clientEmail);
         if (savedData.cep) setCep(savedData.cep);
         if (savedData.street) setStreet(savedData.street);
         if (savedData.number) setNumber(savedData.number);
@@ -4076,6 +4107,21 @@ export default function App() {
       }
     }
 
+    const effectiveClientEmail = (clientEmail || currentUser?.email || '').trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!effectiveClientEmail || !emailRegex.test(effectiveClientEmail)) {
+      setUiDialog({
+        emoji: '📧',
+        badge: 'E-mail Obrigatório',
+        title: 'Informe seu e-mail de contato',
+        message:
+          'Por favor, informe um endereço de e-mail válido para vincular seu agendamento, receber a confirmação e permitir seu acesso futuro aos seus agendamentos.',
+        buttonText: 'Informar E-mail',
+        variant: 'rose',
+      });
+      return;
+    }
+
     // Salva os dados para preenchimento automático (Auto-Fill) nos próximos agendamentos da cliente
     try {
       localStorage.setItem(
@@ -4083,6 +4129,7 @@ export default function App() {
         JSON.stringify({
           clientName: clientName.trim(),
           clientPhone: clientPhone.trim(),
+          clientEmail: effectiveClientEmail,
           cep: cep.trim(),
           street: street.trim(),
           number: number.trim(),
@@ -4189,7 +4236,7 @@ export default function App() {
       id: `app-${Date.now()}`,
       clientName: clientName.trim(),
       clientPhone: clientPhone.trim(),
-      clientEmail: currentUser?.email?.toLowerCase() || undefined,
+      clientEmail: effectiveClientEmail,
       clientId: currentUser?.id || undefined,
       serviceName: selectedService?.name || 'Atendimento',
       durationMinutes: selectedService?.durationMinutes || 60,
@@ -4217,6 +4264,18 @@ export default function App() {
     // Grava de forma atômica no Cloud Firestore imediatamente
     appendAppointmentToFirestore(newAppointment);
 
+    if (!currentUser) {
+      try {
+        const guestSaved = loadFromStorage<string[]>('belladoor_guest_appointment_ids', []);
+        if (!guestSaved.includes(newAppointment.id)) {
+          localStorage.setItem(
+            'belladoor_guest_appointment_ids',
+            JSON.stringify([newAppointment.id, ...guestSaved])
+          );
+        }
+      } catch {}
+    }
+
     // Dispara notificação por e-mail para a profissional em background (sem travar a tela)
     if (resolvedProEmail) {
       sendBookingEmailNotification(
@@ -4243,17 +4302,83 @@ export default function App() {
   // PASSO 4: GERENCIAMENTO DE AGENDAMENTOS DA CLIENTE & AVALIAÇÕES (⭐)
   // =========================================================================
   const isAppointmentOwnedByClient = (app: ClientAppointment) => {
-    if (!currentUser) return false;
-    if (app.clientId && currentUser.id) {
-      return app.clientId === currentUser.id;
+    const guestAppointmentIds = loadFromStorage<string[]>('belladoor_guest_appointment_ids', []);
+    if (!currentUser) {
+      // Se não estiver logada, permite visualizar agendamentos criados neste navegador
+      return guestAppointmentIds.includes(app.id);
     }
-    if (app.clientEmail && currentUser.email) {
-      return app.clientEmail.toLowerCase() === currentUser.email.toLowerCase();
+    // 1. Vinculado por ID da conta
+    if (app.clientId && currentUser.id && app.clientId === currentUser.id) {
+      return true;
     }
-    if (!app.clientId && !app.clientEmail) {
+    // 2. Vinculado por E-mail
+    if (
+      app.clientEmail &&
+      currentUser.email &&
+      app.clientEmail.trim().toLowerCase() === currentUser.email.trim().toLowerCase()
+    ) {
+      return true;
+    }
+    // 3. Vinculado por WhatsApp / Telefone
+    const cleanAppPhone = (app.clientPhone || '').replace(/\D/g, '');
+    const cleanUserPhone = (currentUser.phone || (currentUser as any).whatsapp || '').replace(/\D/g, '');
+    if (cleanAppPhone && cleanUserPhone && cleanAppPhone.length >= 8 && cleanAppPhone === cleanUserPhone) {
+      return true;
+    }
+    // 4. Agendamentos criados neste aparelho antes do login
+    if (guestAppointmentIds.includes(app.id)) {
       return true;
     }
     return false;
+  };
+
+  const handleQuickAccountCreation = async () => {
+    const targetEmail = (lastBooking?.clientEmail || clientEmail || '').trim().toLowerCase();
+    const targetName = (lastBooking?.clientName || clientName || 'Cliente').trim();
+
+    if (!targetEmail || !targetEmail.includes('@')) {
+      setQuickAccountError('Informe um e-mail válido.');
+      return;
+    }
+    if (quickPassword.length < 6) {
+      setQuickAccountError('A senha deve ter no mínimo 6 dígitos.');
+      return;
+    }
+
+    setIsQuickCreatingAccount(true);
+    setQuickAccountError(null);
+
+    try {
+      const res = await signUpWithEmail(
+        targetEmail,
+        quickPassword,
+        targetName,
+        'CLIENT',
+        undefined,
+        undefined
+      );
+
+      if (res.error) {
+        // Se a conta já existe, tenta autenticar diretamente com a senha informada
+        const loginRes = await signInWithEmail(targetEmail, quickPassword, 'CLIENT');
+        if (loginRes.user) {
+          completeAuthenticatedSession(loginRes.user, false);
+          setQuickAccountCreated(true);
+          return;
+        }
+        setQuickAccountError(res.error);
+        return;
+      }
+
+      if (res.user) {
+        completeAuthenticatedSession(res.user, true);
+        setQuickAccountCreated(true);
+      }
+    } catch (err: any) {
+      setQuickAccountError(err.message || 'Erro ao criar conta.');
+    } finally {
+      setIsQuickCreatingAccount(false);
+    }
   };
 
   const clientOwnAppointments = proAppointments.filter(isAppointmentOwnedByClient);
@@ -4547,6 +4672,9 @@ export default function App() {
     setLastBooking(null);
     setStep(1);
     setIsBookingModalOpen(false);
+    setQuickPassword('');
+    setQuickAccountCreated(false);
+    setQuickAccountError(null);
     if (pro.serviceMode === 'STUDIO') {
       setSelectedLocationType('STUDIO');
       setTravelFee(0);
@@ -4565,6 +4693,7 @@ export default function App() {
       setIsNeighborhoodCovered(null);
       setClientName('');
       setClientPhone('');
+      setClientEmail('');
     }
   };
 
@@ -6104,6 +6233,27 @@ export default function App() {
                         />
                       </div>
 
+                      <div>
+                        <label className={`block text-xs font-bold mb-1 ${proTheme.isDark ? 'text-stone-200' : 'text-stone-700'}`}>
+                          Seu E-mail (para confirmação e histórico):*
+                        </label>
+                        <input
+                          required
+                          type="email"
+                          placeholder="Ex: seuemail@exemplo.com"
+                          value={clientEmail}
+                          onChange={(e) => setClientEmail(e.target.value)}
+                          className={`w-full border rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 ${proTheme.focusRing} ${
+                            proTheme.isDark
+                              ? 'bg-stone-900 border-stone-800 text-stone-100'
+                              : 'bg-white border-stone-300 text-stone-800'
+                          }`}
+                        />
+                        <p className={`text-[10px] mt-1 ${proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}`}>
+                          💡 Com este e-mail você poderá acompanhar seu agendamento e avaliar o atendimento.
+                        </p>
+                      </div>
+
                       <p className={`text-[11px] leading-tight ${proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}`}>
                         * O pagamento é realizado diretamente com {pro.businessNiche === 'BARBERSHOP' ? 'o barbeiro' : 'a profissional'} no dia do atendimento.
                       </p>
@@ -6282,6 +6432,70 @@ export default function App() {
                           ? '💡 Clique acima para abrir a conversa no WhatsApp com os dados e enviar seu comprovante.'
                           : '💡 Clique acima para abrir a conversa no WhatsApp e confirmar seu horário diretamente com a profissional.'}
                       </p>
+
+                      {/* OPÇÃO A: CONVITE EM 1 CLIQUE PARA CRIAR CONTA E SALVAR AGENDAMENTO */}
+                      {!currentUser && (
+                        <div className="mt-4 p-4 rounded-2xl bg-gradient-to-br from-rose-50 via-pink-50 to-amber-50 border-2 border-rose-200 text-left space-y-3 shadow-xs">
+                          <div className="flex items-start gap-2.5">
+                            <div className="p-2 bg-rose-600 text-white rounded-xl shadow-xs shrink-0 mt-0.5">
+                              <Sparkles className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-2 py-0.5 rounded-full">
+                                  Acesso Rápido
+                                </span>
+                                <h4 className="text-xs font-black text-rose-950">
+                                  Deseja acompanhar este horário no BellaDoor?
+                                </h4>
+                              </div>
+                              <p className="text-[11px] text-stone-600 leading-relaxed mt-1">
+                                Crie uma senha rápida para o e-mail <strong>{lastBooking?.clientEmail || clientEmail}</strong>. Você poderá ver o status do sinal, rota da profissional e avaliar o atendimento com estrelas.
+                              </p>
+                            </div>
+                          </div>
+
+                          {quickAccountCreated ? (
+                            <div className="bg-emerald-50 border border-emerald-300 p-3 rounded-xl flex items-center gap-2 text-xs text-emerald-900 font-bold">
+                              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>Conta criada com sucesso! Seu agendamento já está vinculado.</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 pt-0.5">
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                  type="password"
+                                  placeholder="Digite uma senha (mínimo 6 dígitos)"
+                                  value={quickPassword}
+                                  onChange={(e) => setQuickPassword(e.target.value)}
+                                  className="flex-1 bg-white border border-rose-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={isQuickCreatingAccount || quickPassword.length < 6}
+                                  onClick={handleQuickAccountCreation}
+                                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                                >
+                                  {isQuickCreatingAccount ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Criando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="w-3.5 h-3.5" /> Criar Minha Conta
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              {quickAccountError && (
+                                <p className="text-[11px] text-red-600 flex items-center gap-1">
+                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {quickAccountError}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
                         <button
