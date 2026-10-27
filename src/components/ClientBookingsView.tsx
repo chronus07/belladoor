@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowLeft,
   Calendar,
@@ -10,9 +10,21 @@ import {
   UserCheck,
   X,
   Lock,
+  CreditCard,
+  Copy,
+  Check,
+  ShieldCheck,
+  Clock,
 } from 'lucide-react';
 import { ClientAppointment } from '../types/belladoor';
 import { MockProfessional } from '../data/mockData';
+import {
+  getEffectiveBookingRules,
+  calculateDeposit,
+  PIX_KEY_LABELS,
+  formatClientToProMessage,
+  buildWhatsAppLink,
+} from '../utils/bookingRules';
 
 interface ClientBookingsViewProps {
   proAppointments: ClientAppointment[];
@@ -59,6 +71,8 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
   onCancelClientAppointment,
   onOpenProfileModal,
 }) => {
+  const [selectedPixApp, setSelectedPixApp] = useState<ClientAppointment | null>(null);
+  const [copiedPixKey, setCopiedPixKey] = useState(false);
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* Topo da Página Meus Agendamentos */}
@@ -213,6 +227,213 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
           </form>
         </div>
       )}
+
+      {/* MODAL COM INFORMAÇÕES DE PAGAMENTO DO SINAL & PIX */}
+      {selectedPixApp && (() => {
+        const matchedPro = professionals.find(
+          (p) =>
+            (selectedPixApp.proId && p.id === selectedPixApp.proId) ||
+            (selectedPixApp.proSlug && p.slug && p.slug.toLowerCase() === selectedPixApp.proSlug.toLowerCase()) ||
+            (selectedPixApp.proName && p.name && p.name.toLowerCase() === selectedPixApp.proName.toLowerCase())
+        );
+        const resolvedName = selectedPixApp.proName || matchedPro?.name || proDisplayName || 'Profissional';
+        const effectiveRules = getEffectiveBookingRules(
+          matchedPro?.bookingRules,
+          matchedPro || {
+            name: resolvedName,
+            whatsapp: selectedPixApp.proWhatsapp || proWhatsapp,
+          }
+        );
+        const depositCalc = calculateDeposit(selectedPixApp.totalPrice, effectiveRules);
+        const depositPct = selectedPixApp.depositPercentage || depositCalc.depositPercentage || 50;
+        const depositVal =
+          selectedPixApp.depositAmount && selectedPixApp.depositAmount > 0
+            ? selectedPixApp.depositAmount
+            : depositCalc.depositAmount;
+        const remainingVal = Math.max(0, selectedPixApp.totalPrice - depositVal);
+        const pixKeyLabel = PIX_KEY_LABELS[effectiveRules.pixKeyType] || 'PIX';
+        const effectivePixKey =
+          effectiveRules.pixKey ||
+          (matchedPro?.whatsapp ? matchedPro.whatsapp.replace(/\D/g, '') : (selectedPixApp.proWhatsapp ? selectedPixApp.proWhatsapp.replace(/\D/g, '') : ''));
+        const receiverName = effectiveRules.pixReceiverName || resolvedName;
+        const proWhatsappForLink = (selectedPixApp.proWhatsapp || matchedPro?.whatsapp || proWhatsapp || '').replace(/\D/g, '');
+
+        const dateFormatted = selectedPixApp.date.split('-').reverse().join('/');
+        const locationText =
+          selectedPixApp.locationType === 'STUDIO'
+            ? `No Studio: ${selectedPixApp.address}`
+            : `A domicílio: ${selectedPixApp.address} (${selectedPixApp.neighborhood})`;
+
+        const whatsappMessage = formatClientToProMessage({
+          settings: effectiveRules,
+          booking: selectedPixApp,
+          proName: resolvedName,
+          isBarbershop: matchedPro?.businessNiche === 'BARBERSHOP',
+        });
+        const whatsappUrl = buildWhatsAppLink(proWhatsappForLink, whatsappMessage);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-stone-200 space-y-4 my-auto max-h-[92vh] overflow-y-auto text-stone-900 relative animate-in zoom-in-95 duration-200">
+              {/* Topo do Modal com Fechar */}
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-amber-100 text-amber-700">
+                    <CreditCard className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      Sinal de Reserva
+                    </span>
+                    <h3 className="text-base font-extrabold text-stone-900">
+                      Informações para Pagamento
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPixApp(null)}
+                  className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Resumo do Atendimento */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 text-left text-xs space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between pb-1 border-b border-stone-200/60">
+                  <span className="font-extrabold text-stone-900 text-sm">{selectedPixApp.serviceName}</span>
+                  <span className="font-extrabold text-emerald-700 text-sm">
+                    R$ {selectedPixApp.totalPrice.toFixed(2).replace('.', ',')}
+                  </span>
+                </div>
+                <p className="text-stone-700">
+                  <strong>Profissional:</strong> {resolvedName}
+                </p>
+                <p className="text-stone-700">
+                  <strong>Data & Hora:</strong> {dateFormatted} às {selectedPixApp.time}
+                </p>
+                <p className="text-stone-700">
+                  <strong>Local:</strong> {locationText}
+                </p>
+              </div>
+
+              {/* Box Oficial de Sinal de 50% & Chave PIX (Idêntico ao da confirmação) */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/60 via-emerald-50/70 to-teal-50/60 border-2 border-emerald-400 text-left space-y-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    Sinal de {depositPct}% para Garantir o Horário
+                  </span>
+                  <span className="text-[10px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
+                    Segura sua Vaga
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-2xs">
+                    <p className="text-[10px] text-stone-500 font-bold">
+                      Sinal a Pagar Agora ({depositPct}%)
+                    </p>
+                    <p className="text-base font-black text-emerald-700">
+                      R$ {depositVal.toFixed(2).replace('.', ',')}
+                    </p>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-stone-200 shadow-2xs">
+                    <p className="text-[10px] text-stone-500 font-bold">Restante no Atendimento</p>
+                    <p className="text-base font-black text-stone-700">
+                      R$ {remainingVal.toFixed(2).replace('.', ',')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-3 rounded-xl border border-emerald-200 space-y-1.5 shadow-2xs">
+                  <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wide">
+                    Chave PIX ({pixKeyLabel}):
+                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono font-black text-stone-900 truncate">
+                      {effectivePixKey || 'Chave a combinar no WhatsApp'}
+                    </span>
+                    {effectivePixKey && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(effectivePixKey);
+                          setCopiedPixKey(true);
+                          setTimeout(() => setCopiedPixKey(false), 2000);
+                        }}
+                        className="py-1 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition shrink-0 flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedPixKey ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        {copiedPixKey ? 'Copiado!' : 'Copiar Chave'}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-stone-600">
+                    Titular da Conta: <strong>{receiverName}</strong>
+                  </p>
+                </div>
+
+                <div className="text-[11px] text-amber-900 bg-amber-100/80 p-2.5 rounded-xl flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>
+                    Envie o comprovante em até <strong>{effectiveRules.depositTimeLimitHours}h</strong> para confirmar sua vaga na agenda.
+                  </span>
+                </div>
+              </div>
+
+              {/* Regras e Orientações */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 text-left space-y-1.5 shadow-2xs">
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-stone-700">
+                  Regras e Orientações do Atendimento:
+                </p>
+                <ul className="text-[11px] text-stone-600 space-y-1">
+                  <li>• Tolerância máxima de atraso: <strong>{effectiveRules.delayToleranceMinutes} minutos</strong></li>
+                  <li>• Remarcações com no mínimo <strong>{effectiveRules.cancellationNoticeHours}h</strong> de antecedência</li>
+                  {effectiveRules.customRules && (
+                    <li className="whitespace-pre-wrap">{effectiveRules.customRules}</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Disclaimer de Isenção sobre Sinal e Regras */}
+              <div className="bg-stone-100/90 border border-stone-200 rounded-xl p-2.5 text-[10px] text-stone-600 leading-relaxed text-left flex items-start gap-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Aviso Legal:</strong> O sinal, as tolerâncias e as regras de cancelamento são estabelecidos diretamente por <strong>{resolvedName}</strong>. O BellaDoor é uma ferramenta tecnológica de agendamento e vitrine e não custodia nem intermedeia valores financeiros.
+                </span>
+              </div>
+
+              {/* Botão de Enviar Comprovante no WhatsApp */}
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Enviar Comprovante e Confirmar no WhatsApp
+              </a>
+
+              <p className="text-[10px] text-stone-400 text-center">
+                Ao clicar no botão acima, o WhatsApp abrirá com todos os dados do agendamento preenchidos para você anexar o comprovante do PIX.
+              </p>
+
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPixApp(null)}
+                  className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* CABEÇALHO ENFÁTICO: ATENDIMENTOS AGENDADOS */}
       <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-xs">
@@ -371,19 +592,29 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
 
                 {/* Banner de Aviso de Sinal Pendente ou Confirmado */}
                 {app.status === 'Aguardando Sinal' && (
-                  <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-2.5 flex items-start gap-2 text-xs text-amber-950">
-                    <span className="text-base shrink-0">⏳</span>
-                    <div>
-                      <p className="font-bold text-[11px]">
-                        Aguardando confirmação do sinal{' '}
-                        {app.depositAmount && app.depositAmount > 0
-                          ? `de R$ ${app.depositAmount.toFixed(2).replace('.', ',')}`
-                          : ''}
-                      </p>
-                      <p className="text-[10px] text-amber-800">
-                        Envie o comprovante do PIX pelo WhatsApp da profissional para garantir seu horário.
-                      </p>
+                  <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-amber-950">
+                    <div className="flex items-start gap-2">
+                      <span className="text-base shrink-0">⏳</span>
+                      <div>
+                        <p className="font-bold text-[11px]">
+                          Aguardando confirmação do sinal{' '}
+                          {app.depositAmount && app.depositAmount > 0
+                            ? `de R$ ${app.depositAmount.toFixed(2).replace('.', ',')}`
+                            : ''}
+                        </p>
+                        <p className="text-[10px] text-amber-800">
+                          Envie o comprovante do PIX pelo WhatsApp da profissional para garantir seu horário.
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPixApp(app)}
+                      className="px-3.5 py-2 bg-amber-400 hover:bg-amber-500 text-stone-950 text-[11px] font-black rounded-xl transition cursor-pointer shadow-xs shrink-0 flex items-center justify-center gap-1.5"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Ver Informações para Pagamento</span>
+                    </button>
                   </div>
                 )}
 
@@ -414,6 +645,17 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                 {/* Botões de Ação do Agendamento da Cliente */}
                 {!isCancelled && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {(app.status === 'Aguardando Sinal' || (!app.depositPaid && app.depositAmount && app.depositAmount > 0)) && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPixApp(app)}
+                        className="w-full sm:w-auto py-2.5 px-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-stone-950 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        Ver Informações para Pagamento
+                      </button>
+                    )}
+
                     <a
                       href={`https://wa.me/${resolvedProWhatsapp}?text=${encodeURIComponent(
                         app.status === 'Aguardando Sinal'
@@ -428,7 +670,7 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                       )}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs"
+                      className="flex-1 min-w-[140px] py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                       {app.status === 'Aguardando Sinal' ? 'Enviar Comprovante no WhatsApp' : 'Falar no WhatsApp'}
