@@ -97,7 +97,7 @@ export const ProBillingTab: React.FC<ProBillingTabProps> = ({
 }) => {
   const [couponInput, setCouponInput] = useState('');
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   // Estados de carregamento e última URL de checkout aberta
   const [mpLoadingApi, setMpLoadingApi] = useState<boolean>(false);
