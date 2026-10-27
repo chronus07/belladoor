@@ -1188,6 +1188,43 @@ export async function updateUserAccountInFirestore(
 }
 
 /**
+ * Busca os dados de um documento específico no Firestore (com timeout seguro)
+ */
+export async function getFirestoreDocument<T = any>(docId: string): Promise<T | null> {
+  const db = getFirebaseDb();
+  if (!db) return null;
+  try {
+    const snap = await withTimeout(getDoc(doc(db, 'belladoor_prod', docId)), 2500, null as any);
+    if (snap && snap.exists()) {
+      return snap.data() as T;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Busca o registro cadastral mais recente de um usuário no Firestore
+ */
+export async function getFreshUserAccountFromFirestore(email: string): Promise<Partial<AuthUser> | null> {
+  const normEmail = (email || '').trim().toLowerCase();
+  if (!normEmail) return null;
+  const db = getFirebaseDb();
+  if (!db) return null;
+  try {
+    const snap = await withTimeout(getDoc(doc(db, 'belladoor_prod', 'users')), 2500, null as any);
+    if (snap && snap.exists()) {
+      const accounts = snap.data()?.accounts || {};
+      return (accounts[normEmail] as Partial<AuthUser>) || null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * [ADMIN] Salva / edita um cadastro de cliente ou profissional diretamente no Cloud Firestore
  */
 export async function adminSaveUserInFirestore(

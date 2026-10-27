@@ -78,6 +78,7 @@ import {
   adminDeleteUserFromFirestore,
   deleteOwnAccountAndDataFromFirestore,
   appendFeedbackToFirestore,
+  getFreshUserAccountFromFirestore,
   BetaFeedbackEntry,
 } from '../lib/firebaseClient';
 import {
@@ -2527,7 +2528,45 @@ export default function App() {
     showProSuccess(`🗑️ Região "${name}" removida da sua lista.`);
   };
 
-  // Sincroniza em tempo real os dados de assinatura e término de teste da conta logada a partir do Cloud Firestore
+  // 1. Busca imediatamente dados cadastrais frescos do Cloud Firestore ao inicializar no dispositivo
+  useEffect(() => {
+    if (!currentUser?.email || !isFirebaseConfigured()) return;
+    const cleanEmail = currentUser.email.trim().toLowerCase();
+    getFreshUserAccountFromFirestore(cleanEmail)
+      .then((fresh) => {
+        if (!fresh) return;
+        setCurrentUser((prev) => {
+          if (!prev) return prev;
+          const merged: AuthUser = {
+            ...prev,
+            fullName: fresh.fullName || prev.fullName,
+            cpf: fresh.cpf || prev.cpf,
+            birthDate: fresh.birthDate || prev.birthDate,
+            phone: fresh.phone || prev.phone,
+            role: (fresh.role as any) || prev.role,
+            subscriptionStatus: (fresh.subscriptionStatus as any) || prev.subscriptionStatus,
+            subscriptionPlan: (fresh.subscriptionPlan as any) || prev.subscriptionPlan,
+            appliedCoupon: fresh.appliedCoupon !== undefined ? fresh.appliedCoupon : prev.appliedCoupon,
+            couponDaysTotal: fresh.couponDaysTotal !== undefined ? fresh.couponDaysTotal : prev.couponDaysTotal,
+            paymentMethod: (fresh.paymentMethod as any) || prev.paymentMethod,
+            trialEndsAt: fresh.trialEndsAt || prev.trialEndsAt,
+            trialDaysLeft: fresh.trialDaysLeft !== undefined ? fresh.trialDaysLeft : prev.trialDaysLeft,
+            onboardingCompleted: fresh.onboardingCompleted !== undefined ? fresh.onboardingCompleted : prev.onboardingCompleted,
+          };
+          try {
+            localStorage.setItem('belladoor_v2_user', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+
+        if (fresh.cpf) setAuthCpf(fresh.cpf);
+        if (fresh.birthDate) setAuthBirthDate(fresh.birthDate);
+        if (fresh.fullName) setAuthName(fresh.fullName);
+      })
+      .catch(() => {});
+  }, [currentUser?.email]);
+
+  // 2. Sincroniza em tempo real todos os dados cadastrais e de assinatura da conta logada a partir do Cloud Firestore
   useEffect(() => {
     if (!currentUser || !currentUser.email) return;
     const cleanEmail = currentUser.email.trim().toLowerCase();
@@ -2539,26 +2578,55 @@ export default function App() {
     if (cloudStatus !== subscriptionStatus) {
       setSubscriptionStatus(cloudStatus);
     }
+
+    const needsCpfSync = Boolean(cloudAcc.cpf && cloudAcc.cpf !== currentUser.cpf);
+    const needsBirthDateSync = Boolean(cloudAcc.birthDate && cloudAcc.birthDate !== currentUser.birthDate);
+    const needsPhoneSync = Boolean(cloudAcc.phone && cloudAcc.phone !== currentUser.phone);
+    const needsFullNameSync = Boolean(cloudAcc.fullName && cloudAcc.fullName !== currentUser.fullName);
+    const needsRoleSync = Boolean(cloudAcc.role && cloudAcc.role !== currentUser.role);
+    const needsTrialEndsSync = Boolean(cloudAcc.trialEndsAt && cloudAcc.trialEndsAt !== currentUser.trialEndsAt);
+    const needsCouponSync = Boolean(cloudAcc.appliedCoupon !== undefined && cloudAcc.appliedCoupon !== currentUser.appliedCoupon);
+    const needsPaymentSync = Boolean(cloudAcc.paymentMethod !== undefined && cloudAcc.paymentMethod !== currentUser.paymentMethod);
+    const needsOnboardingSync = Boolean(cloudAcc.onboardingCompleted !== undefined && cloudAcc.onboardingCompleted !== currentUser.onboardingCompleted);
+
     if (
-      cloudAcc.trialEndsAt &&
-      cloudAcc.trialEndsAt !== currentUser.trialEndsAt
+      needsCpfSync ||
+      needsBirthDateSync ||
+      needsPhoneSync ||
+      needsFullNameSync ||
+      needsRoleSync ||
+      needsTrialEndsSync ||
+      needsCouponSync ||
+      needsPaymentSync ||
+      needsOnboardingSync
     ) {
-      setCurrentUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              trialEndsAt: cloudAcc.trialEndsAt,
-              trialDaysLeft: cloudAcc.trialDaysLeft,
-              subscriptionStatus: cloudStatus,
-              subscriptionPlan: cloudAcc.subscriptionPlan || prev.subscriptionPlan,
-              appliedCoupon: cloudAcc.appliedCoupon ?? prev.appliedCoupon,
-              couponDaysTotal: cloudAcc.couponDaysTotal ?? prev.couponDaysTotal,
-              paymentMethod: cloudAcc.paymentMethod ?? prev.paymentMethod,
-            }
-          : prev
-      );
+      const mergedUser: AuthUser = {
+        ...currentUser,
+        fullName: cloudAcc.fullName || currentUser.fullName,
+        cpf: cloudAcc.cpf || currentUser.cpf,
+        birthDate: cloudAcc.birthDate || currentUser.birthDate,
+        phone: cloudAcc.phone || currentUser.phone,
+        role: cloudAcc.role || currentUser.role,
+        trialEndsAt: cloudAcc.trialEndsAt || currentUser.trialEndsAt,
+        trialDaysLeft: cloudAcc.trialDaysLeft !== undefined ? cloudAcc.trialDaysLeft : currentUser.trialDaysLeft,
+        subscriptionStatus: cloudStatus,
+        subscriptionPlan: cloudAcc.subscriptionPlan || currentUser.subscriptionPlan,
+        appliedCoupon: cloudAcc.appliedCoupon !== undefined ? cloudAcc.appliedCoupon : currentUser.appliedCoupon,
+        couponDaysTotal: cloudAcc.couponDaysTotal !== undefined ? cloudAcc.couponDaysTotal : currentUser.couponDaysTotal,
+        paymentMethod: cloudAcc.paymentMethod !== undefined ? cloudAcc.paymentMethod : currentUser.paymentMethod,
+        onboardingCompleted: cloudAcc.onboardingCompleted !== undefined ? cloudAcc.onboardingCompleted : currentUser.onboardingCompleted,
+      };
+
+      setCurrentUser(mergedUser);
+      if (cloudAcc.cpf) setAuthCpf(cloudAcc.cpf);
+      if (cloudAcc.birthDate) setAuthBirthDate(cloudAcc.birthDate);
+      if (cloudAcc.fullName) setAuthName(cloudAcc.fullName);
+
+      try {
+        localStorage.setItem('belladoor_v2_user', JSON.stringify(mergedUser));
+      } catch {}
     }
-  }, [cloudAccounts, currentUser?.email]);
+  }, [cloudAccounts, currentUser?.email, currentUser?.cpf, currentUser?.birthDate, currentUser?.phone, currentUser?.fullName, currentUser?.trialEndsAt, subscriptionStatus]);
 
   // Verifica se o período gratuito de 7 dias (ou cupom temporário) da profissional expirou sem assinatura ativa
   const isProTrialExpired = Boolean(

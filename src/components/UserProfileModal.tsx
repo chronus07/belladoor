@@ -12,6 +12,7 @@ import {
   Save,
 } from 'lucide-react';
 import { AuthUser } from '../../lib/supabaseClient';
+import { getFreshUserAccountFromFirestore } from '../../lib/firebaseClient';
 import { formatCPF, validateCPF, cleanCPF } from '../utils/cpf';
 
 export interface UserProfileModalProps {
@@ -65,6 +66,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       setBirthDate(currentUser.birthDate || '');
       setError(null);
       setSuccessMsg(null);
+
+      // Consulta em tempo real os dados mais recentes salvos no Cloud Firestore
+      // Garante sincronização imediata entre múltiplos aparelhos (PC / Celular)
+      if (currentUser.email) {
+        getFreshUserAccountFromFirestore(currentUser.email).then((fresh) => {
+          if (fresh) {
+            if (fresh.fullName) setFullName(fresh.fullName);
+            if (fresh.cpf) setCpf(formatCPF(fresh.cpf));
+            if (fresh.phone) setPhone(formatPhone(fresh.phone));
+            if (fresh.birthDate) setBirthDate(fresh.birthDate);
+          }
+        }).catch(() => {});
+      }
     }
   }, [isOpen, currentUser, currentWhatsapp]);
 
