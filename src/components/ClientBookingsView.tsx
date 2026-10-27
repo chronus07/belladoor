@@ -645,17 +645,6 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                 {/* Botões de Ação do Agendamento da Cliente */}
                 {!isCancelled && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {(app.status === 'Aguardando Sinal' || (!app.depositPaid && app.depositAmount && app.depositAmount > 0)) && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPixApp(app)}
-                        className="w-full sm:w-auto py-2.5 px-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-stone-950 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        Ver Informações para Pagamento
-                      </button>
-                    )}
-
                     <a
                       href={`https://wa.me/${resolvedProWhatsapp}?text=${encodeURIComponent(
                         app.status === 'Aguardando Sinal'
@@ -670,7 +659,7 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                       )}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex-1 min-w-[140px] py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs"
+                      className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                       {app.status === 'Aguardando Sinal' ? 'Enviar Comprovante no WhatsApp' : 'Falar no WhatsApp'}
