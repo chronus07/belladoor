@@ -4257,7 +4257,10 @@ export default function App() {
     (a) =>
       a.status === 'Concluído' &&
       !a.reviewed &&
-      ((a.proId && a.proId === pro.id) || (a.proSlug && a.proSlug === pro.slug))
+      ((a.proId && (a.proId === pro.id || a.proId === `pro-${pro.id}` || `pro-${a.proId}` === pro.id)) ||
+        (a.proSlug && pro.slug && a.proSlug.toLowerCase() === pro.slug.toLowerCase()) ||
+        (a.proEmail && (pro as any).email && a.proEmail.toLowerCase() === (pro as any).email.toLowerCase()) ||
+        (a.proName && pro.name && a.proName.trim().toLowerCase() === pro.name.trim().toLowerCase()))
   );
 
   const handleCancelClientAppointment = (appointmentId: string, serviceName: string) => {
@@ -4325,6 +4328,7 @@ export default function App() {
     setReviewRating(5);
     setReviewComment('');
     setShowReviewForm(true);
+    setIsVitrineReviewsCollapsed(false);
   };
 
   const handleSubmitClientReview = (e: React.FormEvent) => {
@@ -4375,10 +4379,21 @@ export default function App() {
       date: todayStr,
     };
 
-    setProReviews((prev) => [newReview, ...prev]);
-    setProAppointments((prev) =>
-      prev.map((a) => (a.id === targetApp.id ? { ...a, reviewed: true, status: 'Concluído' } : a))
+    const updatedReviews = [newReview, ...proReviews];
+    setProReviews(updatedReviews);
+    try {
+      localStorage.setItem('belladoor_v2_reviews', JSON.stringify(updatedReviews));
+    } catch {}
+    syncDocumentToFirestore('reviews', { items: updatedReviews });
+
+    const updatedApps = proAppointments.map((a) =>
+      a.id === targetApp.id ? { ...a, reviewed: true, status: 'Concluído' as const } : a
     );
+    setProAppointments(updatedApps);
+    try {
+      localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updatedApps));
+    } catch {}
+    syncDocumentToFirestore('appointments', { items: updatedApps });
 
     setShowReviewForm(false);
     setReviewAppointmentId(null);
@@ -6160,13 +6175,27 @@ export default function App() {
                       Avaliar Meu Atendimento Concluído
                     </button>
                   ) : (
-                    <span
-                      className="hidden sm:flex text-[10px] font-bold bg-stone-100 text-stone-600 border border-stone-200 px-2.5 py-1.5 rounded-xl items-center gap-1.5"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUiDialog({
+                          emoji: '🔒',
+                          badge: 'Avaliação Protegida',
+                          title: 'Avaliação após conclusão',
+                          message:
+                            pro.businessNiche === 'BARBERSHOP'
+                              ? 'A avaliação só fica liberada depois que o barbeiro marcar o atendimento como "Concluído" no painel dele.'
+                              : 'A avaliação só fica liberada depois que a profissional marcar o seu atendimento como "Concluído" no painel dela.',
+                          buttonText: 'Entendi',
+                          variant: 'warning',
+                        });
+                      }}
+                      className="flex text-[10px] font-bold bg-stone-100 hover:bg-stone-200 text-stone-600 border border-stone-200 px-2.5 py-1.5 rounded-xl items-center gap-1.5 cursor-pointer transition"
                       title="Somente clientes que contrataram e tiveram o agendamento marcado como Concluído pela profissional podem avaliar"
                     >
                       <Lock className="w-3 h-3 text-stone-500 shrink-0" />
-                      Avaliação após conclusão
-                    </span>
+                      <span className="leading-tight">Avaliação após conclusão</span>
+                    </button>
                   )}
                   <button
                     type="button"
@@ -6186,50 +6215,85 @@ export default function App() {
                 </div>
               </div>
 
-              {!isVitrineReviewsCollapsed && (
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  {/* Formulário de Avaliação Verificada (apenas quando há atendimento Concluído da cliente) */}
-                  {currentUser.role === 'CLIENT' && showReviewForm && pendingCompletedAppointmentForClient && (
-                    <form
-                      onSubmit={handleSubmitClientReview}
-                      className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-3 animate-in fade-in duration-200"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                            Atendimento Concluído Verificado
-                          </span>
-                          <p className="text-xs font-extrabold text-stone-900 mt-1">
-                            Deixe sua avaliação para {pro.name}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              type="button"
-                              onClick={() => setReviewRating(star)}
-                              className="p-0.5 cursor-pointer"
-                            >
-                              <Star
-                                className={`w-5 h-5 ${
-                                  star <= reviewRating
-                                    ? 'fill-amber-400 text-amber-400'
-                                    : 'text-stone-300'
-                                }`}
-                              />
-                            </button>
-                          ))}
-                        </div>
+              {/* MODAL GLOBAL DE AVALIAÇÃO VERIFICADA NA VITRINE */}
+              {currentUser.role === 'CLIENT' && showReviewForm && pendingCompletedAppointmentForClient && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+                  <form
+                    onSubmit={handleSubmitClientReview}
+                    className="bg-white rounded-3xl border-2 border-amber-300 p-5 sm:p-6 shadow-2xl max-w-lg w-full space-y-4 my-auto relative animate-in zoom-in-95 duration-200"
+                  >
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
+                          Atendimento Concluído Verificado
+                        </span>
+                        <h3 className="text-sm font-extrabold text-stone-900 mt-1">
+                          Deixe sua avaliação para {pro.name}
+                        </h3>
+                        <p className="text-xs text-stone-500">
+                          Serviço: <strong className="text-rose-600">{reviewServiceName}</strong>
+                        </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowReviewForm(false)}
+                        className="p-1.5 text-stone-400 hover:text-stone-700 rounded-xl bg-stone-100 hover:bg-stone-200 transition cursor-pointer"
+                        title="Fechar"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Seletor de Estrelas */}
+                    <div className="text-center bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3.5">
+                      <p className="text-xs font-bold text-stone-700 mb-2">
+                        Toque nas estrelas para dar sua nota:
+                      </p>
+                      <div className="flex items-center justify-center gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setReviewRating(star)}
+                            className="p-1 transition transform hover:scale-110 active:scale-95 cursor-pointer"
+                          >
+                            <Star
+                              className={`w-8 h-8 sm:w-7 sm:h-7 ${
+                                star <= reviewRating
+                                  ? 'fill-amber-400 text-amber-400'
+                                  : 'text-stone-300'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] font-extrabold text-amber-700 mt-1.5">
+                        {reviewRating === 5
+                          ? '⭐⭐⭐⭐⭐ Excelente! Amei o atendimento!'
+                          : reviewRating === 4
+                          ? '⭐⭐⭐⭐ Muito bom!'
+                          : reviewRating === 3
+                          ? '⭐⭐⭐ Bom / Regular'
+                          : '⭐⭐ Precisa melhorar'}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                          Cliente Verificada:
+                        </label>
                         <input
                           type="text"
                           value={reviewClientName}
                           readOnly
                           className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                          Serviço Concluído:
+                        </label>
                         <input
                           type="text"
                           value={reviewServiceName}
@@ -6237,32 +6301,43 @@ export default function App() {
                           className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
                         />
                       </div>
+                    </div>
 
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        Seu Comentário sobre o Atendimento:*
+                      </label>
                       <textarea
-                        rows={2}
-                        placeholder="Escreva como foi sua experiência..."
+                        rows={3}
+                        placeholder="Escreva como foi sua experiência, pontualidade, higiene e resultado..."
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value)}
-                        className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                        className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
                       />
+                    </div>
 
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowReviewForm(false)}
-                          className="px-3 py-2 bg-white border border-stone-200 text-stone-600 rounded-xl text-xs font-bold cursor-pointer"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold shadow-xs cursor-pointer"
-                        >
-                          Publicar Avaliação
-                        </button>
-                      </div>
-                    </form>
-                  )}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowReviewForm(false)}
+                        className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer transition"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Publicar Avaliação
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {!isVitrineReviewsCollapsed && (
+                <div className="space-y-4 animate-in fade-in duration-200">
 
                   {/* Lista de Depoimentos das Clientes */}
                   <div className="space-y-2.5">

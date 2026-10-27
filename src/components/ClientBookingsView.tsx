@@ -9,6 +9,7 @@ import {
   Star,
   UserCheck,
   X,
+  Lock,
 } from 'lucide-react';
 import { ClientAppointment } from '../types/belladoor';
 import { MockProfessional } from '../data/mockData';
@@ -94,120 +95,123 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
         </p>
       </div>
 
-      {/* FORMULÁRIO INTERNO DE AVALIAÇÃO COM ESTRELAS (Quando clicado em Avaliar) */}
+      {/* MODAL INTERNO DE AVALIAÇÃO COM ESTRELAS (Aparece imediatamente na tela inteira) */}
       {showReviewForm && (
-        <form
-          onSubmit={onSubmitReview}
-          className="bg-white rounded-3xl border-2 border-amber-300 p-5 shadow-md space-y-4 animate-in fade-in duration-200"
-        >
-          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
-                Avaliação Verificada
-              </span>
-              <h3 className="text-sm font-extrabold text-stone-900 mt-1">
-                Como foi seu atendimento?
-              </h3>
-              <p className="text-xs text-stone-500">
-                Serviço: <strong className="text-rose-600">{reviewServiceName}</strong>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <form
+            onSubmit={onSubmitReview}
+            className="bg-white rounded-3xl border-2 border-amber-300 p-5 sm:p-6 shadow-2xl max-w-lg w-full space-y-4 my-auto relative animate-in zoom-in-95 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
+                  Avaliação Verificada
+                </span>
+                <h3 className="text-sm font-extrabold text-stone-900 mt-1">
+                  Como foi seu atendimento?
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Serviço: <strong className="text-rose-600">{reviewServiceName}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onCloseReviewForm}
+                className="p-1.5 text-stone-400 hover:text-stone-700 rounded-xl bg-stone-100 hover:bg-stone-200 transition cursor-pointer"
+                title="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Seletor de 1 a 5 Estrelas */}
+            <div className="text-center bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3.5">
+              <p className="text-xs font-bold text-stone-700 mb-2">
+                Toque nas estrelas para dar sua nota:
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => onChangeReviewRating(star)}
+                    className="p-1 transition transform hover:scale-110 active:scale-95 cursor-pointer"
+                  >
+                    <Star
+                      className={`w-8 h-8 sm:w-7 sm:h-7 ${
+                        star <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-stone-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] font-extrabold text-amber-700 mt-1.5">
+                {reviewRating === 5
+                  ? '⭐⭐⭐⭐⭐ Excelente! Amei o atendimento!'
+                  : reviewRating === 4
+                  ? '⭐⭐⭐⭐ Muito bom!'
+                  : reviewRating === 3
+                  ? '⭐⭐⭐ Bom / Regular'
+                  : '⭐⭐ Precisa melhorar'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onCloseReviewForm}
-              className="p-1.5 text-stone-400 hover:text-stone-700 rounded-xl bg-stone-100 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
 
-          {/* Seletor de 1 a 5 Estrelas */}
-          <div className="text-center bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3.5">
-            <p className="text-xs font-bold text-stone-700 mb-2">
-              Toque nas estrelas para dar sua nota:
-            </p>
-            <div className="flex items-center justify-center gap-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => onChangeReviewRating(star)}
-                  className="p-1 transition transform hover:scale-110 cursor-pointer"
-                >
-                  <Star
-                    className={`w-7 h-7 ${
-                      star <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-stone-300'
-                    }`}
-                  />
-                </button>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                  Cliente Verificada:
+                </label>
+                <input
+                  type="text"
+                  value={reviewClientName}
+                  readOnly
+                  className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                  Serviço Concluído:
+                </label>
+                <input
+                  type="text"
+                  value={reviewServiceName}
+                  readOnly
+                  className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
+                />
+              </div>
             </div>
-            <p className="text-[11px] font-extrabold text-amber-700 mt-1.5">
-              {reviewRating === 5
-                ? '⭐⭐⭐⭐⭐ Excelente! Amei o atendimento!'
-                : reviewRating === 4
-                ? '⭐⭐⭐⭐ Muito bom!'
-                : reviewRating === 3
-                ? '⭐⭐⭐ Bom / Regular'
-                : '⭐⭐ Precisa melhorar'}
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                Cliente Verificada:
+                Seu Comentário sobre a Profissional:*
               </label>
-              <input
-                type="text"
-                value={reviewClientName}
-                readOnly
-                className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
+              <textarea
+                rows={3}
+                value={reviewComment}
+                onChange={(e) => onChangeReviewComment(e.target.value)}
+                placeholder="Conte o que achou da pontualidade, higiene dos materiais e resultado do trabalho..."
+                className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
-            <div>
-              <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                Serviço Concluído:
-              </label>
-              <input
-                type="text"
-                value={reviewServiceName}
-                readOnly
-                className="w-full bg-stone-100 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-not-allowed"
-              />
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onCloseReviewForm}
+                className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Publicar Avaliação na Vitrine
+              </button>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-stone-700 mb-1">
-              Seu Comentário sobre a Profissional:*
-            </label>
-            <textarea
-              rows={3}
-              value={reviewComment}
-              onChange={(e) => onChangeReviewComment(e.target.value)}
-              placeholder="Conte o que achou da pontualidade, higiene dos materiais e resultado do trabalho..."
-              className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onCloseReviewForm}
-              className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Publicar Avaliação na Vitrine
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       )}
 
       {/* CABEÇALHO ENFÁTICO: ATENDIMENTOS AGENDADOS */}
@@ -445,12 +449,15 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                         Avaliar Atendimento
                       </button>
                     ) : (
-                      <span
-                        className="flex-1 py-2.5 px-3 bg-stone-100 text-stone-500 border border-stone-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5"
-                        title="A avaliação será liberada assim que o atendimento for concluído"
+                      <button
+                        type="button"
+                        onClick={() => onOpenReviewForAppointment(app)}
+                        className="flex-1 py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-600 border border-stone-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition"
+                        title="Toque para entender quando a avaliação é liberada"
                       >
-                        🔒 Avaliação após conclusão
-                      </span>
+                        <Lock className="w-3 h-3 text-stone-500 shrink-0" />
+                        Avaliação após conclusão
+                      </button>
                     )}
 
                     {(app.status === 'Confirmado' || app.status === 'Aguardando Sinal') && (
