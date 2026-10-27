@@ -3587,13 +3587,13 @@ export default function App() {
       if (isEvertonProEntity(targetPro) && !isEvertonAccount) {
         setSelectedPro(null);
         setActiveTab('client');
-        setClientSubView('EXPLORE');
+        setClientSubView((prev) => (prev === 'MY_BOOKINGS' ? 'MY_BOOKINGS' : 'EXPLORE'));
         return;
       }
       setSelectedPro(targetPro);
     }
     setActiveTab('client');
-    setClientSubView('EXPLORE');
+    setClientSubView((prev) => (prev === 'MY_BOOKINGS' ? 'MY_BOOKINGS' : 'EXPLORE'));
     setAuthRole('CLIENT');
   }, [directoryPros, currentUser]);
 
@@ -4668,6 +4668,35 @@ export default function App() {
             }}
             onShowUiDialog={setUiDialog}
             onCloseAdmin={() => setShowAdminPanel(false)}
+          />
+        ) : !isVitrinePreviewOpen && activeTab === 'client' && clientSubView === 'MY_BOOKINGS' ? (
+          /* ========================================================== */
+          /* PASSO 4: ÁREA "MEUS AGENDAMENTOS" DA CLIENTE + AVALIAÇÕES  */
+          /* ========================================================== */
+          <ClientBookingsView
+            proAppointments={clientOwnAppointments}
+            professionals={allProfessionalsWithLivePro}
+            proDisplayName={proDisplayName}
+            proAvatarUrl={proAvatarUrl}
+            proWhatsapp={pro.whatsapp}
+            showReviewForm={showReviewForm}
+            reviewRating={reviewRating}
+            reviewClientName={reviewClientName}
+            reviewServiceName={reviewServiceName}
+            reviewComment={reviewComment}
+            onBackToExplore={() => {
+              setClientSubView('EXPLORE');
+              setShowReviewForm(false);
+            }}
+            onCloseReviewForm={() => setShowReviewForm(false)}
+            onChangeReviewRating={setReviewRating}
+            onChangeReviewClientName={setReviewClientName}
+            onChangeReviewServiceName={setReviewServiceName}
+            onChangeReviewComment={setReviewComment}
+            onSubmitReview={handleSubmitClientReview}
+            onOpenReviewForAppointment={handleOpenReviewForAppointment}
+            onCancelClientAppointment={handleCancelClientAppointment}
+            onOpenProfileModal={() => setShowUserProfileModal(true)}
           />
         ) : isVitrinePreviewOpen || (activeTab === 'client' && selectedPro) ? (
           /* ========================================================== */
@@ -6281,59 +6310,25 @@ export default function App() {
         </div>
       ) : activeTab === 'client' ? (
         /* ============================================================ */
-        /* 1. VISÃO DA CLIENTE                                          */
+        /* 1. VISÃO DA CLIENTE: VITRINE GERAL / MARKETPLACE             */
         /* ============================================================ */
-        clientSubView === 'MY_BOOKINGS' ? (
-          /* ========================================================== */
-          /* PASSO 4: ÁREA "MEUS AGENDAMENTOS" DA CLIENTE + AVALIAÇÕES  */
-          /* ========================================================== */
-          <ClientBookingsView
-            proAppointments={clientOwnAppointments}
-            professionals={allProfessionalsWithLivePro}
-            proDisplayName={proDisplayName}
-            proAvatarUrl={proAvatarUrl}
-            proWhatsapp={pro.whatsapp}
-            showReviewForm={showReviewForm}
-            reviewRating={reviewRating}
-            reviewClientName={reviewClientName}
-            reviewServiceName={reviewServiceName}
-            reviewComment={reviewComment}
-            onBackToExplore={() => {
-              setClientSubView('EXPLORE');
-              setShowReviewForm(false);
-            }}
-            onCloseReviewForm={() => setShowReviewForm(false)}
-            onChangeReviewRating={setReviewRating}
-            onChangeReviewClientName={setReviewClientName}
-            onChangeReviewServiceName={setReviewServiceName}
-            onChangeReviewComment={setReviewComment}
-            onSubmitReview={handleSubmitClientReview}
-            onOpenReviewForAppointment={handleOpenReviewForAppointment}
-            onCancelClientAppointment={handleCancelClientAppointment}
-            onOpenProfileModal={() => setShowUserProfileModal(true)}
-          />
-        ) : (
-          /* ========================================================== */
-          /* A. VITRINE DE BUSCA / MARKETPLACE DE PROFISSIONAIS         */
-          /* ========================================================== */
-          <MarketplaceView
-            filteredPros={filteredPros}
-            searchQuery={searchQuery}
-            categoryFilter={categoryFilter}
-            onChangeSearchQuery={setSearchQuery}
-            onChangeCategoryFilter={setCategoryFilter}
-            onClearFilters={() => {
-              setCategoryFilter('TODAS');
-              setSearchQuery('');
-            }}
-            onSelectProfessional={(p) => {
-              setSelectedPro(p);
-              resetBooking();
-            }}
-            currentProSlug={dynamicSlug}
-            currentProId={myProId}
-          />
-        )
+        <MarketplaceView
+          filteredPros={filteredPros}
+          searchQuery={searchQuery}
+          categoryFilter={categoryFilter}
+          onChangeSearchQuery={setSearchQuery}
+          onChangeCategoryFilter={setCategoryFilter}
+          onClearFilters={() => {
+            setCategoryFilter('TODAS');
+            setSearchQuery('');
+          }}
+          onSelectProfessional={(p) => {
+            setSelectedPro(p);
+            resetBooking();
+          }}
+          currentProSlug={dynamicSlug}
+          currentProId={myProId}
+        />
       ) : (
           /* ============================================================ */
           /* 2. VISÃO DA PROFISSIONAL: APP MOBILE COMPLETO (Android/iOS)  */
