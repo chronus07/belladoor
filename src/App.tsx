@@ -4266,17 +4266,46 @@ export default function App() {
         (a.proName && pro.name && a.proName.trim().toLowerCase() === pro.name.trim().toLowerCase()))
   );
 
-  const handleCancelClientAppointment = (appointmentId: string, serviceName: string) => {
-    let cancelledApp: ClientAppointment | undefined;
+  const handleCancelClientAppointment = (
+    appointmentId: string,
+    serviceName: string,
+    appointmentObj?: ClientAppointment
+  ) => {
+    // 1. Localiza o agendamento de forma SÍNCRONA e IMEDIATA antes do setState
+    const targetApp =
+      appointmentObj ||
+      proAppointments.find((a) => a.id === appointmentId) ||
+      clientOwnAppointments.find((a) => a.id === appointmentId) ||
+      (() => {
+        try {
+          const raw = localStorage.getItem('belladoor_v2_appointments');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.find((a: any) => a.id === appointmentId);
+          }
+        } catch {}
+        return undefined;
+      })();
 
+    const cancelledApp: ClientAppointment = targetApp
+      ? { ...targetApp, status: 'Cancelado' }
+      : {
+          id: appointmentId,
+          serviceName: serviceName || 'Atendimento',
+          clientName: currentUser?.fullName || 'Cliente',
+          clientPhone: '',
+          date: '',
+          time: '',
+          address: '',
+          neighborhood: '',
+          travelFee: 0,
+          totalPrice: 0,
+          status: 'Cancelado',
+        };
+
+    // 2. Atualiza os agendamentos no estado e no Firestore
     setProAppointments((prev) => {
-      const updated = prev.map((app) => {
-        if (app.id === appointmentId) {
-          cancelledApp = { ...app, status: 'Cancelado' };
-          return cancelledApp;
-        }
-        return app;
-      });
+      const updated = prev.map((app) => (app.id === appointmentId ? { ...app, status: 'Cancelado' } : app));
       try {
         localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updated));
       } catch {}
@@ -4284,43 +4313,41 @@ export default function App() {
       return updated;
     });
 
-    if (cancelledApp) {
-      // Resolve o e-mail da profissional para avisá-la do cancelamento em tempo real
-      const resolveProEmail = (): string | undefined => {
-        if (cancelledApp?.proEmail && cancelledApp.proEmail.includes('@')) {
-          return cancelledApp.proEmail.trim().toLowerCase();
-        }
-        for (const [key, p] of Object.entries(directoryPros)) {
-          if (
-            (p.id && (p.id === cancelledApp?.proId || p.id === `pro-${cancelledApp?.proId}`)) ||
-            (p.slug && cancelledApp?.proSlug && p.slug.toLowerCase() === cancelledApp.proSlug.toLowerCase()) ||
-            (p.name && cancelledApp?.proName && p.name.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase())
-          ) {
-            if ((p as any).email) return (p as any).email.trim().toLowerCase();
-            const acc =
-              cloudAccounts[key] ||
-              Object.values(cloudAccounts).find((a: any) => a.email?.replace(/[^a-z0-9]/g, '_') === key);
-            if (acc && acc.email) return acc.email.trim().toLowerCase();
-          }
-        }
-        const accMatch = Object.values(cloudAccounts).find(
-          (acc: any) =>
-            (acc.fullName && cancelledApp?.proName && acc.fullName.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase()) ||
-            (acc.name && cancelledApp?.proName && acc.name.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase()) ||
-            (acc.slug && cancelledApp?.proSlug && acc.slug.toLowerCase() === cancelledApp.proSlug.toLowerCase())
-        );
-        if (accMatch && accMatch.email) return accMatch.email.trim().toLowerCase();
-        return undefined;
-      };
-
-      const proEmail = resolveProEmail();
-      if (proEmail) {
-        sendCancellationEmailNotification(
-          proEmail,
-          cancelledApp.proName || 'Profissional',
-          cancelledApp
-        ).catch((err) => console.warn('[BellaDoor Email] Erro ao enviar aviso de cancelamento:', err));
+    // 3. Resolve o e-mail da profissional para avisá-la do cancelamento em tempo real
+    const resolveProEmail = (): string | undefined => {
+      if (cancelledApp.proEmail && cancelledApp.proEmail.includes('@')) {
+        return cancelledApp.proEmail.trim().toLowerCase();
       }
+      for (const [key, p] of Object.entries(directoryPros)) {
+        if (
+          (p.id && (p.id === cancelledApp.proId || p.id === `pro-${cancelledApp.proId}`)) ||
+          (p.slug && cancelledApp.proSlug && p.slug.toLowerCase() === cancelledApp.proSlug.toLowerCase()) ||
+          (p.name && cancelledApp.proName && p.name.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase())
+        ) {
+          if ((p as any).email) return (p as any).email.trim().toLowerCase();
+          const acc =
+            cloudAccounts[key] ||
+            Object.values(cloudAccounts).find((a: any) => a.email?.replace(/[^a-z0-9]/g, '_') === key);
+          if (acc && acc.email) return acc.email.trim().toLowerCase();
+        }
+      }
+      const accMatch = Object.values(cloudAccounts).find(
+        (acc: any) =>
+          (acc.fullName && cancelledApp.proName && acc.fullName.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase()) ||
+          (acc.name && cancelledApp.proName && acc.name.trim().toLowerCase() === cancelledApp.proName.trim().toLowerCase()) ||
+          (acc.slug && cancelledApp.proSlug && acc.slug.toLowerCase() === cancelledApp.proSlug.toLowerCase())
+      );
+      if (accMatch && accMatch.email) return accMatch.email.trim().toLowerCase();
+      return undefined;
+    };
+
+    const proEmail = resolveProEmail();
+    if (proEmail) {
+      sendCancellationEmailNotification(
+        proEmail,
+        cancelledApp.proName || 'Profissional',
+        cancelledApp
+      ).catch((err) => console.warn('[BellaDoor Email] Erro ao enviar aviso de cancelamento:', err));
     }
 
     setUiDialog({

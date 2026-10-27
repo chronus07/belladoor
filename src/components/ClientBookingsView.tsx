@@ -45,7 +45,11 @@ interface ClientBookingsViewProps {
   onChangeReviewComment: (val: string) => void;
   onSubmitReview: (e: React.FormEvent) => void;
   onOpenReviewForAppointment: (app: ClientAppointment) => void;
-  onCancelClientAppointment: (appointmentId: string, serviceName: string) => void;
+  onCancelClientAppointment: (
+    appointmentId: string,
+    serviceName: string,
+    appointmentObj?: ClientAppointment
+  ) => void;
   onOpenProfileModal?: () => void;
 }
 
@@ -694,7 +698,7 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                     {(app.status === 'Confirmado' || app.status === 'Aguardando Sinal') && (
                       <button
                         type="button"
-                        onClick={() => onCancelClientAppointment(app.id, app.serviceName)}
+                        onClick={() => onCancelClientAppointment(app.id, app.serviceName, app)}
                         className="py-2.5 px-3 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition cursor-pointer"
                         title="Cancelar este agendamento"
                       >
