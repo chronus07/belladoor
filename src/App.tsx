@@ -115,6 +115,7 @@ import {
   PIX_KEY_LABELS,
 } from './utils/bookingRules';
 import { validateCPF, formatCPF } from './utils/cpf';
+import { sendBookingEmailNotification } from './utils/bookingEmail';
 import { HeaderBar } from './components/HeaderBar';
 import { AuthView } from './components/AuthView';
 import { ClientBookingsView } from './components/ClientBookingsView';
@@ -560,6 +561,7 @@ export default function App() {
     ...mockProfessional,
     id: myProId,
     name: proDisplayName || (currentUser?.role === 'PROFESSIONAL' ? currentUser.fullName : ''),
+    email: currentUser?.role === 'PROFESSIONAL' && currentUser?.email ? currentUser.email.toLowerCase() : undefined,
     slug: dynamicSlug,
     title: proDisplayTitle,
     bio: proDisplayBio,
@@ -4122,17 +4124,62 @@ export default function App() {
       return;
     }
 
-    const resolvedProEmail =
-      (pro as any).email ||
-      (pro.id && pro.id.startsWith('pro-') && pro.id.includes('@') ? pro.id.replace('pro-', '') : undefined) ||
-      (activeProKey && activeProKey.includes('_') ? activeProKey.replace(/_/g, '.') : undefined) ||
-      (currentUser?.role === 'PROFESSIONAL' ? currentUser.email : undefined);
+    const findProEmail = (): string | undefined => {
+      if ((pro as any).email && typeof (pro as any).email === 'string' && (pro as any).email.includes('@')) {
+        return (pro as any).email.trim().toLowerCase();
+      }
+      if (pro.id && pro.id.startsWith('pro-')) {
+        const candidateKey = pro.id.replace(/^pro-/, '');
+        const dirMatch = directoryPros[candidateKey];
+        if (dirMatch && (dirMatch as any).email) return (dirMatch as any).email.trim().toLowerCase();
+        const foundAcc = Object.values(cloudAccounts).find(
+          (acc: any) =>
+            acc.email?.replace(/[^a-z0-9]/g, '_') === candidateKey ||
+            acc.id === candidateKey ||
+            acc.id === pro.id
+        );
+        if (foundAcc && foundAcc.email) return foundAcc.email.trim().toLowerCase();
+      }
+      for (const [key, p] of Object.entries(directoryPros)) {
+        if (
+          (p.id && (p.id === pro.id || p.id === `pro-${pro.id}`)) ||
+          (p.slug && pro.slug && p.slug.toLowerCase() === pro.slug.toLowerCase()) ||
+          (p.name && pro.name && p.name.trim().toLowerCase() === pro.name.trim().toLowerCase())
+        ) {
+          if ((p as any).email) return (p as any).email.trim().toLowerCase();
+          if (key.includes('@')) return key.trim().toLowerCase();
+          const acc =
+            cloudAccounts[key] ||
+            Object.values(cloudAccounts).find((a: any) => a.email?.replace(/[^a-z0-9]/g, '_') === key);
+          if (acc && acc.email) return acc.email.trim().toLowerCase();
+        }
+      }
+      const foundInAccounts = Object.values(cloudAccounts).find(
+        (acc: any) =>
+          (acc.slug && pro.slug && acc.slug.toLowerCase() === pro.slug.toLowerCase()) ||
+          (acc.fullName && pro.name && acc.fullName.trim().toLowerCase() === pro.name.trim().toLowerCase()) ||
+          (acc.name && pro.name && acc.name.trim().toLowerCase() === pro.name.trim().toLowerCase())
+      );
+      if (foundInAccounts && foundInAccounts.email) return foundInAccounts.email.trim().toLowerCase();
+
+      if (isViewingOwnProVitrine && currentUser?.email) {
+        return currentUser.email.trim().toLowerCase();
+      }
+      return undefined;
+    };
+
+    const resolvedProEmail = findProEmail();
 
     const effectiveRules = getEffectiveBookingRules(
       pro.bookingRules || (isViewingOwnProVitrine ? bookingRules : null),
       pro
     );
     const depositCalc = calculateDeposit(appointmentTotalPrice, effectiveRules);
+
+    const initialStatus =
+      effectiveRules.requireDeposit && depositCalc.depositAmount > 0
+        ? 'Aguardando Sinal'
+        : 'Confirmado';
 
     const newAppointment: ClientAppointment = {
       id: `app-${Date.now()}`,
@@ -4148,7 +4195,7 @@ export default function App() {
       neighborhood: appointmentNeighborhood,
       travelFee: appointmentTravelFee,
       totalPrice: appointmentTotalPrice,
-      status: 'Confirmado',
+      status: initialStatus,
       locationType: selectedLocationType,
       locationAddress: appointmentAddress,
       proId: pro.id || myProId,
@@ -4165,6 +4212,15 @@ export default function App() {
 
     // Grava de forma atômica no Cloud Firestore imediatamente
     appendAppointmentToFirestore(newAppointment);
+
+    // Dispara notificação por e-mail para a profissional em background (sem travar a tela)
+    if (resolvedProEmail) {
+      sendBookingEmailNotification(
+        resolvedProEmail,
+        pro.name || proDisplayName,
+        newAppointment
+      ).catch((err) => console.warn('[BellaDoor Email] Erro ao notificar profissional:', err));
+    }
 
     setProAppointments((prev) => [newAppointment, ...prev.filter((a) => a.id !== newAppointment.id)]);
     try {
@@ -4419,7 +4475,7 @@ export default function App() {
         showAdminPanel={showAdminPanel}
         isProTrialExpired={isProTrialExpired}
         isProVitrinePreview={isVitrinePreviewOpen}
-        activeAppointmentsCount={clientOwnAppointments.filter((a) => a.status === 'Confirmado').length}
+        activeAppointmentsCount={clientOwnAppointments.filter((a) => a.status === 'Confirmado' || a.status === 'Aguardando Sinal').length}
         proDisplayName={proDisplayName}
         proAvatarUrl={proAvatarUrl}
         onToggleClientSubView={() =>
@@ -6586,7 +6642,7 @@ export default function App() {
                     <p className={`text-sm font-extrabold mt-1 ${
                       panelTheme.isDark ? 'text-sky-400' : 'text-sky-600'
                     }`}>
-                      {myProAppointments.filter((a) => a.status === 'Confirmado').length}
+                      {myProAppointments.filter((a) => a.status === 'Confirmado' || a.status === 'Aguardando Sinal').length}
                     </p>
                   </div>
                   <div className={`p-2 rounded-xl flex flex-col justify-between ${
@@ -6802,7 +6858,7 @@ export default function App() {
                   {/* PASSO 3A: RESUMO FINANCEIRO DA PROFISSIONAL */}
                   {(() => {
                     const completedApps = myProAppointments.filter((a) => a.status === 'Concluído');
-                    const scheduledApps = myProAppointments.filter((a) => a.status === 'Confirmado');
+                    const scheduledApps = myProAppointments.filter((a) => a.status === 'Confirmado' || a.status === 'Aguardando Sinal');
 
                     const completedRevenue = completedApps.reduce((acc, a) => acc + a.totalPrice, 0);
                     const completedTravelRevenue = completedApps.reduce((acc, a) => acc + a.travelFee, 0);
@@ -7101,9 +7157,15 @@ export default function App() {
                                       <div>
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                           <p className="font-bold text-xs text-stone-900">{item.clientName}</p>
-                                          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                                            Agendado
-                                          </span>
+                                          {item.status === 'Aguardando Sinal' || (item.depositAmount && item.depositAmount > 0 && !item.depositPaid) ? (
+                                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300">
+                                              🕒 Aguardando Sinal
+                                            </span>
+                                          ) : (
+                                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                                              ✓ Confirmado
+                                            </span>
+                                          )}
                                           {item.locationType === 'STUDIO' ? (
                                             <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800">
                                               🏢 No Studio
@@ -7120,13 +7182,22 @@ export default function App() {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                                      {bookingRules.requireDeposit && (
+                                      {(bookingRules.requireDeposit || (item.depositAmount && item.depositAmount > 0)) && (
                                         <button
                                           type="button"
                                           onClick={() => {
                                             const nextPaid = !item.depositPaid;
                                             setProAppointments((prev) => {
-                                              const updated = prev.map((a) => (a.id === item.id ? { ...a, depositPaid: nextPaid } : a));
+                                              const updated = prev.map((a) =>
+                                                a.id === item.id
+                                                  ? {
+                                                      ...a,
+                                                      depositPaid: nextPaid,
+                                                      status: nextPaid ? 'Confirmado' : 'Aguardando Sinal',
+                                                      ...(nextPaid ? { depositConfirmedAt: new Date().toISOString() } : {}),
+                                                    }
+                                                  : a
+                                              );
                                               try {
                                                 localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updated));
                                               } catch {}
@@ -7139,11 +7210,11 @@ export default function App() {
                                               ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
                                               : 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200'
                                           }`}
-                                          title="Clique para alternar o status do sinal de 50%"
+                                          title="Clique para alternar o status do sinal PIX"
                                         >
                                           <ShieldCheck className="w-3 h-3" />
                                           {item.depositPaid
-                                            ? 'Sinal Pago'
+                                            ? '✓ Sinal Pago'
                                             : `Sinal R$ ${(item.depositAmount || item.totalPrice * 0.5).toFixed(2).replace('.', ',')} (Aguardando)`}
                                         </button>
                                       )}
@@ -7261,31 +7332,65 @@ export default function App() {
                                         Abrir GPS (Waze/Maps)
                                       </a>
 
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setProAppointments((prev) => {
-                                            const updated = prev.map((a) =>
-                                              a.id === item.id ? { ...a, status: 'Concluído' } : a
+                                      {/* BOTÃO CRÍTICO: SINAL RECEBIDO & CONFIRMAR AGENDAMENTO OU CONCLUIR ATENDIMENTO */}
+                                      {item.depositAmount && item.depositAmount > 0 && !item.depositPaid ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setProAppointments((prev) => {
+                                              const updated = prev.map((a) =>
+                                                a.id === item.id
+                                                  ? {
+                                                      ...a,
+                                                      depositPaid: true,
+                                                      status: 'Confirmado',
+                                                      depositConfirmedAt: new Date().toISOString(),
+                                                    }
+                                                  : a
+                                              );
+                                              try {
+                                                localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updated));
+                                              } catch {}
+                                              syncDocumentToFirestore('appointments', { items: updated });
+                                              return updated;
+                                            });
+                                            showProSuccess(
+                                              `✅ Sinal de R$ ${(item.depositAmount || 0).toFixed(2).replace('.', ',')} recebido! Agendamento de ${item.clientName} confirmado com sucesso!`
                                             );
-                                            try {
-                                              localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updated));
-                                            } catch {}
-                                            syncDocumentToFirestore('appointments', { items: updated });
-                                            return updated;
-                                          });
-                                          showProSuccess(
-                                            proBusinessNiche === 'BARBERSHOP'
-                                              ? `✅ Atendimento de ${item.clientName} concluído e contabilizado no financeiro! Avaliação liberada para o cliente.`
-                                              : `✅ Atendimento de ${item.clientName} concluído e contabilizado no financeiro! Avaliação liberada para a cliente.`
-                                          );
-                                        }}
-                                        className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-xs"
-                                        title={proBusinessNiche === 'BARBERSHOP' ? 'Marcar atendimento como concluído e liberar avaliação para o cliente' : 'Marcar atendimento como concluído e liberar avaliação para a cliente'}
-                                      >
-                                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                        Concluir
-                                      </button>
+                                          }}
+                                          className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-[11px] font-black transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                                          title="Confirmar recebimento do comprovante PIX e confirmar o agendamento"
+                                        >
+                                          <CheckCircle className="w-3.5 h-3.5 text-white shrink-0" />
+                                          ✅ Sinal Recebido & Confirmar
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setProAppointments((prev) => {
+                                              const updated = prev.map((a) =>
+                                                a.id === item.id ? { ...a, status: 'Concluído' } : a
+                                              );
+                                              try {
+                                                localStorage.setItem('belladoor_v2_appointments', JSON.stringify(updated));
+                                              } catch {}
+                                              syncDocumentToFirestore('appointments', { items: updated });
+                                              return updated;
+                                            });
+                                            showProSuccess(
+                                              proBusinessNiche === 'BARBERSHOP'
+                                                ? `✅ Atendimento de ${item.clientName} concluído e contabilizado no financeiro! Avaliação liberada para o cliente.`
+                                                : `✅ Atendimento de ${item.clientName} concluído e contabilizado no financeiro! Avaliação liberada para a cliente.`
+                                            );
+                                          }}
+                                          className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-extrabold transition cursor-pointer flex items-center gap-1 shadow-xs"
+                                          title={proBusinessNiche === 'BARBERSHOP' ? 'Marcar atendimento como concluído e liberar avaliação para o cliente' : 'Marcar atendimento como concluído e liberar avaliação para a cliente'}
+                                        >
+                                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                          Concluir Atendimento
+                                        </button>
+                                      )}
 
                                       <button
                                         type="button"

@@ -227,7 +227,7 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="bg-rose-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">
-            {proAppointments.filter((a) => a.status === 'Confirmado').length} ativo(s)
+            {proAppointments.filter((a) => a.status === 'Confirmado' || a.status === 'Aguardando Sinal').length} ativo(s)
           </span>
           {proAppointments.some((a) => a.status === 'Concluído') && (
             <span className="bg-emerald-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">
@@ -256,7 +256,7 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {proAppointments.filter((a) => a.status === 'Confirmado').length === 0 && (
+          {proAppointments.filter((a) => a.status === 'Confirmado' || a.status === 'Aguardando Sinal').length === 0 && (
             <div className="md:col-span-2 bg-white rounded-2xl p-4 text-center border border-dashed border-stone-200 flex items-center justify-between gap-2 flex-wrap">
               <p className="text-xs font-semibold text-stone-500">
                 Nenhum atendimento ativo pendente no momento. Veja abaixo seu histórico de atendimentos concluídos.
@@ -321,6 +321,8 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                               ? 'bg-red-100 text-red-700'
                               : isCompleted
                               ? 'bg-amber-100 text-amber-800'
+                              : app.status === 'Aguardando Sinal'
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
                               : 'bg-emerald-100 text-emerald-800'
                           }`}
                         >
@@ -328,6 +330,8 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                             ? 'Cancelado'
                             : isCompleted
                             ? '★ Concluído'
+                            : app.status === 'Aguardando Sinal'
+                            ? '🕒 Aguardando Sinal'
                             : '✓ Confirmado'}
                         </span>
                         <span className="text-[11px] text-stone-400 font-medium">
@@ -361,6 +365,31 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                   </div>
                 </div>
 
+                {/* Banner de Aviso de Sinal Pendente ou Confirmado */}
+                {app.status === 'Aguardando Sinal' && (
+                  <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-2.5 flex items-start gap-2 text-xs text-amber-950">
+                    <span className="text-base shrink-0">⏳</span>
+                    <div>
+                      <p className="font-bold text-[11px]">
+                        Aguardando confirmação do sinal{' '}
+                        {app.depositAmount && app.depositAmount > 0
+                          ? `de R$ ${app.depositAmount.toFixed(2).replace('.', ',')}`
+                          : ''}
+                      </p>
+                      <p className="text-[10px] text-amber-800">
+                        Envie o comprovante do PIX pelo WhatsApp da profissional para garantir seu horário.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {app.depositPaid && !isCompleted && !isCancelled && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>✓ Sinal Recebido e Agendamento Confirmado!</span>
+                  </div>
+                )}
+
                 <div className="bg-stone-50 rounded-2xl p-3 border border-stone-100 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-stone-700">
                   <div className="flex items-center gap-1.5 font-semibold">
                     <Calendar className="w-3.5 h-3.5 text-rose-600 shrink-0" />
@@ -383,17 +412,22 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <a
                       href={`https://wa.me/${resolvedProWhatsapp}?text=${encodeURIComponent(
-                        `Olá, ${resolvedProName}! Tudo bem? Estou falando sobre meu agendamento de *${app.serviceName}* no dia ${app.date
-                          .split('-')
-                          .reverse()
-                          .join('/')} às ${app.time}${app.locationType === 'STUDIO' ? ' no Studio' : ' a domicílio'}.`
+                        app.status === 'Aguardando Sinal'
+                          ? `Olá, ${resolvedProName}! Segue meu comprovante de sinal referente ao agendamento de *${app.serviceName}* no dia ${app.date
+                              .split('-')
+                              .reverse()
+                              .join('/')} às ${app.time}${app.locationType === 'STUDIO' ? ' no Studio' : ' a domicílio'}. Pode confirmar pra mim?`
+                          : `Olá, ${resolvedProName}! Tudo bem? Estou falando sobre meu agendamento de *${app.serviceName}* no dia ${app.date
+                              .split('-')
+                              .reverse()
+                              .join('/')} às ${app.time}${app.locationType === 'STUDIO' ? ' no Studio' : ' a domicílio'}.`
                       )}`}
                       target="_blank"
                       rel="noreferrer"
                       className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-xs"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
-                      WhatsApp
+                      {app.status === 'Aguardando Sinal' ? 'Enviar Comprovante no WhatsApp' : 'Falar no WhatsApp'}
                     </a>
 
                     {app.reviewed ? (
@@ -419,7 +453,7 @@ export const ClientBookingsView: React.FC<ClientBookingsViewProps> = ({
                       </span>
                     )}
 
-                    {app.status === 'Confirmado' && (
+                    {(app.status === 'Confirmado' || app.status === 'Aguardando Sinal') && (
                       <button
                         type="button"
                         onClick={() => onCancelClientAppointment(app.id, app.serviceName)}

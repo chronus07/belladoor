@@ -19,6 +19,7 @@ export interface MockNeighborhood {
 export interface MockProfessional {
   id: string;
   name: string;
+  email?: string;
   slug: string;
   category: 'Maquiagem' | 'Cabelo' | 'Unhas' | 'Sobrancelha' | 'Estética' | 'Barbearia';
   specialties: string[];

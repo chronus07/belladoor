@@ -17,6 +17,12 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
 
+    // Fila de e-mails para notificações automáticas (Extensão Trigger Email)
+    match /mail/{docId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
+    }
+
     // Coleção legado de compatibilidade
     match /belladoor/{docId} {
       allow read: if true;
