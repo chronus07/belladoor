@@ -3736,6 +3736,7 @@ export default function App() {
   const [step, setStep] = useState<number>(1);
   const [bookingConfirmed, setBookingConfirmed] = useState<boolean>(false);
   const [lastBooking, setLastBooking] = useState<ClientAppointment | null>(null);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
 
   // Sincroniza a modalidade de agendamento selecionada com a modalidade suportada pela profissional
   useEffect(() => {
@@ -4545,6 +4546,7 @@ export default function App() {
     setBookingConfirmed(false);
     setLastBooking(null);
     setStep(1);
+    setIsBookingModalOpen(false);
     if (pro.serviceMode === 'STUDIO') {
       setSelectedLocationType('STUDIO');
       setTravelFee(0);
@@ -5296,20 +5298,19 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-              ) : !bookingConfirmed ? (
+              ) : (
                 <div>
-                  {/* Cabeçalho dos Passos */}
-                  <div className="flex items-center justify-between mb-5">
+                  {/* Cabeçalho */}
+                  <div className="flex items-center justify-between mb-4">
                     <h2 className={`font-bold text-base flex items-center gap-2 ${proTheme.headerTitleText}`}>
                       <Sparkles className={`w-4 h-4 ${proTheme.primaryText}`} />
                       Agende seu Atendimento
                     </h2>
-                    <span className="text-xs text-stone-500 font-medium">Passo {step} de 3</span>
+                    <span className="text-xs text-stone-500 font-medium">Passo 1 de 3</span>
                   </div>
 
                   {/* PASSO 1: ESCOLHA DO SERVIÇO */}
-                  {step === 1 && (
-                    <div className="space-y-3">
+                  <div className="space-y-3">
                       <p className={`text-xs mb-2 ${proTheme.isDark ? 'text-stone-300' : 'text-stone-600'}`}>
                         {pro.businessNiche === 'BARBERSHOP'
                           ? 'Selecione o serviço para o seu agendamento:'
@@ -5379,8 +5380,11 @@ export default function App() {
 
                       <button
                         disabled={!selectedService}
-                        onClick={() => setStep(2)}
-                        className={`w-full py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 transition ${
+                        onClick={() => {
+                          if (step < 2) setStep(2);
+                          setIsBookingModalOpen(true);
+                        }}
+                        className={`w-full py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 transition cursor-pointer shadow-sm ${
                           selectedService
                             ? proTheme.primaryBtn
                             : 'bg-stone-200 text-stone-400 cursor-not-allowed'
@@ -5389,25 +5393,119 @@ export default function App() {
                         Continuar para Endereço & Horário
                         <ChevronRight className="w-4 h-4" />
                       </button>
-                    </div>
-                  )}
 
-                  {/* PASSO 2: BUSCA POR CEP (ViaCEP) E HORÁRIOS */}
-                  {step === 2 && (
-                    <div className="space-y-4">
-                      {/* Resumo do Serviço Escolhido */}
-                      <div className={`p-3 rounded-xl border flex justify-between items-center text-xs ${proTheme.isDark ? 'bg-stone-900 border-stone-800' : 'bg-white border-stone-200'}`}>
-                        <div>
-                          <span className={proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}>Serviço:</span>{' '}
-                          <span className={`font-bold ${proTheme.isDark ? 'text-white' : 'text-stone-900'}`}>{selectedService?.name}</span>
+                      {selectedService && (
+                        <p className={`text-[11px] text-center pt-1 ${proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}`}>
+                          ✨ Ao clicar, abrirá uma janela para escolher local, data e horário.
+                        </p>
+                      )}
+                    </div>
+                </div>
+              )}
+            </div>
+
+            {/* ============================================================ */}
+            {/* JANELINHA / MODAL DE CONCLUSÃO DO AGENDAMENTO (PASSO 2, 3 E SUCESSO) */}
+            {/* ============================================================ */}
+            {isBookingModalOpen && selectedService && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/75 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    if (bookingConfirmed) {
+                      resetBooking();
+                    } else {
+                      setIsBookingModalOpen(false);
+                    }
+                  }
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className={`relative w-full max-w-xl lg:max-w-2xl rounded-3xl shadow-2xl border overflow-hidden flex flex-col max-h-[92vh] my-auto animate-in zoom-in-95 duration-200 ${
+                    proTheme.isDark
+                      ? 'bg-stone-900 border-stone-800 text-white'
+                      : 'bg-white border-stone-200 text-stone-900'
+                  }`}
+                >
+                  {/* CABEÇALHO DA JANELA */}
+                  <div className="bg-gradient-to-r from-stone-900 via-stone-850 to-stone-900 text-white p-4 sm:p-5 flex items-center justify-between border-b border-stone-800 shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={pro.avatarUrl}
+                        alt={pro.name}
+                        className="w-10 h-10 rounded-2xl object-cover border-2 border-white/20 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm sm:text-base font-black tracking-tight text-white truncate">
+                            {pro.name}
+                          </h3>
+                          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full shrink-0 ${
+                            bookingConfirmed
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          }`}>
+                            {bookingConfirmed
+                              ? '🎉 Agendado'
+                              : step === 2
+                              ? 'Passo 2 de 3'
+                              : 'Passo 3 de 3'}
+                          </span>
                         </div>
-                        <button
-                          onClick={() => setStep(1)}
-                          className={`font-semibold hover:underline ${proTheme.primaryText}`}
-                        >
-                          Alterar
-                        </button>
+                        <p className="text-xs text-stone-300 truncate mt-0.5">
+                          {bookingConfirmed
+                            ? 'Agendamento Realizado com Sucesso'
+                            : step === 2
+                            ? 'Escolha de Local, Data & Horário'
+                            : 'Seus Dados Pessoais & Confirmação'}
+                        </p>
                       </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (bookingConfirmed) {
+                          resetBooking();
+                        } else {
+                          setIsBookingModalOpen(false);
+                        }
+                      }}
+                      className="p-2 text-stone-400 hover:text-white hover:bg-stone-800 rounded-xl transition cursor-pointer shrink-0"
+                      title="Fechar janela"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* CORPO DA JANELA (SCROLLÁVEL) */}
+                  <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+                    {!bookingConfirmed ? (
+                      <>
+                        {/* PASSO 2: BUSCA POR CEP (ViaCEP) E HORÁRIOS */}
+                        {step === 2 && (
+                          <div className="space-y-4">
+                            {/* Resumo do Serviço Escolhido */}
+                            <div className={`p-3 rounded-xl border flex justify-between items-center text-xs ${proTheme.isDark ? 'bg-stone-900 border-stone-800' : 'bg-stone-50 border-stone-200'}`}>
+                              <div>
+                                <span className={proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}>Serviço Selecionado:</span>{' '}
+                                <strong className={`font-bold ${proTheme.isDark ? 'text-white' : 'text-stone-900'}`}>{selectedService?.name}</strong>
+                                <span className="text-[11px] text-stone-400 ml-2">
+                                  ({selectedService?.durationMinutes} min • R$ {selectedService?.price.toFixed(2).replace('.', ',')})
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setStep(1);
+                                  setIsBookingModalOpen(false);
+                                }}
+                                className={`font-semibold hover:underline cursor-pointer ${proTheme.primaryText}`}
+                                title="Voltar para trocar o serviço"
+                              >
+                                Alterar
+                              </button>
+                            </div>
 
                       {/* 1. SELETOR DE MODALIDADE DE ATENDIMENTO */}
                       {pro.serviceMode === 'HIBRIDO' || !pro.serviceMode ? (
@@ -5816,14 +5914,17 @@ export default function App() {
                       <div className="flex gap-2 pt-2">
                         <button
                           type="button"
-                          onClick={() => setStep(1)}
-                          className={`px-4 py-3 rounded-xl text-xs font-bold transition ${
+                          onClick={() => {
+                            setStep(1);
+                            setIsBookingModalOpen(false);
+                          }}
+                          className={`px-4 py-3 rounded-xl text-xs font-bold transition cursor-pointer ${
                             proTheme.isDark
                               ? 'bg-stone-900 border border-stone-800 text-stone-300 hover:bg-stone-800'
                               : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-50'
                           }`}
                         >
-                          Voltar
+                          Voltar para Serviços
                         </button>
                         <button
                           type="button"
@@ -6040,7 +6141,7 @@ export default function App() {
                       </p>
                     </form>
                   )}
-                </div>
+                </>
               ) : (
                 /* TELA DE SUCESSO COM SINAL DE 50%, CHAVE PIX, REGRAS E WHATSAPP */
                 (() => {
@@ -6199,14 +6300,17 @@ export default function App() {
                           onClick={resetBooking}
                           className="w-full py-2.5 bg-stone-100 text-stone-700 font-bold rounded-xl text-xs hover:bg-stone-200 transition cursor-pointer"
                         >
-                          Fazer Novo Agendamento
+                          Concluir e Fechar Janela
                         </button>
                       </div>
                     </div>
                   );
                 })()
               )}
-            </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 3. PORTFÓLIO DE TRABALHOS REALIZADOS (SE HOUVER FOTOS CADASTRADAS) */}
             {pro.portfolio && pro.portfolio.length > 0 && (
