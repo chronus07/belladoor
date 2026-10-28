@@ -41,6 +41,8 @@ import {
 
 const WORK_START_HOUR_OPTIONS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 const WORK_END_HOUR_OPTIONS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+const LUNCH_START_HOUR_OPTIONS = [10, 11, 12, 13, 14, 15, 16];
+const LUNCH_END_HOUR_OPTIONS = [11, 12, 13, 14, 15, 16, 17];
 
 interface ProOnboardingWizardModalProps {
   isOpen: boolean;
@@ -86,6 +88,10 @@ interface ProOnboardingWizardModalProps {
   setWorkEndHour: React.Dispatch<React.SetStateAction<number>>;
   lunchBreakEnabled: boolean;
   setLunchBreakEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  lunchStartHour: number;
+  setLunchStartHour: React.Dispatch<React.SetStateAction<number>>;
+  lunchEndHour: number;
+  setLunchEndHour: React.Dispatch<React.SetStateAction<number>>;
   daySchedules: Record<number, DaySchedule>;
   setDaySchedules: React.Dispatch<React.SetStateAction<Record<number, DaySchedule>>>;
   useCustomDaySchedules: boolean;
@@ -155,6 +161,10 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
   setWorkEndHour,
   lunchBreakEnabled,
   setLunchBreakEnabled,
+  lunchStartHour,
+  setLunchStartHour,
+  lunchEndHour,
+  setLunchEndHour,
   daySchedules,
   setDaySchedules,
   useCustomDaySchedules,
@@ -1337,30 +1347,116 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                   </div>
                 </div>
 
-                {/* Pausa para Almoço */}
-                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                  <div className="flex items-center gap-2">
-                    <Coffee className="w-4 h-4 text-amber-600" />
-                    <div>
-                      <p className="text-xs font-bold text-stone-800">
-                        Bloquear Pausa de Almoço (12:00 às 13:00)
-                      </p>
-                      <p className="text-[10px] text-stone-500">
-                        Oculta o horário das 12h na vitrine para seu descanso
+                {/* Configuração de Pausa para Almoço / Refeição */}
+                <div className="pt-3 border-t border-stone-100 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Coffee className="w-4 h-4 text-amber-600" />
+                      <div>
+                        <p className="text-xs font-bold text-stone-800">
+                          Pausa para Almoço / Descanso
+                        </p>
+                        <p className="text-[10px] text-stone-500">
+                          {lunchBreakEnabled
+                            ? `Bloqueado das ${String(lunchStartHour).padStart(2, '0')}:00 às ${String(lunchEndHour).padStart(2, '0')}:00 (${lunchEndHour - lunchStartHour}h de intervalo)`
+                            : 'Horários liberados contínuos, sem pausa de almoço'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLunchBreakEnabled(!lunchBreakEnabled)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer ${
+                        lunchBreakEnabled
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-stone-100 text-stone-500 border border-stone-200'
+                      }`}
+                    >
+                      {lunchBreakEnabled ? '✓ Almoço Ativo' : 'Sem Pausa'}
+                    </button>
+                  </div>
+
+                  {lunchBreakEnabled && (
+                    <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-2.5 space-y-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-amber-950">Início:</span>
+                          <select
+                            value={lunchStartHour}
+                            onChange={(e) => {
+                              const newStart = Number(e.target.value);
+                              setLunchStartHour(newStart);
+                              if (lunchEndHour <= newStart) {
+                                setLunchEndHour(newStart + 1);
+                              }
+                            }}
+                            className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          >
+                            {LUNCH_START_HOUR_OPTIONS.map((h) => (
+                              <option key={h} value={h}>
+                                {String(h).padStart(2, '0')}:00
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-amber-950">Término:</span>
+                          <select
+                            value={lunchEndHour}
+                            onChange={(e) => {
+                              setLunchEndHour(Number(e.target.value));
+                            }}
+                            className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          >
+                            {LUNCH_END_HOUR_OPTIONS.filter((h) => h > lunchStartHour).map((h) => (
+                              <option key={h} value={h}>
+                                {String(h).padStart(2, '0')}:00
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Presets rápidos de almoço */}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-[10px] text-amber-800 font-semibold">Atalhos:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLunchStartHour(12);
+                              setLunchEndHour(13);
+                            }}
+                            className="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer"
+                          >
+                            12h às 13h (1h)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLunchStartHour(12);
+                              setLunchEndHour(14);
+                            }}
+                            className="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer"
+                          >
+                            12h às 14h (2h)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLunchStartHour(13);
+                              setLunchEndHour(14);
+                            }}
+                            className="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer"
+                          >
+                            13h às 14h (1h)
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-amber-800/80">
+                        Os horários entre {String(lunchStartHour).padStart(2, '0')}:00 e {String(lunchEndHour).padStart(2, '0')}:00 serão bloqueados na vitrine da cliente.
                       </p>
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setLunchBreakEnabled(!lunchBreakEnabled)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer ${
-                      lunchBreakEnabled
-                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                        : 'bg-stone-100 text-stone-500 border border-stone-200'
-                    }`}
-                  >
-                    {lunchBreakEnabled ? '✓ Almoço Bloqueado' : 'Liberado'}
-                  </button>
+                  )}
                 </div>
               </div>
 
@@ -1398,6 +1494,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                                 startHour: workStartHour,
                                 endHour: workEndHour,
                                 lunchBreakEnabled: lunchBreakEnabled,
+                                lunchStartHour: lunchStartHour,
+                                lunchEndHour: lunchEndHour,
                               };
                             }
                           });
@@ -1431,7 +1529,13 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                             setDaySchedules((prev) => {
                               const updated = { ...prev };
                               workingDays.forEach((idx) => {
-                                updated[idx] = { startHour: 7, endHour: 23, lunchBreakEnabled };
+                                updated[idx] = {
+                                  startHour: 7,
+                                  endHour: 23,
+                                  lunchBreakEnabled,
+                                  lunchStartHour,
+                                  lunchEndHour,
+                                };
                               });
                               return updated;
                             });
@@ -1446,7 +1550,13 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                             setDaySchedules((prev) => {
                               const updated = { ...prev };
                               workingDays.forEach((idx) => {
-                                updated[idx] = { startHour: workStartHour, endHour: workEndHour, lunchBreakEnabled };
+                                updated[idx] = {
+                                  startHour: workStartHour,
+                                  endHour: workEndHour,
+                                  lunchBreakEnabled,
+                                  lunchStartHour,
+                                  lunchEndHour,
+                                };
                               });
                               return updated;
                             });
@@ -1466,6 +1576,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                           startHour: workStartHour,
                           endHour: workEndHour,
                           lunchBreakEnabled: lunchBreakEnabled,
+                          lunchStartHour: lunchStartHour,
+                          lunchEndHour: lunchEndHour,
                         };
 
                         const updateDay = (partial: Partial<DaySchedule>) => {
@@ -1476,6 +1588,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                                 startHour: workStartHour,
                                 endHour: workEndHour,
                                 lunchBreakEnabled: lunchBreakEnabled,
+                                lunchStartHour: lunchStartHour,
+                                lunchEndHour: lunchEndHour,
                               }),
                               ...partial,
                             },
@@ -1561,19 +1675,47 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                                     </select>
                                   </div>
 
-                                  {/* Pausa Almoço */}
-                                  <button
-                                    type="button"
-                                    onClick={() => updateDay({ lunchBreakEnabled: !schedule.lunchBreakEnabled })}
-                                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition border cursor-pointer ${
-                                      schedule.lunchBreakEnabled
-                                        ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                        : 'bg-white text-stone-400 border-stone-200'
-                                    }`}
-                                    title="Bloquear intervalo de almoço das 12:00 às 13:00 neste dia"
-                                  >
-                                    {schedule.lunchBreakEnabled ? '☕ Almoço 12h' : 'Sem pausa'}
-                                  </button>
+                                  {/* Pausa Almoço por Dia */}
+                                  <div className="flex items-center gap-1 bg-amber-50/70 border border-amber-200 rounded-lg px-2 py-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateDay({ lunchBreakEnabled: !schedule.lunchBreakEnabled })}
+                                      className={`text-[10px] font-bold transition cursor-pointer ${
+                                        schedule.lunchBreakEnabled ? 'text-amber-900 font-extrabold' : 'text-stone-400'
+                                      }`}
+                                      title="Ativar/desativar almoço neste dia"
+                                    >
+                                      {schedule.lunchBreakEnabled ? '☕ Almoço:' : '☕ Sem Almoço'}
+                                    </button>
+                                    {schedule.lunchBreakEnabled && (
+                                      <div className="flex items-center gap-1">
+                                        <select
+                                          value={typeof schedule.lunchStartHour === 'number' ? schedule.lunchStartHour : lunchStartHour}
+                                          onChange={(e) => {
+                                            const start = Number(e.target.value);
+                                            const currEnd = typeof schedule.lunchEndHour === 'number' ? schedule.lunchEndHour : lunchEndHour;
+                                            const end = currEnd <= start ? start + 1 : currEnd;
+                                            updateDay({ lunchStartHour: start, lunchEndHour: end });
+                                          }}
+                                          className="bg-white border border-amber-300 rounded px-1 py-0.5 text-[10px] font-bold text-stone-800"
+                                        >
+                                          {LUNCH_START_HOUR_OPTIONS.map((h) => (
+                                            <option key={h} value={h}>{h}h</option>
+                                          ))}
+                                        </select>
+                                        <span className="text-[10px] text-amber-800">às</span>
+                                        <select
+                                          value={typeof schedule.lunchEndHour === 'number' ? schedule.lunchEndHour : lunchEndHour}
+                                          onChange={(e) => updateDay({ lunchEndHour: Number(e.target.value) })}
+                                          className="bg-white border border-amber-300 rounded px-1 py-0.5 text-[10px] font-bold text-stone-800"
+                                        >
+                                          {LUNCH_END_HOUR_OPTIONS.filter(h => h > (typeof schedule.lunchStartHour === 'number' ? schedule.lunchStartHour : lunchStartHour)).map((h) => (
+                                            <option key={h} value={h}>{h}h</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    )}
+                                  </div>
 
                                   {/* Presets de 1 Clique */}
                                   <div className="flex items-center gap-1 pl-1 border-l border-stone-200 flex-wrap">

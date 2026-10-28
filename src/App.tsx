@@ -61,6 +61,8 @@ import { BELLADOOR_PLANS } from '../lib/subscriptionService';
 
 const WORK_START_HOUR_OPTIONS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 const WORK_END_HOUR_OPTIONS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+const LUNCH_START_HOUR_OPTIONS = [10, 11, 12, 13, 14, 15, 16];
+const LUNCH_END_HOUR_OPTIONS = [11, 12, 13, 14, 15, 16, 17];
 import {
   AuthUser,
   signInWithGoogleOAuth,
@@ -352,6 +354,8 @@ export default function App() {
       workStartHour: 9,
       workEndHour: 19,
       lunchBreakEnabled: true,
+      lunchStartHour: 12,
+      lunchEndHour: 13,
       daySchedules: {} as Record<number, DaySchedule>,
       useCustomDaySchedules: false,
       blockedPeriods: [] as {
@@ -368,6 +372,12 @@ export default function App() {
   const [workStartHour, setWorkStartHour] = useState<number>(savedSchedule.workStartHour);
   const [workEndHour, setWorkEndHour] = useState<number>(savedSchedule.workEndHour);
   const [lunchBreakEnabled, setLunchBreakEnabled] = useState<boolean>(savedSchedule.lunchBreakEnabled);
+  const [lunchStartHour, setLunchStartHour] = useState<number>(
+    typeof savedSchedule.lunchStartHour === 'number' ? savedSchedule.lunchStartHour : 12
+  );
+  const [lunchEndHour, setLunchEndHour] = useState<number>(
+    typeof savedSchedule.lunchEndHour === 'number' ? savedSchedule.lunchEndHour : 13
+  );
   const [daySchedules, setDaySchedules] = useState<Record<number, DaySchedule>>(savedSchedule.daySchedules || {});
   const [useCustomDaySchedules, setUseCustomDaySchedules] = useState<boolean>(
     Boolean(savedSchedule.useCustomDaySchedules || (savedSchedule.daySchedules && Object.keys(savedSchedule.daySchedules).length > 0))
@@ -419,6 +429,12 @@ export default function App() {
   const [draftLunchBreakEnabled, setDraftLunchBreakEnabled] = useState<boolean>(
     savedSchedule.lunchBreakEnabled
   );
+  const [draftLunchStartHour, setDraftLunchStartHour] = useState<number>(
+    typeof savedSchedule.lunchStartHour === 'number' ? savedSchedule.lunchStartHour : 12
+  );
+  const [draftLunchEndHour, setDraftLunchEndHour] = useState<number>(
+    typeof savedSchedule.lunchEndHour === 'number' ? savedSchedule.lunchEndHour : 13
+  );
   const [draftDaySchedules, setDraftDaySchedules] = useState<Record<number, DaySchedule>>(savedSchedule.daySchedules || {});
   const [draftUseCustomDaySchedules, setDraftUseCustomDaySchedules] = useState<boolean>(
     Boolean(savedSchedule.useCustomDaySchedules || (savedSchedule.daySchedules && Object.keys(savedSchedule.daySchedules).length > 0))
@@ -465,10 +481,12 @@ export default function App() {
     setDraftWorkStartHour(workStartHour);
     setDraftWorkEndHour(workEndHour);
     setDraftLunchBreakEnabled(lunchBreakEnabled);
+    setDraftLunchStartHour(lunchStartHour);
+    setDraftLunchEndHour(lunchEndHour);
     setDraftDaySchedules(daySchedules);
     setDraftUseCustomDaySchedules(useCustomDaySchedules);
     setDraftBufferTime(proBufferTime);
-  }, [workingDays, workStartHour, workEndHour, lunchBreakEnabled, daySchedules, useCustomDaySchedules, proBufferTime]);
+  }, [workingDays, workStartHour, workEndHour, lunchBreakEnabled, lunchStartHour, lunchEndHour, daySchedules, useCustomDaySchedules, proBufferTime]);
 
 
   // Controle de Bloqueio de Agenda por Período (Início e Fim)
@@ -617,6 +635,8 @@ export default function App() {
     workStartHour,
     workEndHour,
     lunchBreakEnabled,
+    lunchStartHour,
+    lunchEndHour,
     daySchedules: useCustomDaySchedules ? daySchedules : undefined,
     useCustomDaySchedules,
     blockedPeriods,
@@ -697,6 +717,10 @@ export default function App() {
     typeof pro.workEndHour === 'number' ? pro.workEndHour : 19;
   const clientViewLunchBreakEnabled =
     typeof pro.lunchBreakEnabled === 'boolean' ? pro.lunchBreakEnabled : true;
+  const clientViewLunchStartHour =
+    typeof pro.lunchStartHour === 'number' ? pro.lunchStartHour : 12;
+  const clientViewLunchEndHour =
+    typeof pro.lunchEndHour === 'number' ? pro.lunchEndHour : 13;
   const clientViewBlockedPeriods = Array.isArray(pro.blockedPeriods)
     ? pro.blockedPeriods
     : [];
@@ -874,6 +898,10 @@ export default function App() {
         setWorkEndHour(userSavedSchedule.workEndHour);
       if (typeof userSavedSchedule.lunchBreakEnabled === 'boolean')
         setLunchBreakEnabled(userSavedSchedule.lunchBreakEnabled);
+      if (typeof userSavedSchedule.lunchStartHour === 'number')
+        setLunchStartHour(userSavedSchedule.lunchStartHour);
+      if (typeof userSavedSchedule.lunchEndHour === 'number')
+        setLunchEndHour(userSavedSchedule.lunchEndHour);
       if (userSavedSchedule.daySchedules && typeof userSavedSchedule.daySchedules === 'object') {
         setDaySchedules(userSavedSchedule.daySchedules);
         setUseCustomDaySchedules(
@@ -890,6 +918,8 @@ export default function App() {
       setWorkStartHour(9);
       setWorkEndHour(19);
       setLunchBreakEnabled(true);
+      setLunchStartHour(12);
+      setLunchEndHour(13);
       setDaySchedules({});
       setUseCustomDaySchedules(false);
       setBlockedPeriods([]);
@@ -2354,6 +2384,8 @@ export default function App() {
     setWorkStartHour(draftWorkStartHour);
     setWorkEndHour(draftWorkEndHour);
     setLunchBreakEnabled(draftLunchBreakEnabled);
+    setLunchStartHour(draftLunchStartHour);
+    setLunchEndHour(draftLunchEndHour);
     setDaySchedules(draftDaySchedules);
     setUseCustomDaySchedules(draftUseCustomDaySchedules);
     setProBufferTime(draftBufferTime);
@@ -2389,6 +2421,8 @@ export default function App() {
     draftWorkStartHour !== workStartHour ||
     draftWorkEndHour !== workEndHour ||
     draftLunchBreakEnabled !== lunchBreakEnabled ||
+    draftLunchStartHour !== lunchStartHour ||
+    draftLunchEndHour !== lunchEndHour ||
     draftUseCustomDaySchedules !== useCustomDaySchedules ||
     JSON.stringify(draftDaySchedules) !== JSON.stringify(daySchedules) ||
     draftBufferTime !== proBufferTime;
@@ -3321,6 +3355,8 @@ export default function App() {
         if (typeof data.workStartHour === 'number') setWorkStartHour(data.workStartHour);
         if (typeof data.workEndHour === 'number') setWorkEndHour(data.workEndHour);
         if (typeof data.lunchBreakEnabled === 'boolean') setLunchBreakEnabled(data.lunchBreakEnabled);
+        if (typeof data.lunchStartHour === 'number') setLunchStartHour(data.lunchStartHour);
+        if (typeof data.lunchEndHour === 'number') setLunchEndHour(data.lunchEndHour);
         if (data.daySchedules && typeof data.daySchedules === 'object') {
           setDaySchedules(data.daySchedules);
           setUseCustomDaySchedules(
@@ -3337,6 +3373,8 @@ export default function App() {
             workStartHour,
             workEndHour,
             lunchBreakEnabled,
+            lunchStartHour,
+            lunchEndHour,
             daySchedules,
             useCustomDaySchedules,
             blockedPeriods,
@@ -3497,6 +3535,8 @@ export default function App() {
         workStartHour,
         workEndHour,
         lunchBreakEnabled,
+        lunchStartHour,
+        lunchEndHour,
         daySchedules: useCustomDaySchedules ? daySchedules : undefined,
         useCustomDaySchedules,
         blockedPeriods,
@@ -3534,6 +3574,8 @@ export default function App() {
     workStartHour,
     workEndHour,
     lunchBreakEnabled,
+    lunchStartHour,
+    lunchEndHour,
     daySchedules,
     useCustomDaySchedules,
     blockedPeriods,
@@ -3587,6 +3629,8 @@ export default function App() {
       workStartHour,
       workEndHour,
       lunchBreakEnabled,
+      lunchStartHour,
+      lunchEndHour,
       daySchedules,
       useCustomDaySchedules,
       blockedPeriods,
@@ -3600,7 +3644,7 @@ export default function App() {
       return;
     }
     syncDocumentToFirestore(scheduleDoc, schedulePayload);
-  }, [activeProKey, workingDays, workStartHour, workEndHour, lunchBreakEnabled, daySchedules, useCustomDaySchedules, blockedPeriods]);
+  }, [activeProKey, workingDays, workStartHour, workEndHour, lunchBreakEnabled, lunchStartHour, lunchEndHour, daySchedules, useCustomDaySchedules, blockedPeriods]);
 
   useEffect(() => {
     try {
@@ -3971,6 +4015,8 @@ export default function App() {
     let effectiveStartHour = clientViewWorkStartHour;
     let effectiveEndHour = clientViewWorkEndHour;
     let effectiveLunchBreak = clientViewLunchBreakEnabled;
+    let effectiveLunchStart = clientViewLunchStartHour;
+    let effectiveLunchEnd = clientViewLunchEndHour;
 
     if (selectedDate) {
       const [selYear, selMonth, selDay] = selectedDate.split('-').map(Number);
@@ -3990,6 +4036,12 @@ export default function App() {
         if (typeof specificDaySchedule.lunchBreakEnabled === 'boolean') {
           effectiveLunchBreak = specificDaySchedule.lunchBreakEnabled;
         }
+        if (typeof specificDaySchedule.lunchStartHour === 'number') {
+          effectiveLunchStart = specificDaySchedule.lunchStartHour;
+        }
+        if (typeof specificDaySchedule.lunchEndHour === 'number') {
+          effectiveLunchEnd = specificDaySchedule.lunchEndHour;
+        }
       }
     }
 
@@ -4004,8 +4056,8 @@ export default function App() {
       : [];
 
     for (let h = effectiveStartHour; h < effectiveEndHour; h++) {
-      if (effectiveLunchBreak && h === 12 && effectiveStartHour <= 11 && effectiveEndHour >= 13) {
-        continue; // Pausa para almoço (12:00 às 13:00)
+      if (effectiveLunchBreak && h >= effectiveLunchStart && h < effectiveLunchEnd) {
+        continue; // Pausa para almoço/refeição configurada
       }
       const timeLabel = `${String(h).padStart(2, '0')}:00`;
       const slotStartMin = h * 60;
@@ -4038,6 +4090,12 @@ export default function App() {
         );
       });
 
+      // Evita que um serviço longo iniciado antes do almoço ultrapasse o início da pausa de refeição
+      const overlapsLunch =
+        effectiveLunchBreak &&
+        h < effectiveLunchStart &&
+        slotServiceEndMin > effectiveLunchStart * 60;
+
       // Evita que um serviço longo (ex: 120min) seja iniciado no último horário ultrapassando o fim do expediente
       const exceedsWorkdayEnd =
         h > effectiveStartHour && slotServiceEndMin > effectiveEndHour * 60;
@@ -4047,11 +4105,13 @@ export default function App() {
 
       slots.push({
         time: timeLabel,
-        available: !hasTimeOverlap && !exceedsWorkdayEnd && !isPastHourToday,
+        available: !hasTimeOverlap && !exceedsWorkdayEnd && !overlapsLunch && !isPastHourToday,
         reason: hasTimeOverlap
           ? 'Conflito com outro atendimento / tempo de deslocamento'
           : exceedsWorkdayEnd
           ? `A duração deste serviço (${selectedDurationMin}min) ultrapassa o fim do expediente (${String(effectiveEndHour).padStart(2, '0')}:00)`
+          : overlapsLunch
+          ? `A duração deste serviço ultrapassa a pausa de almoço (${String(effectiveLunchStart).padStart(2, '0')}:00 às ${String(effectiveLunchEnd).padStart(2, '0')}:00)`
           : isPastHourToday
           ? 'Horário já encerrado hoje'
           : undefined,
@@ -8339,30 +8399,116 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Toggle de Pausa para Almoço */}
-                      <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                        <div className="flex items-center gap-2">
-                          <Coffee className="w-4 h-4 text-amber-600" />
-                          <div>
-                            <p className="text-xs font-bold text-stone-800">
-                              Bloquear Pausa de Almoço (12:00 às 13:00)
-                            </p>
-                            <p className="text-[10px] text-stone-500">
-                              Oculta automaticamente o horário das 12h na vitrine da cliente
+                      {/* Configuração de Pausa para Almoço / Refeição */}
+                      <div className="pt-3 border-t border-stone-100 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Coffee className="w-4 h-4 text-amber-600" />
+                            <div>
+                              <p className="text-xs font-bold text-stone-800">
+                                Pausa para Almoço / Descanso
+                              </p>
+                              <p className="text-[10px] text-stone-500">
+                                {draftLunchBreakEnabled
+                                  ? `Bloqueado das ${String(draftLunchStartHour).padStart(2, '0')}:00 às ${String(draftLunchEndHour).padStart(2, '0')}:00 (${draftLunchEndHour - draftLunchStartHour}h de intervalo)`
+                                  : 'Horários liberados contínuos, sem pausa de almoço'}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setDraftLunchBreakEnabled(!draftLunchBreakEnabled)}
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer ${
+                              draftLunchBreakEnabled
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : 'bg-stone-100 text-stone-500 border border-stone-200'
+                            }`}
+                          >
+                            {draftLunchBreakEnabled ? '✓ Almoço Ativo' : 'Sem Pausa'}
+                          </button>
+                        </div>
+
+                        {draftLunchBreakEnabled && (
+                          <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-2.5 space-y-2 text-xs">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-bold text-amber-950">Início:</span>
+                                <select
+                                  value={draftLunchStartHour}
+                                  onChange={(e) => {
+                                    const newStart = Number(e.target.value);
+                                    setDraftLunchStartHour(newStart);
+                                    if (draftLunchEndHour <= newStart) {
+                                      setDraftLunchEndHour(newStart + 1);
+                                    }
+                                  }}
+                                  className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                >
+                                  {LUNCH_START_HOUR_OPTIONS.map((h) => (
+                                    <option key={h} value={h}>
+                                      {String(h).padStart(2, '0')}:00
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-bold text-amber-950">Término:</span>
+                                <select
+                                  value={draftLunchEndHour}
+                                  onChange={(e) => {
+                                    setDraftLunchEndHour(Number(e.target.value));
+                                  }}
+                                  className="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                >
+                                  {LUNCH_END_HOUR_OPTIONS.filter((h) => h > draftLunchStartHour).map((h) => (
+                                    <option key={h} value={h}>
+                                      {String(h).padStart(2, '0')}:00
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Presets rápidos de almoço */}
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="text-[10px] text-amber-800 font-semibold">Atalhos:</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDraftLunchStartHour(12);
+                                    setDraftLunchEndHour(13);
+                                  }}
+                                  className="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer"
+                                >
+                                  12h às 13h (1h)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDraftLunchStartHour(12);
+                                    setDraftLunchEndHour(14);
+                                  }}
+                                  className="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer"
+                                >
+                                  12h às 14h (2h)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDraftLunchStartHour(13);
+                                    setDraftLunchEndHour(14);
+                                  }}
+                                  className="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer"
+                                >
+                                  13h às 14h (1h)
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-amber-800/80">
+                              Os horários entre {String(draftLunchStartHour).padStart(2, '0')}:00 e {String(draftLunchEndHour).padStart(2, '0')}:00 serão bloqueados na vitrine da cliente.
                             </p>
                           </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setDraftLunchBreakEnabled(!draftLunchBreakEnabled)}
-                          className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer ${
-                            draftLunchBreakEnabled
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                              : 'bg-stone-100 text-stone-500 border border-stone-200'
-                          }`}
-                        >
-                          {draftLunchBreakEnabled ? '✓ Almoço Bloqueado' : 'Liberado'}
-                        </button>
+                        )}
                       </div>
                     </div>
 
@@ -8400,6 +8546,8 @@ export default function App() {
                                       startHour: draftWorkStartHour,
                                       endHour: draftWorkEndHour,
                                       lunchBreakEnabled: draftLunchBreakEnabled,
+                                      lunchStartHour: draftLunchStartHour,
+                                      lunchEndHour: draftLunchEndHour,
                                     };
                                   }
                                 });
@@ -8433,7 +8581,13 @@ export default function App() {
                                   setDraftDaySchedules((prev) => {
                                     const updated = { ...prev };
                                     draftWorkingDays.forEach((idx) => {
-                                      updated[idx] = { startHour: 7, endHour: 23, lunchBreakEnabled: draftLunchBreakEnabled };
+                                      updated[idx] = {
+                                        startHour: 7,
+                                        endHour: 23,
+                                        lunchBreakEnabled: draftLunchBreakEnabled,
+                                        lunchStartHour: draftLunchStartHour,
+                                        lunchEndHour: draftLunchEndHour,
+                                      };
                                     });
                                     return updated;
                                   });
@@ -8448,7 +8602,13 @@ export default function App() {
                                   setDraftDaySchedules((prev) => {
                                     const updated = { ...prev };
                                     draftWorkingDays.forEach((idx) => {
-                                      updated[idx] = { startHour: draftWorkStartHour, endHour: draftWorkEndHour, lunchBreakEnabled: draftLunchBreakEnabled };
+                                      updated[idx] = {
+                                        startHour: draftWorkStartHour,
+                                        endHour: draftWorkEndHour,
+                                        lunchBreakEnabled: draftLunchBreakEnabled,
+                                        lunchStartHour: draftLunchStartHour,
+                                        lunchEndHour: draftLunchEndHour,
+                                      };
                                     });
                                     return updated;
                                   });
@@ -8468,6 +8628,8 @@ export default function App() {
                                 startHour: draftWorkStartHour,
                                 endHour: draftWorkEndHour,
                                 lunchBreakEnabled: draftLunchBreakEnabled,
+                                lunchStartHour: draftLunchStartHour,
+                                lunchEndHour: draftLunchEndHour,
                               };
 
                               const updateDay = (partial: Partial<DaySchedule>) => {
@@ -8478,6 +8640,8 @@ export default function App() {
                                       startHour: draftWorkStartHour,
                                       endHour: draftWorkEndHour,
                                       lunchBreakEnabled: draftLunchBreakEnabled,
+                                      lunchStartHour: draftLunchStartHour,
+                                      lunchEndHour: draftLunchEndHour,
                                     }),
                                     ...partial,
                                   },
@@ -8565,19 +8729,47 @@ export default function App() {
                                           </select>
                                         </div>
 
-                                        {/* Pausa Almoço */}
-                                        <button
-                                          type="button"
-                                          onClick={() => updateDay({ lunchBreakEnabled: !schedule.lunchBreakEnabled })}
-                                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition border cursor-pointer ${
-                                            schedule.lunchBreakEnabled
-                                              ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                              : 'bg-white text-stone-400 border-stone-200'
-                                          }`}
-                                          title="Bloquear intervalo de almoço das 12:00 às 13:00 neste dia"
-                                        >
-                                          {schedule.lunchBreakEnabled ? '☕ Almoço 12h' : 'Sem pausa'}
-                                        </button>
+                                        {/* Pausa Almoço por Dia */}
+                                        <div className="flex items-center gap-1 bg-amber-50/70 border border-amber-200 rounded-lg px-2 py-0.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => updateDay({ lunchBreakEnabled: !schedule.lunchBreakEnabled })}
+                                            className={`text-[10px] font-bold transition cursor-pointer ${
+                                              schedule.lunchBreakEnabled ? 'text-amber-900 font-extrabold' : 'text-stone-400'
+                                            }`}
+                                            title="Ativar/desativar almoço neste dia"
+                                          >
+                                            {schedule.lunchBreakEnabled ? '☕ Almoço:' : '☕ Sem Almoço'}
+                                          </button>
+                                          {schedule.lunchBreakEnabled && (
+                                            <div className="flex items-center gap-1">
+                                              <select
+                                                value={typeof schedule.lunchStartHour === 'number' ? schedule.lunchStartHour : draftLunchStartHour}
+                                                onChange={(e) => {
+                                                  const start = Number(e.target.value);
+                                                  const currEnd = typeof schedule.lunchEndHour === 'number' ? schedule.lunchEndHour : draftLunchEndHour;
+                                                  const end = currEnd <= start ? start + 1 : currEnd;
+                                                  updateDay({ lunchStartHour: start, lunchEndHour: end });
+                                                }}
+                                                className="bg-white border border-amber-300 rounded px-1 py-0.5 text-[10px] font-bold text-stone-800"
+                                              >
+                                                {LUNCH_START_HOUR_OPTIONS.map((h) => (
+                                                  <option key={h} value={h}>{h}h</option>
+                                                ))}
+                                              </select>
+                                              <span className="text-[10px] text-amber-800">às</span>
+                                              <select
+                                                value={typeof schedule.lunchEndHour === 'number' ? schedule.lunchEndHour : draftLunchEndHour}
+                                                onChange={(e) => updateDay({ lunchEndHour: Number(e.target.value) })}
+                                                className="bg-white border border-amber-300 rounded px-1 py-0.5 text-[10px] font-bold text-stone-800"
+                                              >
+                                                {LUNCH_END_HOUR_OPTIONS.filter((h) => h > (typeof schedule.lunchStartHour === 'number' ? schedule.lunchStartHour : draftLunchStartHour)).map((h) => (
+                                                  <option key={h} value={h}>{h}h</option>
+                                                ))}
+                                              </select>
+                                            </div>
+                                          )}
+                                        </div>
 
                                         {/* Presets de 1 Clique */}
                                         <div className="flex items-center gap-1 pl-1 border-l border-stone-200 flex-wrap">
@@ -8660,6 +8852,8 @@ export default function App() {
                             setDraftWorkStartHour(workStartHour);
                             setDraftWorkEndHour(workEndHour);
                             setDraftLunchBreakEnabled(lunchBreakEnabled);
+                            setDraftLunchStartHour(lunchStartHour);
+                            setDraftLunchEndHour(lunchEndHour);
                             setDraftDaySchedules(daySchedules);
                             setDraftUseCustomDaySchedules(useCustomDaySchedules);
                             setDraftBufferTime(proBufferTime);
@@ -11850,6 +12044,10 @@ export default function App() {
         setWorkEndHour={setDraftWorkEndHour}
         lunchBreakEnabled={draftLunchBreakEnabled}
         setLunchBreakEnabled={setDraftLunchBreakEnabled}
+        lunchStartHour={draftLunchStartHour}
+        setLunchStartHour={setDraftLunchStartHour}
+        lunchEndHour={draftLunchEndHour}
+        setLunchEndHour={setDraftLunchEndHour}
         daySchedules={draftDaySchedules}
         setDaySchedules={setDraftDaySchedules}
         useCustomDaySchedules={draftUseCustomDaySchedules}

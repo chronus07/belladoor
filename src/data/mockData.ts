@@ -20,6 +20,8 @@ export interface DaySchedule {
   startHour: number; // 7..22
   endHour: number;   // 8..23
   lunchBreakEnabled?: boolean;
+  lunchStartHour?: number; // ex: 12
+  lunchEndHour?: number;   // ex: 13 ou 14
 }
 
 export type DaySchedulesMap = Record<number, DaySchedule>;
@@ -54,6 +56,8 @@ export interface MockProfessional {
   workStartHour?: number;
   workEndHour?: number;
   lunchBreakEnabled?: boolean;
+  lunchStartHour?: number;
+  lunchEndHour?: number;
   daySchedules?: Record<number, DaySchedule>;
   useCustomDaySchedules?: boolean;
   blockedPeriods?: { id: string; startDate: string; endDate: string; reason: string; dates: string[] }[];
@@ -101,6 +105,8 @@ export const mockProfessional: MockProfessional = {
   workStartHour: 9,
   workEndHour: 19,
   lunchBreakEnabled: true,
+  lunchStartHour: 12,
+  lunchEndHour: 13,
   daySchedules: {},
   useCustomDaySchedules: false,
   blockedPeriods: [],
