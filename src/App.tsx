@@ -56,8 +56,11 @@ import {
   Sliders,
   UserCheck,
 } from 'lucide-react';
-import { mockProfessional, MockService, MockNeighborhood, mockProfessionalsList, MockProfessional } from './data/mockData';
+import { mockProfessional, MockService, MockNeighborhood, mockProfessionalsList, MockProfessional, DaySchedule } from './data/mockData';
 import { BELLADOOR_PLANS } from '../lib/subscriptionService';
+
+const WORK_START_HOUR_OPTIONS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+const WORK_END_HOUR_OPTIONS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 import {
   AuthUser,
   signInWithGoogleOAuth,
@@ -349,6 +352,8 @@ export default function App() {
       workStartHour: 9,
       workEndHour: 19,
       lunchBreakEnabled: true,
+      daySchedules: {} as Record<number, DaySchedule>,
+      useCustomDaySchedules: false,
       blockedPeriods: [] as {
         id: string;
         startDate: string;
@@ -363,6 +368,10 @@ export default function App() {
   const [workStartHour, setWorkStartHour] = useState<number>(savedSchedule.workStartHour);
   const [workEndHour, setWorkEndHour] = useState<number>(savedSchedule.workEndHour);
   const [lunchBreakEnabled, setLunchBreakEnabled] = useState<boolean>(savedSchedule.lunchBreakEnabled);
+  const [daySchedules, setDaySchedules] = useState<Record<number, DaySchedule>>(savedSchedule.daySchedules || {});
+  const [useCustomDaySchedules, setUseCustomDaySchedules] = useState<boolean>(
+    Boolean(savedSchedule.useCustomDaySchedules || (savedSchedule.daySchedules && Object.keys(savedSchedule.daySchedules).length > 0))
+  );
 
   // =========================================================================
   // ESTADOS DE RASCUNHO (DRAFT) COM CONFIRMAÇÃO OBRIGATÓRIA ANTES DE SALVAR
@@ -410,6 +419,10 @@ export default function App() {
   const [draftLunchBreakEnabled, setDraftLunchBreakEnabled] = useState<boolean>(
     savedSchedule.lunchBreakEnabled
   );
+  const [draftDaySchedules, setDraftDaySchedules] = useState<Record<number, DaySchedule>>(savedSchedule.daySchedules || {});
+  const [draftUseCustomDaySchedules, setDraftUseCustomDaySchedules] = useState<boolean>(
+    Boolean(savedSchedule.useCustomDaySchedules || (savedSchedule.daySchedules && Object.keys(savedSchedule.daySchedules).length > 0))
+  );
   const [draftBufferTime, setDraftBufferTime] = useState<number>(savedVitrine.bufferTimeMinutes);
 
   // Sincroniza rascunhos quando o perfil salvo muda (hidratação ou troca de conta)
@@ -452,8 +465,10 @@ export default function App() {
     setDraftWorkStartHour(workStartHour);
     setDraftWorkEndHour(workEndHour);
     setDraftLunchBreakEnabled(lunchBreakEnabled);
+    setDraftDaySchedules(daySchedules);
+    setDraftUseCustomDaySchedules(useCustomDaySchedules);
     setDraftBufferTime(proBufferTime);
-  }, [workingDays, workStartHour, workEndHour, lunchBreakEnabled, proBufferTime]);
+  }, [workingDays, workStartHour, workEndHour, lunchBreakEnabled, daySchedules, useCustomDaySchedules, proBufferTime]);
 
 
   // Controle de Bloqueio de Agenda por Período (Início e Fim)
@@ -602,6 +617,8 @@ export default function App() {
     workStartHour,
     workEndHour,
     lunchBreakEnabled,
+    daySchedules: useCustomDaySchedules ? daySchedules : undefined,
+    useCustomDaySchedules,
     blockedPeriods,
     rating: calculatedRating,
     reviewCount: myProReviews.length,
@@ -857,6 +874,15 @@ export default function App() {
         setWorkEndHour(userSavedSchedule.workEndHour);
       if (typeof userSavedSchedule.lunchBreakEnabled === 'boolean')
         setLunchBreakEnabled(userSavedSchedule.lunchBreakEnabled);
+      if (userSavedSchedule.daySchedules && typeof userSavedSchedule.daySchedules === 'object') {
+        setDaySchedules(userSavedSchedule.daySchedules);
+        setUseCustomDaySchedules(
+          Boolean(userSavedSchedule.useCustomDaySchedules || Object.keys(userSavedSchedule.daySchedules).length > 0)
+        );
+      } else {
+        setDaySchedules({});
+        setUseCustomDaySchedules(false);
+      }
       if (Array.isArray(userSavedSchedule.blockedPeriods))
         setBlockedPeriods(userSavedSchedule.blockedPeriods);
     } else {
@@ -864,6 +890,8 @@ export default function App() {
       setWorkStartHour(9);
       setWorkEndHour(19);
       setLunchBreakEnabled(true);
+      setDaySchedules({});
+      setUseCustomDaySchedules(false);
       setBlockedPeriods([]);
     }
   };
@@ -2326,6 +2354,8 @@ export default function App() {
     setWorkStartHour(draftWorkStartHour);
     setWorkEndHour(draftWorkEndHour);
     setLunchBreakEnabled(draftLunchBreakEnabled);
+    setDaySchedules(draftDaySchedules);
+    setUseCustomDaySchedules(draftUseCustomDaySchedules);
     setProBufferTime(draftBufferTime);
     showProSuccess('⏰ Horários do expediente, dias de atendimento e margem de trânsito salvos com sucesso!');
   };
@@ -2359,6 +2389,8 @@ export default function App() {
     draftWorkStartHour !== workStartHour ||
     draftWorkEndHour !== workEndHour ||
     draftLunchBreakEnabled !== lunchBreakEnabled ||
+    draftUseCustomDaySchedules !== useCustomDaySchedules ||
+    JSON.stringify(draftDaySchedules) !== JSON.stringify(daySchedules) ||
     draftBufferTime !== proBufferTime;
 
   // =========================================================================
@@ -3288,6 +3320,12 @@ export default function App() {
         if (typeof data.workStartHour === 'number') setWorkStartHour(data.workStartHour);
         if (typeof data.workEndHour === 'number') setWorkEndHour(data.workEndHour);
         if (typeof data.lunchBreakEnabled === 'boolean') setLunchBreakEnabled(data.lunchBreakEnabled);
+        if (data.daySchedules && typeof data.daySchedules === 'object') {
+          setDaySchedules(data.daySchedules);
+          setUseCustomDaySchedules(
+            Boolean(data.useCustomDaySchedules || Object.keys(data.daySchedules).length > 0)
+          );
+        }
         if (Array.isArray(data.blockedPeriods)) setBlockedPeriods(data.blockedPeriods);
       },
       (exists) => {
@@ -3298,6 +3336,8 @@ export default function App() {
             workStartHour,
             workEndHour,
             lunchBreakEnabled,
+            daySchedules,
+            useCustomDaySchedules,
             blockedPeriods,
           });
         }
@@ -3456,6 +3496,8 @@ export default function App() {
         workStartHour,
         workEndHour,
         lunchBreakEnabled,
+        daySchedules: useCustomDaySchedules ? daySchedules : undefined,
+        useCustomDaySchedules,
         blockedPeriods,
       },
     };
@@ -3491,6 +3533,8 @@ export default function App() {
     workStartHour,
     workEndHour,
     lunchBreakEnabled,
+    daySchedules,
+    useCustomDaySchedules,
     blockedPeriods,
   ]);
 
@@ -3542,6 +3586,8 @@ export default function App() {
       workStartHour,
       workEndHour,
       lunchBreakEnabled,
+      daySchedules,
+      useCustomDaySchedules,
       blockedPeriods,
     };
     try {
@@ -3553,7 +3599,7 @@ export default function App() {
       return;
     }
     syncDocumentToFirestore(scheduleDoc, schedulePayload);
-  }, [activeProKey, workingDays, workStartHour, workEndHour, lunchBreakEnabled, blockedPeriods]);
+  }, [activeProKey, workingDays, workStartHour, workEndHour, lunchBreakEnabled, daySchedules, useCustomDaySchedules, blockedPeriods]);
 
   useEffect(() => {
     try {
@@ -3921,6 +3967,31 @@ export default function App() {
     const bufferMin = Math.max(0, clientViewBufferTime);
     const activeServicesCatalog = pro.services || proServicesList;
 
+    let effectiveStartHour = clientViewWorkStartHour;
+    let effectiveEndHour = clientViewWorkEndHour;
+    let effectiveLunchBreak = clientViewLunchBreakEnabled;
+
+    if (selectedDate) {
+      const [selYear, selMonth, selDay] = selectedDate.split('-').map(Number);
+      const selDayOfWeek = new Date(selYear, selMonth - 1, selDay).getDay();
+      const specificDaySchedule =
+        pro.daySchedules && pro.daySchedules[selDayOfWeek]
+          ? pro.daySchedules[selDayOfWeek]
+          : null;
+
+      if (specificDaySchedule) {
+        if (typeof specificDaySchedule.startHour === 'number') {
+          effectiveStartHour = specificDaySchedule.startHour;
+        }
+        if (typeof specificDaySchedule.endHour === 'number') {
+          effectiveEndHour = specificDaySchedule.endHour;
+        }
+        if (typeof specificDaySchedule.lunchBreakEnabled === 'boolean') {
+          effectiveLunchBreak = specificDaySchedule.lunchBreakEnabled;
+        }
+      }
+    }
+
     const proActiveAppsOnDate = selectedDate
       ? proAppointments.filter(
           (app) =>
@@ -3931,8 +4002,8 @@ export default function App() {
         )
       : [];
 
-    for (let h = clientViewWorkStartHour; h < clientViewWorkEndHour; h++) {
-      if (clientViewLunchBreakEnabled && h === 12) {
+    for (let h = effectiveStartHour; h < effectiveEndHour; h++) {
+      if (effectiveLunchBreak && h === 12 && effectiveStartHour <= 11 && effectiveEndHour >= 13) {
         continue; // Pausa para almoço (12:00 às 13:00)
       }
       const timeLabel = `${String(h).padStart(2, '0')}:00`;
@@ -3968,7 +4039,7 @@ export default function App() {
 
       // Evita que um serviço longo (ex: 120min) seja iniciado no último horário ultrapassando o fim do expediente
       const exceedsWorkdayEnd =
-        h > clientViewWorkStartHour && slotServiceEndMin > clientViewWorkEndHour * 60;
+        h > effectiveStartHour && slotServiceEndMin > effectiveEndHour * 60;
 
       // Bloqueia horários já encerrados quando a cliente seleciona o dia de hoje
       const isPastHourToday = selectedDate === todayIsoDateStr && h <= currentRealHour;
@@ -3979,7 +4050,7 @@ export default function App() {
         reason: hasTimeOverlap
           ? 'Conflito com outro atendimento / tempo de deslocamento'
           : exceedsWorkdayEnd
-          ? `A duração deste serviço (${selectedDurationMin}min) ultrapassa o fim do expediente (${String(clientViewWorkEndHour).padStart(2, '0')}:00)`
+          ? `A duração deste serviço (${selectedDurationMin}min) ultrapassa o fim do expediente (${String(effectiveEndHour).padStart(2, '0')}:00)`
           : isPastHourToday
           ? 'Horário já encerrado hoje'
           : undefined,
@@ -6009,7 +6080,19 @@ export default function App() {
                           <div className="flex justify-between items-center mb-1">
                             <label className={`text-xs font-bold flex items-center gap-1.5 ${proTheme.headerTitleText}`}>
                               <Clock className={`w-3.5 h-3.5 ${proTheme.primaryText}`} />
-                              3. Horários livres para {selectedDate.split('-').reverse().slice(0, 2).join('/')}:
+                              3. Horários livres para {selectedDate.split('-').reverse().slice(0, 2).join('/')}
+                              {(() => {
+                                const [y, m, d] = selectedDate.split('-').map(Number);
+                                const selDayOfWeek = new Date(y, m - 1, d).getDay();
+                                const specific = pro.daySchedules?.[selDayOfWeek];
+                                const sH = specific?.startHour ?? clientViewWorkStartHour;
+                                const eH = specific?.endHour ?? clientViewWorkEndHour;
+                                return (
+                                  <span className="text-[10px] font-normal opacity-80">
+                                    ({WEEKDAYS[selDayOfWeek]?.short} • {String(sH).padStart(2, '0')}:00 às {String(eH).padStart(2, '0')}:00)
+                                  </span>
+                                );
+                              })()}:
                             </label>
                             <span className={`text-[10px] flex items-center gap-1 ${proTheme.isDark ? 'text-stone-400' : 'text-stone-500'}`}>
                               <Info className="w-3 h-3 text-stone-400" /> +{clientViewBufferTime}min trânsito
@@ -8051,8 +8134,7 @@ export default function App() {
                               Expediente & Bloqueios de Agenda
                             </h3>
                             <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
-                              {workingDays.length} dias • {String(workStartHour).padStart(2, '0')}h às{' '}
-                              {String(workEndHour).padStart(2, '0')}h
+                              {workingDays.length} dias • {useCustomDaySchedules ? 'Horários personalizados por dia' : `${String(workStartHour).padStart(2, '0')}h às ${String(workEndHour).padStart(2, '0')}h`}
                             </span>
                           </div>
                           <p className="text-xs text-stone-500 font-medium mt-0.5">
@@ -8197,7 +8279,7 @@ export default function App() {
                             }}
                             className="w-full bg-stone-50 border border-stone-300 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
                           >
-                            {[7, 8, 9, 10, 11].map((h) => (
+                            {WORK_START_HOUR_OPTIONS.map((h) => (
                               <option key={h} value={h}>
                                 {String(h).padStart(2, '0')}:00
                               </option>
@@ -8217,7 +8299,7 @@ export default function App() {
                             }}
                             className="w-full bg-stone-50 border border-stone-300 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
                           >
-                            {[16, 17, 18, 19, 20, 21].map((h) => (
+                            {WORK_END_HOUR_OPTIONS.filter((h) => h > draftWorkStartHour).map((h) => (
                               <option key={h} value={h}>
                                 {String(h).padStart(2, '0')}:00
                               </option>
@@ -8273,12 +8355,287 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* SEÇÃO MODERNA: PERSONALIZAR HORÁRIOS POR DIA DA SEMANA */}
+                    <div className="bg-white border border-stone-200 rounded-2xl p-4 space-y-3.5 shadow-2xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-stone-100 pb-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <Sliders className="w-4 h-4 text-emerald-600" />
+                            <h5 className="text-xs font-extrabold text-stone-900">
+                              Personalizar Horários por Dia da Semana
+                            </h5>
+                            {draftUseCustomDaySchedules && (
+                              <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                Modo Ativo
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-stone-500 leading-snug">
+                            Limite dias específicos a um período (ex: meio período na quarta e sexta) e horário ampliado (ex: 07h às 23h) nos outros.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextVal = !draftUseCustomDaySchedules;
+                            setDraftUseCustomDaySchedules(nextVal);
+                            if (nextVal) {
+                              setDraftDaySchedules((prev) => {
+                                const updated = { ...prev };
+                                draftWorkingDays.forEach((idx) => {
+                                  if (!updated[idx]) {
+                                    updated[idx] = {
+                                      startHour: draftWorkStartHour,
+                                      endHour: draftWorkEndHour,
+                                      lunchBreakEnabled: draftLunchBreakEnabled,
+                                    };
+                                  }
+                                });
+                                return updated;
+                              });
+                            }
+                          }}
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                            draftUseCustomDaySchedules
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                          }`}
+                        >
+                          <Check className={`w-3.5 h-3.5 ${draftUseCustomDaySchedules ? 'opacity-100' : 'opacity-0'}`} />
+                          <span>{draftUseCustomDaySchedules ? '✓ Personalização Ativa' : 'Personalizar por Dia'}</span>
+                        </button>
+                      </div>
+
+                      {draftUseCustomDaySchedules && (
+                        <div className="space-y-3 pt-1">
+                          {/* Atalhos Rápidos para Todos os Dias */}
+                          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-[11px]">
+                              <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Atalhos rápidos para todos os dias de atendimento:</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDraftDaySchedules((prev) => {
+                                    const updated = { ...prev };
+                                    draftWorkingDays.forEach((idx) => {
+                                      updated[idx] = { startHour: 7, endHour: 23, lunchBreakEnabled: draftLunchBreakEnabled };
+                                    });
+                                    return updated;
+                                  });
+                                }}
+                                className="bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-1 rounded-lg text-[10px] font-extrabold shadow-2xs transition cursor-pointer"
+                              >
+                                ⚡ Aplicar 07h às 23h em todos
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDraftDaySchedules((prev) => {
+                                    const updated = { ...prev };
+                                    draftWorkingDays.forEach((idx) => {
+                                      updated[idx] = { startHour: draftWorkStartHour, endHour: draftWorkEndHour, lunchBreakEnabled: draftLunchBreakEnabled };
+                                    });
+                                    return updated;
+                                  });
+                                }}
+                                className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-2xs transition cursor-pointer"
+                              >
+                                🔄 Replicar Padrão Geral ({String(draftWorkStartHour).padStart(2, '0')}h às {String(draftWorkEndHour).padStart(2, '0')}h)
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Lista dos 7 Dias da Semana */}
+                          <div className="space-y-2">
+                            {WEEKDAYS.map((wd) => {
+                              const isActive = draftWorkingDays.includes(wd.index);
+                              const schedule = draftDaySchedules[wd.index] || {
+                                startHour: draftWorkStartHour,
+                                endHour: draftWorkEndHour,
+                                lunchBreakEnabled: draftLunchBreakEnabled,
+                              };
+
+                              const updateDay = (partial: Partial<DaySchedule>) => {
+                                setDraftDaySchedules((prev) => ({
+                                  ...prev,
+                                  [wd.index]: {
+                                    ...(prev[wd.index] || {
+                                      startHour: draftWorkStartHour,
+                                      endHour: draftWorkEndHour,
+                                      lunchBreakEnabled: draftLunchBreakEnabled,
+                                    }),
+                                    ...partial,
+                                  },
+                                }));
+                              };
+
+                              return (
+                                <div
+                                  key={wd.index}
+                                  className={`p-3 rounded-xl border transition ${
+                                    isActive
+                                      ? 'bg-stone-50/70 border-stone-200'
+                                      : 'bg-stone-100/40 border-dashed border-stone-200 opacity-60'
+                                  }`}
+                                >
+                                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                                    {/* Identificação do Dia */}
+                                    <div className="flex items-center gap-2.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleWorkingDay(wd.index)}
+                                        className={`w-14 py-1.5 rounded-lg text-[11px] font-black text-center transition cursor-pointer border ${
+                                          isActive
+                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                            : 'bg-white text-stone-400 border-stone-300'
+                                        }`}
+                                        title={isActive ? 'Clique para marcar folga' : 'Clique para ativar atendimento'}
+                                      >
+                                        {wd.short}
+                                      </button>
+                                      <div>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-xs font-black text-stone-900">{wd.full}</span>
+                                          {isActive ? (
+                                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                                              {schedule.endHour - schedule.startHour}h de expediente ({String(schedule.startHour).padStart(2, '0')}:00 às {String(schedule.endHour).padStart(2, '0')}:00)
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] font-bold text-stone-500 bg-stone-200 px-2 py-0.5 rounded-md">
+                                              Folga Semanal
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Configuração de Horário para Dias Ativos */}
+                                    {isActive ? (
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        {/* Início */}
+                                        <div className="flex items-center gap-1 text-xs">
+                                          <span className="text-[10px] font-bold text-stone-500">Das:</span>
+                                          <select
+                                            value={schedule.startHour}
+                                            onChange={(e) => {
+                                              const newStart = Number(e.target.value);
+                                              const newEnd = schedule.endHour <= newStart ? newStart + 1 : schedule.endHour;
+                                              updateDay({ startHour: newStart, endHour: newEnd });
+                                            }}
+                                            className="bg-white border border-stone-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                          >
+                                            {WORK_START_HOUR_OPTIONS.map((h) => (
+                                              <option key={h} value={h}>
+                                                {String(h).padStart(2, '0')}:00
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Fim */}
+                                        <div className="flex items-center gap-1 text-xs">
+                                          <span className="text-[10px] font-bold text-stone-500">às:</span>
+                                          <select
+                                            value={schedule.endHour}
+                                            onChange={(e) => {
+                                              updateDay({ endHour: Number(e.target.value) });
+                                            }}
+                                            className="bg-white border border-stone-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                          >
+                                            {WORK_END_HOUR_OPTIONS.filter((h) => h > schedule.startHour).map((h) => (
+                                              <option key={h} value={h}>
+                                                {String(h).padStart(2, '0')}:00
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+
+                                        {/* Pausa Almoço */}
+                                        <button
+                                          type="button"
+                                          onClick={() => updateDay({ lunchBreakEnabled: !schedule.lunchBreakEnabled })}
+                                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition border cursor-pointer ${
+                                            schedule.lunchBreakEnabled
+                                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                              : 'bg-white text-stone-400 border-stone-200'
+                                          }`}
+                                          title="Bloquear intervalo de almoço das 12:00 às 13:00 neste dia"
+                                        >
+                                          {schedule.lunchBreakEnabled ? '☕ Almoço 12h' : 'Sem pausa'}
+                                        </button>
+
+                                        {/* Presets de 1 Clique */}
+                                        <div className="flex items-center gap-1 pl-1 border-l border-stone-200 flex-wrap">
+                                          <button
+                                            type="button"
+                                            onClick={() => updateDay({ startHour: 8, endHour: 12, lunchBreakEnabled: false })}
+                                            className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer"
+                                            title="Manhã: 08:00 às 12:00"
+                                          >
+                                            Manhã (8-12)
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateDay({ startHour: 13, endHour: 18, lunchBreakEnabled: false })}
+                                            className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer"
+                                            title="Tarde: 13:00 às 18:00"
+                                          >
+                                            Tarde (13-18)
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateDay({ startHour: 18, endHour: 23, lunchBreakEnabled: false })}
+                                            className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer"
+                                            title="Noite: 18:00 às 23:00"
+                                          >
+                                            Noite (18-23)
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateDay({ startHour: 7, endHour: 23, lunchBreakEnabled: true })}
+                                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[9px] font-black cursor-pointer"
+                                            title="Integral: 07:00 às 23:00"
+                                          >
+                                            07h às 23h
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleWorkingDay(wd.index)}
+                                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-white border border-stone-200 px-2.5 py-1 rounded-lg transition cursor-pointer self-start"
+                                      >
+                                        + Ativar {wd.full}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="text-[11px] text-stone-500 bg-white p-2.5 rounded-xl border border-stone-200 flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>
-                        Sua agenda está configurada para <strong>{draftWorkingDays.length} dias por semana</strong>, das{' '}
-                        <strong>{String(draftWorkStartHour).padStart(2, '0')}:00</strong> às{' '}
-                        <strong>{String(draftWorkEndHour).padStart(2, '0')}:00</strong>.
+                        {draftUseCustomDaySchedules ? (
+                          <>
+                            Sua agenda possui <strong>horários personalizados por dia da semana</strong> para {draftWorkingDays.length} dia(s) de atendimento ativo(s).
+                          </>
+                        ) : (
+                          <>
+                            Sua agenda está configurada para <strong>{draftWorkingDays.length} dias por semana</strong>, das{' '}
+                            <strong>{String(draftWorkStartHour).padStart(2, '0')}:00</strong> às{' '}
+                            <strong>{String(draftWorkEndHour).padStart(2, '0')}:00</strong>.
+                          </>
+                        )}
                       </span>
                     </div>
 
@@ -8292,6 +8649,8 @@ export default function App() {
                             setDraftWorkStartHour(workStartHour);
                             setDraftWorkEndHour(workEndHour);
                             setDraftLunchBreakEnabled(lunchBreakEnabled);
+                            setDraftDaySchedules(daySchedules);
+                            setDraftUseCustomDaySchedules(useCustomDaySchedules);
                             setDraftBufferTime(proBufferTime);
                           }}
                           className="text-xs text-stone-500 hover:text-stone-800 font-semibold px-3 py-2 rounded-xl transition cursor-pointer"

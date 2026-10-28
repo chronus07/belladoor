@@ -16,6 +16,14 @@ export interface MockNeighborhood {
   address?: string;
 }
 
+export interface DaySchedule {
+  startHour: number; // 7..22
+  endHour: number;   // 8..23
+  lunchBreakEnabled?: boolean;
+}
+
+export type DaySchedulesMap = Record<number, DaySchedule>;
+
 export interface MockProfessional {
   id: string;
   name: string;
@@ -46,6 +54,8 @@ export interface MockProfessional {
   workStartHour?: number;
   workEndHour?: number;
   lunchBreakEnabled?: boolean;
+  daySchedules?: Record<number, DaySchedule>;
+  useCustomDaySchedules?: boolean;
   blockedPeriods?: { id: string; startDate: string; endDate: string; reason: string; dates: string[] }[];
   bookingRules?: import('../types/belladoor').BookingConfirmationSettings;
   services: MockService[];
@@ -91,6 +101,8 @@ export const mockProfessional: MockProfessional = {
   workStartHour: 9,
   workEndHour: 19,
   lunchBreakEnabled: true,
+  daySchedules: {},
+  useCustomDaySchedules: false,
   blockedPeriods: [],
   services: [],
   neighborhoods: [],
