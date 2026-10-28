@@ -25,9 +25,12 @@ import {
   Eye,
   Check,
   FileText,
+  Calendar,
+  Coffee,
+  Zap,
 } from 'lucide-react';
-import { MockService, MockNeighborhood } from '../data/mockData';
-import { BookingConfirmationSettings, PixKeyType } from '../types/belladoor';
+import { MockService, MockNeighborhood, DaySchedule } from '../data/mockData';
+import { BookingConfirmationSettings, PixKeyType, WEEKDAYS } from '../types/belladoor';
 import {
   PIX_KEY_LABELS,
   getDefaultMessageTemplate,
@@ -36,11 +39,14 @@ import {
   calculateDeposit,
 } from '../utils/bookingRules';
 
+const WORK_START_HOUR_OPTIONS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+const WORK_END_HOUR_OPTIONS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+
 interface ProOnboardingWizardModalProps {
   isOpen: boolean;
-  step: 1 | 2 | 3 | 4 | 5;
+  step: 1 | 2 | 3 | 4 | 5 | 6;
   activationBadge?: string | null;
-  onSelectStep: (step: 1 | 2 | 3 | 4 | 5) => void;
+  onSelectStep: (step: 1 | 2 | 3 | 4 | 5 | 6) => void;
   onSkip: () => void;
   onFinish: () => void;
   isBarbershop?: boolean;
@@ -71,7 +77,21 @@ interface ProOnboardingWizardModalProps {
   proServicesList: MockService[];
   setProServicesList: (list: MockService[]) => void;
 
-  // Passo 4: Base, Localidades e Taxas de Deslocamento
+  // Passo 4: Agenda & Horários de Expediente
+  workingDays: number[];
+  setWorkingDays: React.Dispatch<React.SetStateAction<number[]>>;
+  workStartHour: number;
+  setWorkStartHour: React.Dispatch<React.SetStateAction<number>>;
+  workEndHour: number;
+  setWorkEndHour: React.Dispatch<React.SetStateAction<number>>;
+  lunchBreakEnabled: boolean;
+  setLunchBreakEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  daySchedules: Record<number, DaySchedule>;
+  setDaySchedules: React.Dispatch<React.SetStateAction<Record<number, DaySchedule>>>;
+  useCustomDaySchedules: boolean;
+  setUseCustomDaySchedules: React.Dispatch<React.SetStateAction<boolean>>;
+
+  // Passo 5: Base, Localidades e Taxas de Deslocamento
   proBaseCep: string;
   onBaseCepLookup: (val: string) => void;
   baseCepLoading: boolean;
@@ -88,7 +108,7 @@ interface ProOnboardingWizardModalProps {
   setProNeighborhoodsList: (list: MockNeighborhood[]) => void;
   dynamicCitySuggestions: string[];
 
-  // Passo 5: Regras de Agendamento & Sinal (Anti-Furo)
+  // Passo 6: Regras de Agendamento & Sinal (Anti-Furo)
   bookingRules: BookingConfirmationSettings;
   setBookingRules: React.Dispatch<React.SetStateAction<BookingConfirmationSettings>>;
   proCpf?: string;
@@ -127,6 +147,18 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
   compressImageFile,
   proServicesList,
   setProServicesList,
+  workingDays,
+  setWorkingDays,
+  workStartHour,
+  setWorkStartHour,
+  workEndHour,
+  setWorkEndHour,
+  lunchBreakEnabled,
+  setLunchBreakEnabled,
+  daySchedules,
+  setDaySchedules,
+  useCustomDaySchedules,
+  setUseCustomDaySchedules,
   proBaseCep,
   onBaseCepLookup,
   baseCepLoading,
@@ -145,6 +177,23 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
 }) => {
   // Estados internos de feedback rápido dentro da janela do assistente
   const [wizardNotice, setWizardNotice] = useState<string | null>(null);
+
+  const toggleWorkingDay = (dayIndex: number) => {
+    setWorkingDays((prev) => {
+      const exists = prev.includes(dayIndex);
+      let updated: number[];
+      if (exists) {
+        if (prev.length <= 1) {
+          setWizardNotice('⚠️ Mantenha pelo menos 1 dia ativo para atendimentos.');
+          return prev;
+        }
+        updated = prev.filter((d) => d !== dayIndex);
+      } else {
+        updated = [...prev, dayIndex].sort((a, b) => a - b);
+      }
+      return updated;
+    });
+  };
 
   // Estados internos do Passo 2 (Adicionar/Editar Portfólio dentro da janela)
   const [newPortfolioUrl, setNewPortfolioUrl] = useState<string>('');
@@ -418,7 +467,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
                   <Sparkles className="w-3 h-3" />
-                  Assistente de Configuração • Passo {step} de 5
+                  Assistente de Configuração • Passo {step} de 6
                 </span>
                 {activationBadge && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full">
@@ -432,8 +481,9 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                 {step === 1 && '1. Configure sua Vitrine e Foto de Perfil'}
                 {step === 2 && '2. Adicione as Fotos do seu Portfólio'}
                 {step === 3 && '3. Cadastre seus Serviços e Valores'}
-                {step === 4 && '4. Defina sua Base e Taxas de Deslocamento'}
-                {step === 5 && '5. Regras de Agendamento & Sinal (Anti-Furo)'}
+                {step === 4 && '4. Configure sua Agenda & Horários de Atendimento'}
+                {step === 5 && '5. Defina sua Base e Taxas de Deslocamento'}
+                {step === 6 && '6. Regras de Agendamento & Sinal (Anti-Furo)'}
               </h2>
               <p className="text-[11px] text-stone-300 mt-0.5">
                 {step === 1 &&
@@ -443,8 +493,10 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                 {step === 3 &&
                   'Cadastre os serviços que você realiza, valores (R$) e tempo de duração.'}
                 {step === 4 &&
-                  'Informe seu endereço base e cadastre os bairros que você atende com suas taxas de deslocamento.'}
+                  'Defina os dias da semana que você atende, horários de expediente (das 07:00 às 23:00) e personalize por dia se desejar.'}
                 {step === 5 &&
+                  'Informe seu endereço base e cadastre os bairros que você atende com suas taxas de deslocamento.'}
+                {step === 6 &&
                   'Ative o sinal de 50% para garantir os horários na agenda, informe sua chave PIX e personalize a mensagem do WhatsApp.'}
               </p>
             </div>
@@ -460,14 +512,15 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
             </button>
           </div>
 
-          {/* Barra de Progresso Interativa (Passos 1 a 5) */}
-          <div className="grid grid-cols-5 gap-1 sm:gap-1.5 mt-4">
+          {/* Barra de Progresso Interativa (Passos 1 a 6) */}
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 sm:gap-1.5 mt-4">
             {[
               { s: 1 as const, label: '1. Vitrine' },
               { s: 2 as const, label: '2. Fotos' },
               { s: 3 as const, label: '3. Serviços' },
-              { s: 4 as const, label: '4. Regiões' },
-              { s: 5 as const, label: '5. Sinal 💰' },
+              { s: 4 as const, label: '4. Agenda ⏰' },
+              { s: 5 as const, label: '5. Regiões 🚗' },
+              { s: 6 as const, label: '6. Sinal 💰' },
             ].map((item) => {
               const isCurrent = step === item.s;
               const isDone = step > item.s;
@@ -1130,9 +1183,458 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
           )}
 
           {/* ================================================================== */}
-          {/* PASSO 4: BASE, LOCALIDADES QUE ATENDE E TAXAS DE DESLOCAMENTO      */}
+          {/* PASSO 4: EXPEDIENTE, DIAS DE ATENDIMENTO E HORÁRIOS DA AGENDA      */}
           {/* ================================================================== */}
           {step === 4 && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              {/* Card 1: Dias da Semana que Atende */}
+              <div className="bg-white rounded-3xl border border-stone-200 p-4 space-y-3.5 shadow-xs">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-emerald-600" />
+                    <h4 className="font-extrabold text-xs text-stone-900">
+                      1. Dias da Semana de Atendimento
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    {workingDays.length} dia(s) ativo(s)
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-stone-500">
+                  Selecione os dias em que você realiza atendimentos. Os dias desmarcados ficarão como folga semanal na sua vitrine.
+                </p>
+
+                {/* Botões dos 7 Dias da Semana */}
+                <div className="grid grid-cols-7 gap-1.5 pt-1">
+                  {WEEKDAYS.map((wd) => {
+                    const isActive = workingDays.includes(wd.index);
+                    return (
+                      <button
+                        key={wd.index}
+                        type="button"
+                        onClick={() => toggleWorkingDay(wd.index)}
+                        className={`py-2 px-1 rounded-xl text-xs font-bold flex flex-col items-center justify-center transition border cursor-pointer ${
+                          isActive
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-white text-stone-400 border-stone-200 hover:border-stone-300'
+                        }`}
+                        title={isActive ? `${wd.full}: Atendimento ativo` : `${wd.full}: Folga semanal`}
+                      >
+                        <span className="text-[11px]">{wd.short}</span>
+                        <span className="text-[9px] mt-0.5 opacity-90">
+                          {isActive ? '✓ Atende' : 'Folga'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Atalhos Rápidos de Rotina */}
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] pt-1">
+                  <span className="text-stone-400 font-medium">Atalhos rápidos:</span>
+                  <button
+                    type="button"
+                    onClick={() => setWorkingDays([1, 2, 3, 4, 5, 6])}
+                    className="bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md hover:border-emerald-500 transition text-stone-700 cursor-pointer font-medium"
+                  >
+                    Seg a Sáb (Mais comum)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkingDays([2, 3, 4, 5, 6])}
+                    className="bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md hover:border-emerald-500 transition text-stone-700 cursor-pointer font-medium"
+                  >
+                    Ter a Sáb (Salão)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkingDays([1, 2, 3, 4, 5])}
+                    className="bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md hover:border-emerald-500 transition text-stone-700 cursor-pointer font-medium"
+                  >
+                    Seg a Sex
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkingDays([0, 1, 2, 3, 4, 5, 6])}
+                    className="bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md hover:border-emerald-500 transition text-stone-700 cursor-pointer font-medium"
+                  >
+                    Todos os Dias
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Horários do Expediente Padrão */}
+              <div className="bg-white rounded-3xl border border-stone-200 p-4 space-y-3.5 shadow-xs">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-rose-600" />
+                    <h4 className="font-extrabold text-xs text-stone-900">
+                      2. Horários do Expediente Diário (07:00 às 23:00)
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-stone-500">
+                    {String(workStartHour).padStart(2, '0')}:00 às {String(workEndHour).padStart(2, '0')}:00
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-1">
+                      Início dos Atendimentos:
+                    </label>
+                    <select
+                      value={workStartHour}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setWorkStartHour(val);
+                        if (workEndHour <= val) setWorkEndHour(val + 1);
+                      }}
+                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    >
+                      {WORK_START_HOUR_OPTIONS.map((h) => (
+                        <option key={h} value={h}>
+                          {String(h).padStart(2, '0')}:00
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-1">
+                      Término do Expediente:
+                    </label>
+                    <select
+                      value={workEndHour}
+                      onChange={(e) => {
+                        setWorkEndHour(Number(e.target.value));
+                      }}
+                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    >
+                      {WORK_END_HOUR_OPTIONS.filter((h) => h > workStartHour).map((h) => (
+                        <option key={h} value={h}>
+                          {String(h).padStart(2, '0')}:00
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-600 mb-1">
+                      Margem de Trânsito:
+                    </label>
+                    <select
+                      value={bufferMinutes}
+                      onChange={(e) => setBufferMinutes(Number(e.target.value))}
+                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-2.5 py-2 text-xs font-bold text-stone-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    >
+                      {[15, 20, 30, 45, 60].map((m) => (
+                        <option key={m} value={m}>
+                          {m} min entre clientes
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Pausa para Almoço */}
+                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                  <div className="flex items-center gap-2">
+                    <Coffee className="w-4 h-4 text-amber-600" />
+                    <div>
+                      <p className="text-xs font-bold text-stone-800">
+                        Bloquear Pausa de Almoço (12:00 às 13:00)
+                      </p>
+                      <p className="text-[10px] text-stone-500">
+                        Oculta o horário das 12h na vitrine para seu descanso
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLunchBreakEnabled(!lunchBreakEnabled)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition cursor-pointer ${
+                      lunchBreakEnabled
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                        : 'bg-stone-100 text-stone-500 border border-stone-200'
+                    }`}
+                  >
+                    {lunchBreakEnabled ? '✓ Almoço Bloqueado' : 'Liberado'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 3: Personalizar Horários por Dia da Semana */}
+              <div className="bg-white rounded-3xl border border-stone-200 p-4 space-y-3.5 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-stone-100 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-emerald-600" />
+                      <h4 className="font-extrabold text-xs text-stone-900">
+                        3. Personalizar Horários por Dia da Semana (Opcional)
+                      </h4>
+                      {useCustomDaySchedules && (
+                        <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          Ativo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-stone-500 mt-0.5 leading-snug">
+                      Defina períodos menores em certos dias (ex: meio período na quarta e sexta) e horário estendido (ex: 07h às 23h) nos outros.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextVal = !useCustomDaySchedules;
+                      setUseCustomDaySchedules(nextVal);
+                      if (nextVal) {
+                        setDaySchedules((prev) => {
+                          const updated = { ...prev };
+                          workingDays.forEach((idx) => {
+                            if (!updated[idx]) {
+                              updated[idx] = {
+                                startHour: workStartHour,
+                                endHour: workEndHour,
+                                lunchBreakEnabled: lunchBreakEnabled,
+                              };
+                            }
+                          });
+                          return updated;
+                        });
+                      }
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      useCustomDaySchedules
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200'
+                    }`}
+                  >
+                    <Check className={`w-3.5 h-3.5 ${useCustomDaySchedules ? 'opacity-100' : 'opacity-0'}`} />
+                    <span>{useCustomDaySchedules ? '✓ Personalização Ativa' : 'Personalizar por Dia'}</span>
+                  </button>
+                </div>
+
+                {useCustomDaySchedules && (
+                  <div className="space-y-3 pt-1">
+                    {/* Atalhos Rápidos para Todos os Dias */}
+                    <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 text-emerald-900 font-bold text-[11px]">
+                        <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Atalhos rápidos para todos os dias de atendimento:</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDaySchedules((prev) => {
+                              const updated = { ...prev };
+                              workingDays.forEach((idx) => {
+                                updated[idx] = { startHour: 7, endHour: 23, lunchBreakEnabled };
+                              });
+                              return updated;
+                            });
+                          }}
+                          className="bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-1 rounded-lg text-[10px] font-extrabold shadow-2xs transition cursor-pointer"
+                        >
+                          ⚡ Aplicar 07h às 23h em todos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDaySchedules((prev) => {
+                              const updated = { ...prev };
+                              workingDays.forEach((idx) => {
+                                updated[idx] = { startHour: workStartHour, endHour: workEndHour, lunchBreakEnabled };
+                              });
+                              return updated;
+                            });
+                          }}
+                          className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-2xs transition cursor-pointer"
+                        >
+                          🔄 Replicar Padrão Geral ({String(workStartHour).padStart(2, '0')}h às {String(workEndHour).padStart(2, '0')}h)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Lista dos 7 Dias */}
+                    <div className="space-y-2">
+                      {WEEKDAYS.map((wd) => {
+                        const isActive = workingDays.includes(wd.index);
+                        const schedule = daySchedules[wd.index] || {
+                          startHour: workStartHour,
+                          endHour: workEndHour,
+                          lunchBreakEnabled: lunchBreakEnabled,
+                        };
+
+                        const updateDay = (partial: Partial<DaySchedule>) => {
+                          setDaySchedules((prev) => ({
+                            ...prev,
+                            [wd.index]: {
+                              ...(prev[wd.index] || {
+                                startHour: workStartHour,
+                                endHour: workEndHour,
+                                lunchBreakEnabled: lunchBreakEnabled,
+                              }),
+                              ...partial,
+                            },
+                          }));
+                        };
+
+                        return (
+                          <div
+                            key={wd.index}
+                            className={`p-3 rounded-xl border transition ${
+                              isActive
+                                ? 'bg-stone-50/70 border-stone-200'
+                                : 'bg-stone-100/40 border-dashed border-stone-200 opacity-60'
+                            }`}
+                          >
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleWorkingDay(wd.index)}
+                                  className={`w-14 py-1.5 rounded-lg text-[11px] font-black text-center transition cursor-pointer border ${
+                                    isActive
+                                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                      : 'bg-white text-stone-400 border-stone-300'
+                                  }`}
+                                  title={isActive ? 'Clique para marcar folga' : 'Clique para ativar atendimento'}
+                                >
+                                  {wd.short}
+                                </button>
+                                <div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-black text-stone-900">{wd.full}</span>
+                                    {isActive ? (
+                                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                                        {schedule.endHour - schedule.startHour}h expediente ({String(schedule.startHour).padStart(2, '0')}:00 às {String(schedule.endHour).padStart(2, '0')}:00)
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-bold text-stone-500 bg-stone-200 px-2 py-0.5 rounded-md">
+                                        Folga Semanal
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {isActive ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {/* Início */}
+                                  <div className="flex items-center gap-1 text-xs">
+                                    <span className="text-[10px] font-bold text-stone-500">Das:</span>
+                                    <select
+                                      value={schedule.startHour}
+                                      onChange={(e) => {
+                                        const newStart = Number(e.target.value);
+                                        const newEnd = schedule.endHour <= newStart ? newStart + 1 : schedule.endHour;
+                                        updateDay({ startHour: newStart, endHour: newEnd });
+                                      }}
+                                      className="bg-white border border-stone-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    >
+                                      {WORK_START_HOUR_OPTIONS.map((h) => (
+                                        <option key={h} value={h}>
+                                          {String(h).padStart(2, '0')}:00
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Fim */}
+                                  <div className="flex items-center gap-1 text-xs">
+                                    <span className="text-[10px] font-bold text-stone-500">às:</span>
+                                    <select
+                                      value={schedule.endHour}
+                                      onChange={(e) => {
+                                        updateDay({ endHour: Number(e.target.value) });
+                                      }}
+                                      className="bg-white border border-stone-300 rounded-lg px-2 py-1 text-xs font-bold text-stone-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    >
+                                      {WORK_END_HOUR_OPTIONS.filter((h) => h > schedule.startHour).map((h) => (
+                                        <option key={h} value={h}>
+                                          {String(h).padStart(2, '0')}:00
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Pausa Almoço */}
+                                  <button
+                                    type="button"
+                                    onClick={() => updateDay({ lunchBreakEnabled: !schedule.lunchBreakEnabled })}
+                                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition border cursor-pointer ${
+                                      schedule.lunchBreakEnabled
+                                        ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                        : 'bg-white text-stone-400 border-stone-200'
+                                    }`}
+                                    title="Bloquear intervalo de almoço das 12:00 às 13:00 neste dia"
+                                  >
+                                    {schedule.lunchBreakEnabled ? '☕ Almoço 12h' : 'Sem pausa'}
+                                  </button>
+
+                                  {/* Presets de 1 Clique */}
+                                  <div className="flex items-center gap-1 pl-1 border-l border-stone-200 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateDay({ startHour: 8, endHour: 12, lunchBreakEnabled: false })}
+                                      className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer"
+                                      title="Manhã: 08:00 às 12:00"
+                                    >
+                                      Manhã (8-12)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateDay({ startHour: 13, endHour: 18, lunchBreakEnabled: false })}
+                                      className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer"
+                                      title="Tarde: 13:00 às 18:00"
+                                    >
+                                      Tarde (13-18)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateDay({ startHour: 18, endHour: 23, lunchBreakEnabled: false })}
+                                      className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer"
+                                      title="Noite: 18:00 às 23:00"
+                                    >
+                                      Noite (18-23)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateDay({ startHour: 7, endHour: 23, lunchBreakEnabled: true })}
+                                      className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[9px] font-black cursor-pointer"
+                                      title="Integral: 07:00 às 23:00"
+                                    >
+                                      07h às 23h
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleWorkingDay(wd.index)}
+                                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-white border border-stone-200 px-2.5 py-1 rounded-lg transition cursor-pointer self-start"
+                                >
+                                  + Ativar {wd.full}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ================================================================== */}
+          {/* PASSO 5: BASE, LOCALIDADES QUE ATENDE E TAXAS DE DESLOCAMENTO      */}
+          {/* ================================================================== */}
+          {step === 5 && (
             <div className="space-y-4">
               {/* Bloco 1: Base de Saída da Profissional */}
               <div className="bg-white rounded-3xl border border-stone-200 p-4 space-y-3.5 shadow-xs">
@@ -1428,9 +1930,9 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
           )}
 
           {/* ==================================================================== */}
-          {/* PASSO 5: REGRAS DE AGENDAMENTO, SINAL DE 50% & WHATSAPP              */}
+          {/* PASSO 6: REGRAS DE AGENDAMENTO, SINAL DE 50% & WHATSAPP              */}
           {/* ==================================================================== */}
-          {step === 5 && (
+          {step === 6 && (
             <div className="space-y-4">
               {/* CARD 1: COBRANÇA DE SINAL */}
               <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 shadow-2xs space-y-3">
@@ -1951,7 +2453,7 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
             {step > 1 && (
               <button
                 type="button"
-                onClick={() => onSelectStep((step - 1) as 1 | 2 | 3 | 4 | 5)}
+                onClick={() => onSelectStep((step - 1) as 1 | 2 | 3 | 4 | 5 | 6)}
                 className="text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-800 px-3.5 py-2.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
@@ -1959,10 +2461,10 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
               </button>
             )}
 
-            {step < 5 ? (
+            {step < 6 ? (
               <button
                 type="button"
-                onClick={() => onSelectStep((step + 1) as 1 | 2 | 3 | 4 | 5)}
+                onClick={() => onSelectStep((step + 1) as 1 | 2 | 3 | 4 | 5 | 6)}
                 className="text-xs font-extrabold bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>
@@ -1972,6 +2474,8 @@ export const ProOnboardingWizardModal: React.FC<ProOnboardingWizardModalProps> =
                     : step === 2
                     ? 'Serviços e Valores 💅'
                     : step === 3
+                    ? 'Agenda & Horários ⏰'
+                    : step === 4
                     ? 'Base e Taxas 🚗'
                     : 'Sinal & Regras 💰'}
                 </span>

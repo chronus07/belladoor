@@ -2396,7 +2396,7 @@ export default function App() {
   // =========================================================================
   // ASSISTENTE PASSO A PASSO DE CONFIGURAÇÃO DA CONTA PROFISSIONAL (EM JANELA MODAL)
   // =========================================================================
-  const [onboardingWizardStep, setOnboardingWizardStep] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [onboardingWizardStep, setOnboardingWizardStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | null>(null);
   const [wizardActivationBadge, setWizardActivationBadge] = useState<string | null>(null);
   const [pendingWizardAfterPayment, setPendingWizardAfterPayment] = useState<boolean>(false);
 
@@ -2445,7 +2445,7 @@ export default function App() {
     }
   };
 
-  const goToWizardStep = (step: 1 | 2 | 3 | 4 | 5) => {
+  const goToWizardStep = (step: 1 | 2 | 3 | 4 | 5 | 6) => {
     setOnboardingWizardStep(step);
   };
 
@@ -2469,6 +2469,7 @@ export default function App() {
 
   const finishProOnboardingWizard = () => {
     markOnboardingAsDone();
+    handleConfirmSchedule();
     if (proBaseCity.trim()) {
       handleSaveBaseLocation();
     }
@@ -2487,7 +2488,7 @@ export default function App() {
       badge: 'Configuração Concluída!',
       title: `Parabéns, ${proDisplayName || currentUser?.fullName || 'Profissional'}!`,
       message:
-        'Sua Vitrine, Portfólio, Serviços, Regiões de Atendimento e Regras de Agendamento (Sinal) foram configurados! Agora é só copiar seu link exclusivo e divulgar para seus clientes no Instagram e WhatsApp.',
+        'Sua Vitrine, Portfólio, Serviços, Agenda & Expediente, Regiões de Atendimento e Regras de Agendamento (Sinal) foram configurados! Agora é só copiar seu link exclusivo e divulgar para seus clientes no Instagram e WhatsApp.',
       highlight: `Seu link exclusivo: bellador.web.app/?pro=${dynamicSlug}`,
       buttonText: 'Ir para Minha Agenda 📅',
       variant: 'success',
@@ -7291,10 +7292,20 @@ export default function App() {
                         }
                         startProOnboardingWizard();
                       }}
-                      className={`text-[10px] font-extrabold ${panelTheme.primaryBgLight} hover:opacity-90 ${panelTheme.primaryText} border ${panelTheme.primaryBorderLight} px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer shrink-0`}
+                      className={`relative inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-black transition-all duration-200 cursor-pointer shrink-0 shadow-sm hover:shadow-md hover:scale-[1.03] active:scale-[0.98] ${
+                        isProTrialExpired
+                          ? 'bg-stone-300 text-stone-600 border border-stone-400/40'
+                          : panelTheme.isDark
+                          ? 'bg-gradient-to-r from-rose-600 via-pink-600 to-amber-600 text-white border border-rose-400/50 shadow-rose-900/30'
+                          : 'bg-gradient-to-r from-rose-600 via-pink-600 to-purple-600 text-white border border-rose-300/60 ring-2 ring-rose-400/20'
+                      }`}
+                      title="Abra o Assistente Interativo Passo a Passo para configurar sua conta completa"
                     >
-                      <Sparkles className={`w-3 h-3 ${panelTheme.primaryText}`} />
-                      {isProTrialExpired ? '🔒 Assistente Bloqueado' : 'Assistente'}
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-pulse shrink-0" />
+                      <span>{isProTrialExpired ? '🔒 Assistente Bloqueado' : '✨ Assistente de Configuração'}</span>
+                      <span className="bg-white/20 text-white text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md border border-white/20">
+                        Passo a Passo
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -11831,6 +11842,18 @@ export default function App() {
         compressImageFile={compressImageFile}
         proServicesList={proServicesList}
         setProServicesList={setProServicesList}
+        workingDays={draftWorkingDays}
+        setWorkingDays={setDraftWorkingDays}
+        workStartHour={draftWorkStartHour}
+        setWorkStartHour={setDraftWorkStartHour}
+        workEndHour={draftWorkEndHour}
+        setWorkEndHour={setDraftWorkEndHour}
+        lunchBreakEnabled={draftLunchBreakEnabled}
+        setLunchBreakEnabled={setDraftLunchBreakEnabled}
+        daySchedules={draftDaySchedules}
+        setDaySchedules={setDraftDaySchedules}
+        useCustomDaySchedules={draftUseCustomDaySchedules}
+        setUseCustomDaySchedules={setDraftUseCustomDaySchedules}
         proBaseCep={proBaseCep}
         onBaseCepLookup={handleBaseCepLookup}
         baseCepLoading={baseCepLoading}
@@ -11841,8 +11864,8 @@ export default function App() {
         setProBaseNeighborhood={setProBaseNeighborhood}
         proBaseAddress={proBaseAddress}
         setProBaseAddress={setProBaseAddress}
-        bufferMinutes={proBufferTime}
-        setBufferMinutes={setProBufferTime}
+        bufferMinutes={draftBufferTime}
+        setBufferMinutes={setDraftBufferTime}
         proNeighborhoodsList={proNeighborhoodsList}
         setProNeighborhoodsList={setProNeighborhoodsList}
         dynamicCitySuggestions={dynamicCitySuggestions}
